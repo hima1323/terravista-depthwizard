@@ -1,0 +1,13 @@
+.DS_Store
+__pycache__/
+*.pyc
+.claude/
+~$*
+.synrs3d-upstream.git/
+SynRS3D/.venv/
+SynRS3D/pretrain/
+SynRS3D/data/
+SynRS3D/logs/
+SynRS3D/snapshot*/
+SynRS3D/demo/*/
+!SynRS3D/demo/*.py

@@ -1,0 +1,836 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DepthWizard Demo</title>
+<style>
+  :root {
+    --bg: #0f1419; --panel: #161c23; --panel-2: #1d252e; --line: #2a343f;
+    --text: #e6edf3; --muted: #8b98a5; --accent: #3d9be9; --ok: #4fb286; --err: #e5734a;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; height: 100%; }
+  body { background: var(--bg); color: var(--text); font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif; display: grid; grid-template-columns: 290px 1fr; }
+  aside { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+  .brand { padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
+  .brand h1 { margin: 0; font-size: 17px; letter-spacing: .2px; }
+  .brand p { margin: 2px 0 0; color: var(--muted); font-size: 12px; }
+  #scenes { list-style: none; margin: 0; padding: 8px; overflow-y: auto; flex: 1; }
+  #scenes li { display: grid; grid-template-columns: 52px 1fr; gap: 10px; align-items: center; padding: 8px; border-radius: 8px; cursor: pointer; border: 1px solid transparent; }
+  #scenes li:hover { background: var(--panel-2); }
+  #scenes li.active { background: var(--panel-2); border-color: var(--accent); }
+  #scenes img { width: 52px; height: 52px; object-fit: cover; border-radius: 6px; background: var(--panel-2); }
+  .sname { font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sstat { font-size: 12px; color: var(--muted); }
+  .bar { height: 3px; background: var(--line); border-radius: 2px; margin-top: 5px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); transition: width .4s; }
+  #drop { margin: 10px; padding: 16px; border: 1.5px dashed var(--line); border-radius: 10px; text-align: center; color: var(--muted); font-size: 12.5px; cursor: pointer; }
+  #drop.over, #drop:hover { border-color: var(--accent); color: var(--text); }
+  main { display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+  header h2 { margin: 0; font-size: 16px; }
+  .ttl { margin-right: auto; min-width: 0; }
+  .stats { display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 12px; color: var(--muted); }
+  .chip b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tabs { display: flex; background: var(--panel-2); border-radius: 8px; padding: 3px; }
+  .tabs button { background: none; border: 0; color: var(--muted); padding: 6px 14px; border-radius: 6px; cursor: pointer; font: inherit; }
+  .tabs button.on { background: var(--accent); color: #fff; }
+  .stage { position: relative; min-height: 0; overflow: hidden; }
+  .view { position: absolute; inset: 0; display: none; }
+  .view.on { display: block; }
+  #v2d { display: none; place-items: center; padding: 16px 16px 76px; }
+  #v2d.on { display: grid; }
+  #v2d.flooding { padding-right: 332px; }  /* keep the image clear of the flood card */
+  .imgwrap { position: relative; max-width: 100%; max-height: 100%; aspect-ratio: 1; height: 100%; cursor: crosshair; }
+  .imgwrap img, .imgwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 6px; }
+  #tip { position: absolute; pointer-events: none; background: rgba(15,20,25,.9); border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; font-size: 12.5px; font-variant-numeric: tabular-nums; display: none; white-space: nowrap; }
+  .controls { position: absolute; left: 16px; bottom: 16px; background: rgba(22,28,35,.92); border: 1px solid var(--line); border-radius: 10px; padding: 10px 14px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+  .controls label { display: flex; gap: 8px; align-items: center; }
+  input[type=range] { accent-color: var(--accent); width: 110px; }
+  select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; font: inherit; }
+  .legend { display: flex; align-items: center; gap: 8px; }
+  .legend canvas { width: 140px; height: 10px; border-radius: 3px; }
+  #pin { position: absolute; pointer-events: none; transform: translate(-50%, -130%); background: var(--accent); color: #fff; padding: 3px 9px; border-radius: 6px; font-size: 13px; font-weight: 600; display: none; white-space: nowrap; }
+  #vwait.on { display: grid; } .empty { place-items: center; height: 100%; color: var(--muted); text-align: center; padding: 20px; }
+  .note { font-size: 11.5px; color: var(--muted); }
+  .floodcard { position: absolute; right: 16px; top: 16px; width: 300px; background: rgba(22,28,35,.95); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; z-index: 2; }
+  .floodcard h3 { margin: 0 0 4px; font-size: 11.5px; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
+  .floodcard .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
+  .floodcard .big span { font-size: 12.5px; font-weight: 400; color: var(--muted); }
+  .floodcard .row { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; border-top: 1px solid var(--line); }
+  .floodcard .row b { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .floodcard small { color: var(--muted); display: block; margin-top: 8px; line-height: 1.35; }
+  .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+  .controls button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; font: inherit; cursor: pointer; }
+  .controls button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  #hint { position: absolute; left: 16px; top: 16px; max-width: 60%; background: rgba(22,28,35,.92); border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; font-size: 12.5px; color: var(--muted); pointer-events: none; }
+  #hint b { color: var(--text); }
+  body.clean { grid-template-columns: 1fr; }   /* #clean: presentation mode, 3D / map only */
+  .clean main { grid-template-rows: 1fr; }
+  .clean aside, .clean header, .clean .controls, .clean .floodcard, .clean #hint { display: none !important; }
+  @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 42vh 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "/vendor/three/build/three.module.js",
+  "three/addons/": "/vendor/three/examples/jsm/"
+} }
+</script>
+</head>
+<body>
+<aside>
+  <div class="brand"><h1>DepthWizard</h1><p>RS3DAda single-image height estimation</p></div>
+  <ul id="scenes"></ul>
+  <label id="drop">Drop a satellite image here, or click to upload<br><small>PNG · JPG · GeoTIFF (GeoTIFF adds true scale + absolute heights above sea level)</small>
+    <input id="file" type="file" accept=".png,.jpg,.jpeg,.tif,.tiff" hidden>
+  </label>
+</aside>
+<main>
+  <header>
+    <div class="ttl"><h2 id="title">Select a scene</h2><div class="note" id="note"></div></div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs"><button data-v="v2d" class="on">2D compare</button><button data-v="v3d">3D view</button></div>
+  </header>
+  <div class="stage">
+    <div id="v2d" class="view on">
+      <div class="imgwrap" id="wrap"><img id="photo" alt=""><canvas id="heat"></canvas><div id="tip"></div></div>
+    </div>
+    <div id="v3d" class="view"><div id="pin"></div><div id="hint" hidden></div></div>
+    <div class="empty view" id="vwait"></div>
+    <div class="controls" id="controls">
+      <div class="legend" id="floodlegend" hidden><span><i class="sw" style="background:#2f7fe0"></i>Water</span><span><i class="sw" style="background:#e5484d"></i>Submerged</span><span><i class="sw" style="background:#f5a524"></i>Partly flooded</span></div>
+      <div class="legend" id="gradlegend"><span id="llo">0 m</span><canvas id="legend" width="140" height="1"></canvas><span id="lmax">–</span></div>
+      <label class="c2d">Layer <select id="layer"><option value="height">Height</option><option value="unc">Uncertainty (±)</option><option value="slope" title="Terrain slope from the 30 m terrain model; classes as in BIS IS 14496 (Part 2) landslide hazard zonation">Slope (landslide)</option></select></label>
+      <label class="c2d">Overlay <input id="alpha" type="range" min="0" max="1" step="0.01" value="0.65"></label>
+      <label class="c3d" hidden>Height ×<input id="exag" type="range" min="1" max="5" step="0.5" value="2"><span id="exagv">2</span></label>
+      <label class="c3d" hidden>Surface <select id="tex3d"><option value="photo">Photo</option><option value="heat">Height colours</option><option value="unc">Uncertainty</option><option value="slope">Slope (landslide)</option></select></label>
+      <label class="c3d" hidden><input id="spin" type="checkbox"> Auto-orbit</label>
+      <label class="c3d" hidden>Camera <select id="cam"><option value="orbit">Orbit</option><option value="fly">Fly (W A S D)</option><option value="street">Street level</option></select></label>
+      <span class="c3d" hidden><button id="pathbtn" title="Click points on the 3D scene to plan a route">✎ Draw path</button>
+        <button id="playbtn" title="Fly along your route (or an automatic tour if none is drawn)">▶ Fly through</button>
+        <button id="recbtn" title="Fly the route and save it as a video file">● Record video</button></span>
+      <label id="corrwrap" hidden title="Height correction learned on US LiDAR (DFC2019); not yet verified on Indian cities"><input id="corr" type="checkbox"> Bias correction</label>
+      <label><input id="flood" type="checkbox"> Flood</label>
+      <label title="GeoTIFFs open in QGIS / ArcGIS; the 3D model (true metres) in Blender or any glTF viewer">Download <select id="dl"><option value="">…</option><option value="glb">3D model (.glb)</option>
+        <option value="_dsm.tif">DSM, m a.s.l. (.tif)</option><option value="_dtm.tif">Terrain DTM (.tif)</option>
+        <option value="_height.tif">Height above ground (.tif)</option><option value="_uncertainty.tif">Uncertainty ± (.tif)</option>
+        <option value="_buildings.json">Building blocks (.json)</option></select></label>
+      <label class="cflood" hidden>Water level <input id="depth" type="range" min="0" max="15" step="0.1" value="3"><span id="depthv">3.0 m</span></label>
+    </div>
+    <div class="floodcard" id="floodcard" hidden></div>
+  </div>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+const $ = id => document.getElementById(id);
+let scenes = [], current = null, data = null;   // data = {name, meta, grid, heatCanvas, photo}
+
+// Turbo colormap (Google, polynomial approximation)
+function turbo(x) {
+  x = Math.min(1, Math.max(0, x));
+  const r = 0.13572138 + x*(4.61539260 + x*(-42.66032258 + x*(132.13108234 + x*(-152.94239396 + x*59.28637943))));
+  const g = 0.09140261 + x*(2.19418839 + x*(4.84296658 + x*(-14.18503333 + x*(4.27729857 + x*2.82956604))));
+  const b = 0.10667330 + x*(12.64194608 + x*(-60.58204836 + x*(110.36276771 + x*(-89.90310912 + x*27.34824973))));
+  return [r, g, b].map(v => Math.round(Math.min(1, Math.max(0, v)) * 255));
+}
+// Uncertainty ramp (inferno-like: dark → purple → orange → yellow), distinct from the height ramp
+function inferno(x) {
+  const S = [[0,0,4],[87,16,110],[188,55,84],[249,142,9],[252,255,164]];
+  x = Math.min(1, Math.max(0, x)) * (S.length - 1);
+  const i = Math.min(S.length - 2, Math.floor(x)), f = x - i;
+  return S[i].map((v, k) => Math.round(v + (S[i + 1][k] - v) * f));
+}
+// Terrain slope classes (degrees) as in BIS IS 14496 (Part 2) landslide hazard zonation
+const SLOPE_CLASSES = [[15, 'very gentle', [46, 160, 67]], [25, 'gentle', [166, 206, 57]], [35, 'moderately steep', [255, 214, 10]],
+                       [45, 'steep', [247, 127, 0]], [Infinity, 'escarpment / cliff', [214, 40, 40]]];
+const slopeClass = d => SLOPE_CLASSES.find(([t]) => d <= t);
+const slopeRamp = x => slopeClass(x * 50)[2];   // x = slope / 50°
+function slopeGrid(z, W, H, dx, dy) {           // degrees, central differences on the terrain grid
+  const s = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const xl = Math.max(0, x - 1), xr = Math.min(W - 1, x + 1), yu = Math.max(0, y - 1), yd = Math.min(H - 1, y + 1);
+    const gx = (z[y * W + xr] - z[y * W + xl]) / ((xr - xl) * dx), gy = (z[yd * W + x] - z[yu * W + x]) / ((yd - yu) * dy);
+    s[y * W + x] = Math.atan(Math.hypot(gx, gy)) * 180 / Math.PI;
+  }
+  return s;
+}
+function drawLegend(ramp, lo, hi) {
+  const c = $('legend').getContext('2d');
+  for (let i = 0; i < 140; i++) { c.fillStyle = `rgb(${ramp(i/139)})`; c.fillRect(i, 0, 1, 1); }
+  $('llo').textContent = lo; $('lmax').textContent = hi;
+}
+function colourCanvas(values, w, h, ramp, vmax) {
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(w, h);
+  values.forEach((v, i) => { const [r, g, b] = ramp(v / vmax); img.data.set([r, g, b, 255], i * 4); });
+  ctx.putImageData(img, 0, 0);
+  return cv;
+}
+
+// ---------- scene list ----------
+async function poll() {
+  try { scenes = await (await fetch('/api/scenes')).json(); } catch { return; }
+  const ul = $('scenes');
+  ul.innerHTML = '';
+  for (const s of scenes) {
+    const li = document.createElement('li');
+    li.className = s.name === current ? 'active' : '';
+    const label = s.state === 'done' ? `max ${s.meta.max.toFixed(1)} m · built ${s.meta.built_pct.toFixed(0)}%`
+      : s.state === 'running' ? `estimating… ${Math.round(s.progress*100)}%`
+      : s.state === 'error' ? `error: ${s.error}` : 'queued';
+    li.innerHTML = `<img src="/results/${s.name}.jpg" alt=""><div><div class="sname"></div><div class="sstat">${label}</div>${s.state==='done'?'':`<div class="bar"><i style="width:${s.progress*100}%"></i></div>`}</div>`;
+    li.querySelector('.sname').textContent = s.name.replaceAll('_', ' ');
+    li.onclick = () => select(s.name);
+    ul.append(li);
+  }
+  const cur = scenes.find(s => s.name === current);
+  const want = (location.hash.match(/scene=([\w-]+)/) || [])[1];   // e.g. #3d-flood-scene=shimla_hill_town
+  if (!current && scenes.length)
+    select(want && scenes.some(s => s.name === want) ? want : (scenes.find(s => s.state === 'done') || scenes[0]).name);
+  else if (cur && cur.state === 'done' && (!data || data.name !== current) && loading !== current) select(current);
+  else if (cur && cur.state !== 'done') showWait(cur);
+}
+setInterval(poll, 1500);
+poll();
+
+function showWait(s) {
+  $('vwait').innerHTML = s.state === 'error' ? `Could not process this image.<br>${s.error}`
+    : `Estimating heights for <b>&nbsp;${s.name.replaceAll('_',' ')}&nbsp;</b> — ${Math.round(s.progress*100)}%<br><small>about 4 min per 1024×1024 image on an 8 GB M3; other scenes stay browsable</small>`;
+  setView('vwait');
+}
+
+let loading = null;   // scene being fetched, so the poll loop does not start a second, racing load
+async function select(name) {
+  current = name;
+  const s = scenes.find(x => x.name === name);
+  $('title').textContent = name.replaceAll('_', ' ');
+  document.querySelectorAll('#scenes li').forEach((li, i) => li.classList.toggle('active', scenes[i].name === name));
+  if (!s || s.state !== 'done') { data = null; $('stats').innerHTML = ''; return showWait(s || {name, state: 'queued', progress: 0}); }
+  loading = name;
+  try { await load(name, s.meta); } finally { if (loading === name) loading = null; }
+}
+async function load(name, m) {
+  const buf = await (await fetch(`/results/${name}.f32`)).arrayBuffer();
+  if (current !== name) return;
+  const unc = new Float32Array(await (await fetch(`/results/${name}_unc.f32`)).arrayBuffer());
+  if (current !== name) return;
+  const gridRaw = new Float32Array(buf);
+  const gridCorr = m.corrected ? new Float32Array(await (await fetch(`/results/${name}_corr.f32`)).arrayBuffer()) : null;
+  const vmax = Math.max(5, m.p99), umax = Math.max(0.5, m.unc_p95);
+  const uncCv = colourCanvas(unc, m.grid_w, m.grid_h, inferno, umax);
+  const hasTerrain = !!(m.terrain && m.terrain.source);
+  const [bid, buildings, dtm] = await Promise.all([
+    fetch(`/results/${name}_bid.f32`).then(r => r.arrayBuffer()).then(b => new Float32Array(b)),
+    fetch(`/results/${name}_buildings.json`).then(r => r.json()),
+    hasTerrain ? fetch(`/results/${name}_dtm.f32`).then(r => r.arrayBuffer()).then(b => new Float32Array(b)) : null]);
+  const photo = new Image(); photo.src = `/results/${name}.jpg`; await photo.decode();
+  if (current !== name) return;
+  for (const b of buildings) b.height_raw_m = b.height_m;
+  const gmin = dtm ? dtm.reduce((a, v) => Math.min(a, v), Infinity) : 0, gmax = dtm ? dtm.reduce((a, v) => Math.max(a, v), -Infinity) : 0;
+  data = { name, meta: m, gridRaw, gridCorr, unc, uncCv, photo, vmax, umax, bid, buildings, dtm, gmin, gmax };
+  data.slope = dtm && slopeGrid(dtm, m.grid_w, m.grid_h, m.width * m.gsd / m.grid_w, m.height * m.gsd / m.grid_h);
+  data.slopeCv = dtm && colourCanvas(data.slope, m.grid_w, m.grid_h, slopeRamp, 50);
+  for (const o of document.querySelectorAll('option[value=slope], #dl option[value^="_d"]')) o.hidden = o.disabled = !dtm;  // need terrain
+  for (const [id, dflt] of [['layer', 'height'], ['tex3d', 'photo']]) if ($(id).value === 'slope' && !dtm) $(id).value = dflt;
+  $('depth').max = Math.ceil(gmax - gmin + 15);
+  if (gmax - gmin > 50) { $('exag').value = 1; $('exagv').textContent = '1'; }   // hills: exaggeration would look unreal
+  $('corrwrap').hidden = !gridCorr;
+  setGrid();
+  renderStats();
+  $('photo').src = photo.src;
+  if ($('flood').checked) renderFlood();
+  showLayer();
+  $('wrap').style.aspectRatio = `${m.width} / ${m.height}`;
+  build3D();
+  setView(document.querySelector('.tabs .on').dataset.v);
+  updateFlood();
+}
+
+// raw model heights or the learned bias correction, used by every view
+function laserShift() { const la = data.meta.terrain && data.meta.terrain.laser; return la && la.offset_m != null ? -la.offset_m : null; }
+function corrOn() { return $('corr').checked && !!data.gridCorr; }
+function setGrid() {
+  const on = corrOn(), m = data.meta;
+  data.grid = on ? data.gridCorr : data.gridRaw;
+  for (const b of data.buildings) {
+    b.height_m = on && b.height_corr_m != null ? b.height_corr_m : b.height_raw_m;
+    b.floors = Math.max(1, Math.round(b.height_m / m.floor_m));
+  }
+  data.heat = colourCanvas(data.grid, m.grid_w, m.grid_h, turbo, data.vmax);  // same scale either way
+}
+function renderStats() {
+  const m = data.meta, c = corrOn() ? m.corrected : m;
+  $('stats').innerHTML = [
+    ['Tallest', `${c.max.toFixed(1)} m`], ['99th pct', `${c.p99.toFixed(1)} m`],
+    ['Built-up (>3 m)', `${m.built_pct.toFixed(0)}%`], ['Avg uncertainty', `± ${m.unc_mean.toFixed(2)} m`], ['Building blocks', m.buildings],
+    ...(data.dtm ? [['Ground', `${data.gmin.toFixed(0)}–${data.gmax.toFixed(0)} m a.s.l.`]] : []),
+    ['GSD', `${m.gsd.toFixed(2)} m${m.gsd_assumed ? ' (assumed)' : ''}`]
+  ].map(([k, v]) => `<span class="chip">${k} <b>${v}</b></span>`).join('');
+  $('note').textContent = m.gsd_assumed ? 'No georeferencing: heights are the model\'s estimate, scale assumes 0.5 m pixels.'
+    : (corrOn() ? 'Heights bias-corrected with a curve learned on US LiDAR (DFC2019); not yet verified on Indian cities. '
+                : 'Model estimate of height above ground. ')
+      + '± = spread of 4 flipped predictions (model self-consistency), not a calibrated error bar. '
+      + (data.dtm ? `Absolute heights in m above mean sea level (EGM2008); terrain: ${m.terrain.source}, cleaned with the model's land cover`
+         + (laserShift() != null ? `, then shifted ${laserShift().toFixed(1)} m to match ${m.terrain.laser.ground_photons} NASA ICESat-2 laser ground points.`
+                                 : '; no ICESat-2 laser points in this scene.')
+         : m.terrain && m.terrain.error ? 'Terrain could not be loaded (offline?), so heights are relative to local ground.'
+         : 'No georeferencing, so heights are relative to local ground.');
+}
+$('corr').onchange = () => {
+  if (!data) return;
+  setGrid(); renderStats();
+  if ($('flood').checked) renderFlood();
+  showLayer(); applyExag();
+  if (mesh) { mesh.material.map.image = surfaceImage(); mesh.material.map.needsUpdate = true; }
+};
+function heightAt(u, v) { return sampleAt(data.grid, u, v); }
+function groundAt(u, v) { return data.dtm ? sampleAt(data.dtm, u, v) : 0; }
+function waterLevel() { return data.gmin + +$('depth').value; }          // flat scenes: gmin = 0
+function blockGround(b) { return b.ground_m ?? data.gmin; }
+function blockState(b, L) { const g = blockGround(b); return L > g + b.height_m ? 'sub' : L > g ? 'part' : 'dry'; }
+function pointText(u, v, sep) {
+  const h = Math.max(0, heightAt(u, v)), un = uncAt(u, v);
+  if (!data.dtm) return `${h.toFixed(1)} ± ${un.toFixed(1)} m above ground`;
+  const g = groundAt(u, v);
+  const sl = sampleAt(data.slope, u, v);
+  return `${(g + h).toFixed(1)} m a.s.l.${sep}ground ${g.toFixed(1)} m + height ${h.toFixed(1)} ± ${un.toFixed(1)} m`
+    + `${sep}terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})`;
+}
+function buildingAt(u, v) {   // nearest grid cell → building record or null
+  const { grid_w: W, grid_h: H } = data.meta;
+  const x = Math.min(W - 1, Math.max(0, Math.round(u * (W - 1)))), y = Math.min(H - 1, Math.max(0, Math.round(v * (H - 1))));
+  const id = data.bid[y * W + x];
+  return id > 0 ? data.buildings[id - 1] : null;
+}
+function buildingText(b, sep) {
+  let t = `Block ${b.height_m.toFixed(1)} ± ${b.unc_m.toFixed(1)} m tall · ${Math.round(b.area_m2)} m² · ~${b.floors} floor${b.floors > 1 ? 's' : ''}`;
+  if (data.dtm) t += `${sep}roof ${(blockGround(b) + b.height_m).toFixed(1)} m a.s.l.`;
+  if ($('flood').checked) {
+    const L = waterLevel(), st = blockState(b, L);
+    t += sep + (st === 'sub' ? 'Fully submerged at this water level' : st === 'dry' ? 'Dry at this water level'
+      : `≈ ${Math.min(b.floors, (L - blockGround(b)) / data.meta.floor_m).toFixed(1)} floor(s) under water`);
+  }
+  return t;
+}
+function uncAt(u, v) { return sampleAt(data.unc, u, v); }
+function sampleAt(g, u, v) {   // u,v in 0..1 → value (bilinear on grid)
+  const { grid_w: W, grid_h: H } = data.meta;
+  const x = Math.min(W - 1, Math.max(0, u * (W - 1))), y = Math.min(H - 1, Math.max(0, v * (H - 1)));
+  const x0 = Math.floor(x), y0 = Math.floor(y), x1 = Math.min(W - 1, x0 + 1), y1 = Math.min(H - 1, y0 + 1), fx = x - x0, fy = y - y0;
+  return (g[y0*W+x0]*(1-fx) + g[y0*W+x1]*fx) * (1-fy) + (g[y1*W+x0]*(1-fx) + g[y1*W+x1]*fx) * fy;
+}
+
+// ---------- 2D ----------
+function showLayer() {
+  const l = $('layer').value, hc = $('heat');
+  const src = $('flood').checked ? data.floodCv : { unc: data.uncCv, slope: data.slopeCv }[l] || data.heat;
+  hc.width = src.width; hc.height = src.height; hc.getContext('2d').drawImage(src, 0, 0);
+  if (l === 'unc') drawLegend(inferno, '± 0 m', `± ${data.umax.toFixed(1)} m`);
+  else if (l === 'slope') drawLegend(slopeRamp, '0°', '45°+ slope');
+  else drawLegend(turbo, '0 m', `${data.vmax.toFixed(0)} m`);
+}
+$('layer').onchange = () => data && showLayer();
+$('alpha').oninput = e => $('heat').style.opacity = e.target.value;
+$('heat').style.opacity = $('alpha').value;
+$('wrap').onmousemove = e => {
+  if (!data) return;
+  const r = e.currentTarget.getBoundingClientRect(), u = (e.clientX - r.left) / r.width, v = (e.clientY - r.top) / r.height;
+  const tip = $('tip');
+  tip.style.display = 'block';
+  const b = buildingAt(u, v);
+  tip.textContent = pointText(u, v, ' · ') + (b ? ' · ' + buildingText(b, ' · ') : '');
+  tip.style.left = `${e.clientX - r.left + 14}px`; tip.style.top = `${e.clientY - r.top + 14}px`;
+};
+$('wrap').onmouseleave = () => $('tip').style.display = 'none';
+
+// ---------- 3D ----------
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+$('v3d').prepend(renderer.domElement);
+const scene3 = new THREE.Scene();
+scene3.background = new THREE.Color(0x0f1419);
+const camera = new THREE.PerspectiveCamera(50, 1, 1, 20000);
+camera.rotation.order = 'YXZ';   // yaw, then pitch (free-flight camera)
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.49;
+scene3.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
+const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-1, 2, 1); scene3.add(sun);
+let mesh = null, marker = null, markerPos = null;
+const water = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+  new THREE.MeshStandardMaterial({ color: 0x2f7fe0, transparent: true, opacity: 0.55, roughness: 0.2, metalness: 0.1, depthWrite: false }));
+water.rotation.x = -Math.PI / 2; water.visible = false; water.renderOrder = 1; scene3.add(water);
+
+function build3D() {
+  const m = data.meta;
+  if (mesh) { scene3.remove(mesh); mesh.geometry.dispose(); mesh.material.map.dispose(); mesh.material.dispose(); }
+  const W = m.width * m.gsd, H = m.height * m.gsd;
+  const geo = new THREE.PlaneGeometry(W, H, m.grid_w - 1, m.grid_h - 1);
+  geo.rotateX(-Math.PI / 2);
+  const tex = new THREE.Texture(surfaceImage());
+  tex.colorSpace = THREE.SRGBColorSpace; tex.anisotropy = 8; tex.needsUpdate = true;
+  mesh = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ map: tex }));
+  mesh.material.onBeforeCompile = greyWalls;
+  const { grid_w: gw, grid_h: gh } = m, near = data.nearBuilding = new Uint8Array(gw * gh);  // building cells + 1-cell rim
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (data.bid[y * gw + x] > 0)
+    for (let yy = Math.max(0, y - 1); yy <= Math.min(gh - 1, y + 1); yy++)
+      for (let xx = Math.max(0, x - 1); xx <= Math.min(gw - 1, x + 1); xx++) near[yy * gw + xx] = 1;
+  scene3.add(mesh);
+  water.scale.set(W, H, 1);
+  resetNav();
+  applyExag();
+  overview();
+  clearPin();
+}
+function applyExag() {
+  if (!mesh) return;
+  const k = +$('exag').value, pos = mesh.geometry.attributes.position;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, ((data.dtm ? data.dtm[i] - data.gmin : 0) + Math.max(0, data.grid[i])) * k);
+  pos.needsUpdate = true;
+  mesh.geometry.computeVertexNormals();
+  const n = mesh.geometry.attributes.normal, steep = new Float32Array(n.count);
+  for (let i = 0; i < n.count; i++) steep[i] = data.nearBuilding[i] ? 1 - Math.abs(n.getY(i)) : 0;
+  mesh.geometry.setAttribute('steep', new THREE.BufferAttribute(steep, 1));
+  water.position.y = +$('depth').value * k;
+  clearPin();
+  drawRoute();
+}
+// building walls in plain grey: a top-down photo has no facade pixels, stretching roof pixels down looks wrong
+function greyWalls(sh) {
+  sh.vertexShader = 'attribute float steep;\nvarying float vSteep;\n'
+    + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvSteep = steep;');
+  sh.fragmentShader = 'varying float vSteep;\n' + sh.fragmentShader.replace('#include <map_fragment>',
+    '#include <map_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.74, 0.72, 0.68), smoothstep(0.45, 0.8, vSteep));');
+}
+$('exag').oninput = e => { $('exagv').textContent = e.target.value; applyExag(); };
+function surfaceImage() {
+  if ($('flood').checked && data.floodTex) return data.floodTex;
+  return { photo: data.photo, heat: data.heat, unc: data.uncCv, slope: data.slopeCv }[$('tex3d').value];
+}
+$('tex3d').onchange = () => { if (!mesh) return; const t = mesh.material.map; t.image = surfaceImage(); t.needsUpdate = true; };
+$('spin').onchange = e => controls.autoRotate = e.target.checked;
+
+// click-to-measure (ignore drags)
+let down = null;
+renderer.domElement.addEventListener('pointerdown', e => down = [e.clientX, e.clientY]);
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!mesh || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  const hit = ray.intersectObject(mesh)[0];
+  if (!hit) return clearPin();
+  if (nav.drawing) { nav.path.push(new THREE.Vector2(hit.point.x, hit.point.z)); drawRoute(); return showHint(); }
+  const W = data.meta.width * data.meta.gsd, H = data.meta.height * data.meta.gsd;
+  const hu = hit.point.x / W + 0.5, hv = hit.point.z / H + 0.5;
+
+  if (!marker) { marker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x3d9be9 })); scene3.add(marker); }
+  marker.scale.setScalar(Math.max(W, H) / 250);
+  marker.position.copy(hit.point); marker.visible = true; markerPos = hit.point.clone();
+  const b = buildingAt(hu, hv);
+  $('pin').innerHTML = pointText(hu, hv, '<br><small style="font-weight:400">') + (data.dtm ? '</small>' : '')
+    + (b ? `<br><small style="font-weight:400">${buildingText(b, '<br>')}</small>` : '');
+  $('pin').style.display = 'block';
+});
+function clearPin() { markerPos = null; if (marker) marker.visible = false; $('pin').style.display = 'none'; }
+
+// ---------- fly-through: free flight, street level, planned route, video ----------
+const EYE = 1.7;   // eye height at street level, metres
+const nav = { mode: 'orbit', yaw: 0, pitch: 0, keys: new Set(), look: null, path: [], drawing: false, play: null, rec: null };
+const route = new THREE.Group(); scene3.add(route);
+const sceneW = () => data.meta.width * data.meta.gsd, sceneH = () => data.meta.height * data.meta.gsd;
+const sceneS = () => Math.max(sceneW(), sceneH());
+const uvOf = (x, z) => [x / sceneW() + 0.5, z / sceneH() + 0.5];
+function groundY(x, z) { const [u, v] = uvOf(x, z); return (data.dtm ? sampleAt(data.dtm, u, v) - data.gmin : 0) * +$('exag').value; }
+function surfaceY(x, z) { const [u, v] = uvOf(x, z); return groundY(x, z) + Math.max(0, sampleAt(data.grid, u, v)) * +$('exag').value; }
+function blocked(x, z) { const [u, v] = uvOf(x, z); return u < 0 || u > 1 || v < 0 || v > 1 || !!buildingAt(u, v); }
+function streetY(x, z) {   // eye height above the ground but never inside the modelled surface (cars, trees, blurred
+  const k = +$('exag').value;  // building edges); on a flooded street you float at the water surface
+  const y = Math.max(groundY(x, z) + EYE * k, surfaceY(x, z) + 0.5 * EYE * k);
+  return $('flood').checked ? Math.max(y, water.position.y + 0.8 * k) : y;
+}
+function aimPoint() {      // where the centre of the view meets the scene
+  camera.updateMatrixWorld();
+  const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(0, 0), camera);
+  return mesh && ray.intersectObject(mesh)[0]?.point;
+}
+function syncAngles() {
+  camera.updateMatrixWorld();
+  const d = camera.getWorldDirection(new THREE.Vector3());
+  nav.yaw = Math.atan2(-d.x, -d.z); nav.pitch = Math.asin(THREE.MathUtils.clamp(d.y, -1, 1));
+}
+function freeSpot(x, z) {  // nearest open spot (no building within 4 m), searching outwards
+  const open = (px, pz) => !blocked(px, pz) && [...Array(8)].every((_, a) => !blocked(px + 4 * Math.cos(a * Math.PI / 4), pz + 4 * Math.sin(a * Math.PI / 4)));
+  for (const test of [open, (px, pz) => !blocked(px, pz)])
+    for (let r = 0; r < sceneS() / 2; r += 2)
+      for (let a = 0; a < 16; a++) {
+        const px = x + r * Math.cos(a * Math.PI / 8), pz = z + r * Math.sin(a * Math.PI / 8);
+        if (test(px, pz)) return [px, pz];
+      }
+  return [x, z];
+}
+function overview() {      // default camera: whole scene, aimed at mid-terrain, pulled back by its relief
+  const S = sceneS(), relief = (data.gmax - data.gmin) * +$('exag').value;
+  camera.position.set(0, S * 0.75 + relief, S * 0.75 + relief * 0.5);
+  controls.target.set(0, relief / 2, 0);
+}
+function setCam(mode) {
+  const prev = nav.mode;
+  nav.mode = $('cam').value = mode;
+  syncAngles();
+  if (mode === 'street') {                    // drop down to the street where the view was pointing
+    const p = aimPoint() || new THREE.Vector3(), [x, z] = freeSpot(p.x, p.z);
+    camera.position.set(x, streetY(x, z), z); nav.pitch = 0;
+  }
+  camera.near = mode === 'street' ? 0.1 : 1; camera.fov = mode === 'street' ? 65 : 50; camera.updateProjectionMatrix();
+  controls.enabled = mode === 'orbit' && !nav.play;
+  if (mode === 'orbit') {
+    if (prev === 'street') overview();
+    else controls.target.copy(aimPoint() || camera.position.clone().addScaledVector(camera.getWorldDirection(new THREE.Vector3()), sceneS() / 2));
+  }
+  showHint();
+}
+$('cam').onchange = e => { if (!data) return; setCam(e.target.value); e.target.blur(); drawRoute(); };
+
+function walk(dt) {        // W A S D (+ R/F up/down when flying); Shift = 3× faster
+  const key = (...c) => c.some(x => nav.keys.has(x)) ? 1 : 0, street = nav.mode === 'street';
+  const f = key('KeyW', 'ArrowUp') - key('KeyS', 'ArrowDown'), s = key('KeyD', 'ArrowRight') - key('KeyA', 'ArrowLeft');
+  const step = sceneS() / (street ? 30 : 8) * (key('ShiftLeft', 'ShiftRight') ? 3 : 1) * dt;
+  const fwd = street ? new THREE.Vector3(-Math.sin(nav.yaw), 0, -Math.cos(nav.yaw)) : camera.getWorldDirection(new THREE.Vector3());
+  const c = camera.position, p = c.clone().addScaledVector(fwd, f * step)
+    .addScaledVector(new THREE.Vector3(Math.cos(nav.yaw), 0, -Math.sin(nav.yaw)), s * step);
+  if (street) {
+    if (blocked(p.x, p.z) && !blocked(c.x, c.z)) {   // slide along walls instead of entering buildings
+      if (!blocked(p.x, c.z)) p.z = c.z; else if (!blocked(c.x, p.z)) p.x = c.x; else p.copy(c);
+    }
+    const ty = streetY(p.x, p.z), k = +$('exag').value;   // glide over bumps, never below the surface
+    p.y = Math.max(ty - 0.5 * EYE * k, c.y + (ty - c.y) * Math.min(1, dt * 6));
+  } else p.y = Math.max(p.y + (key('KeyR', 'KeyE', 'Space') - key('KeyF', 'KeyQ')) * step, surfaceY(p.x, p.z) + 2 * +$('exag').value);
+  c.copy(p);
+  camera.rotation.set(nav.pitch, nav.yaw, 0);
+}
+renderer.domElement.addEventListener('pointerdown', e => {
+  document.activeElement?.blur();              // keys now steer the camera, not the last-used control
+  if (!controls.enabled && !nav.play) nav.look = [e.clientX, e.clientY];
+});
+addEventListener('pointermove', e => {         // drag to look around (grab-the-world, like Street View)
+  if (!nav.look) return;
+  if (!(e.buttons & 1)) return void (nav.look = null);
+  nav.yaw += (e.clientX - nav.look[0]) * 0.004;
+  nav.pitch = THREE.MathUtils.clamp(nav.pitch + (e.clientY - nav.look[1]) * 0.004, -1.45, 1.45);
+  nav.look = [e.clientX, e.clientY];
+});
+addEventListener('pointerup', () => nav.look = null);
+addEventListener('keydown', e => {
+  if (controls.enabled || nav.play || !$('v3d').classList.contains('on') || e.target.matches('select, textarea, input[type=text]')) return;
+  nav.keys.add(e.code);
+  if (/^(Arrow|Space)/.test(e.code)) e.preventDefault();
+});
+addEventListener('keyup', e => nav.keys.delete(e.code));
+addEventListener('blur', () => nav.keys.clear());
+
+function flightPoints() {  // evenly spaced camera positions on a smooth curve through the route points
+  const W = sceneW(), H = sceneH(), S = sceneS();
+  const way = nav.path.length > 1 ? nav.path    // no route drawn: a default sweep across the scene
+    : [[-0.55, 0.45], [-0.2, 0.28], [0.08, 0.05], [-0.05, -0.25], [0.28, -0.36], [0.55, -0.12]].map(([a, b]) => new THREE.Vector2(a * W, b * H));
+  const curve = new THREE.CatmullRomCurve3(way.map(p => new THREE.Vector3(p.x, 0, p.y)), false, 'centripetal');
+  const pts = curve.getSpacedPoints(Math.max(2, Math.round(curve.getLength() / (S / 400))));
+  // street: at eye level; drone: 12% of the scene size above the roofs. Running max then running mean, so the camera
+  // glides over bumps and tall buildings instead of jolting (and never dips below the surface)
+  const street = nav.mode === 'street', win = street ? 8 : 25, around = (a, i) => a.slice(Math.max(0, i - win), i + win + 1);
+  const top = pts.map(p => street ? streetY(p.x, p.z) : surfaceY(p.x, p.z)), lift = top.map((_, i) => Math.max(...around(top, i)));
+  pts.forEach((p, i) => { const s = around(lift, i); p.y = s.reduce((a, b) => a + b) / s.length + (street ? 0 : S * 0.12); });
+  return pts;
+}
+function drawRoute() {
+  for (const o of route.children) { o.geometry.dispose(); o.material.dispose(); }
+  route.clear();
+  if (!data || !mesh || !nav.path.length) return;
+  const r = sceneS() / 220, color = 0xffb020;
+  for (const p of nav.path) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 8), new THREE.MeshBasicMaterial({ color }));
+    s.position.set(p.x, surfaceY(p.x, p.y) + r, p.y); route.add(s);
+  }
+  if (nav.path.length > 1)
+    route.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(flightPoints()), new THREE.LineBasicMaterial({ color })));
+}
+function togglePath() {
+  nav.drawing = !nav.drawing;
+  if (nav.drawing) { nav.path = []; clearPin(); }
+  $('pathbtn').classList.toggle('on', nav.drawing);
+  $('pathbtn').textContent = nav.drawing ? '✓ Done' : '✎ Draw path';
+  drawRoute(); showHint();
+}
+function playPath(record) {
+  if (nav.play) return stopPath();
+  if (!data || !mesh) return;
+  if (nav.mode === 'street' && nav.path.length < 2)
+    return showHint('Street level: click <b>✎ Draw path</b> and add points along the streets first.', 5000);
+  if (nav.drawing) togglePath();
+  const pts = flightPoints();
+  let len = 0; for (let i = 1; i < pts.length; i++) len += pts[i].distanceTo(pts[i - 1]);
+  nav.play = { pts, t: 0, dur: nav.testDur || Math.max(6, len / (sceneS() / (nav.mode === 'street' ? 25 : 9))) };
+  controls.enabled = false; route.visible = false; clearPin();
+  $('playbtn').textContent = '■ Stop'; $('playbtn').classList.add('on');
+  if (record) startRec();
+  stepPath(0);
+  showHint();
+}
+function stepPath(dt) {
+  const P = nav.play, pts = P.pts, n = pts.length - 1;
+  P.t += dt;
+  const f = Math.min(1, P.t / P.dur);
+  const at = x => { const i = x * n, a = Math.floor(i); return pts[a].clone().lerp(pts[Math.min(n, a + 1)], i - a); };
+  const pos = at(f), ahead = at(Math.min(1, f + 30 / n));   // look ~7% of the scene ahead
+  camera.position.copy(pos);
+  if (ahead.distanceToSquared(pos) > 1e-6) {
+    if (nav.mode !== 'street') ahead.y -= pos.distanceTo(ahead) * 0.45;   // drone camera looks ~25° down
+    camera.lookAt(ahead);
+  }
+  if (f >= 1) stopPath();
+}
+function stopPath() {
+  nav.play = null; route.visible = true;
+  $('playbtn').textContent = '▶ Fly through'; $('playbtn').classList.remove('on');
+  if (nav.rec) nav.rec.rec.stop();
+  syncAngles();
+  if (nav.mode === 'orbit') { controls.enabled = true; controls.target.copy(aimPoint() || new THREE.Vector3()); }
+  showHint();
+}
+function startRec() {
+  const type = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'].find(t => MediaRecorder.isTypeSupported(t));
+  if (!type) return showHint('This browser cannot record video.', 5000);
+  renderer.setPixelRatio(1);   // record what is on screen, not a 2× retina canvas
+  const cv = Object.assign(document.createElement('canvas'), { width: renderer.domElement.width & ~1, height: renderer.domElement.height & ~1 });
+  const rec = new MediaRecorder(cv.captureStream(30), { mimeType: type, videoBitsPerSecond: 8e6 }), chunks = [];
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = () => {
+    nav.rec = null; renderer.setPixelRatio(Math.min(2, devicePixelRatio)); $('recbtn').classList.remove('on');
+    const blob = new Blob(chunks, { type });
+    nav.lastVideo = { type, size: blob.size };
+    download(URL.createObjectURL(blob), `${data.name}_flythrough.${type.startsWith('video/mp4') ? 'mp4' : 'webm'}`);
+  };
+  rec.start(1000);
+  nav.rec = { rec, cv };
+  $('recbtn').classList.add('on');
+}
+function captionFrame() {  // video frame = rendered frame + caption strip
+  const cv = nav.rec.cv, c = cv.getContext('2d'), fs = Math.round(cv.height / 38), pad = Math.round(fs * 0.6), k = $('exag').value;
+  c.drawImage(renderer.domElement, 0, 0, cv.width, cv.height);
+  const txt = `DepthWizard · ${data.name.replaceAll('_', ' ')}`
+    + ($('flood').checked ? ` · water level ${waterLevel().toFixed(1)} m${data.dtm ? ' a.s.l.' : ''}` : '') + (k !== '1' ? ` · heights ×${k}` : '');
+  c.font = `600 ${fs}px -apple-system, "Segoe UI", sans-serif`;
+  c.fillStyle = 'rgba(15,20,25,.75)'; c.fillRect(pad, cv.height - fs - 3 * pad, c.measureText(txt).width + 2 * pad, fs + 2 * pad);
+  c.fillStyle = '#fff'; c.textBaseline = 'middle'; c.fillText(txt, 2 * pad, cv.height - fs / 2 - 2 * pad);
+}
+function showHint(msg, ms) {
+  clearTimeout(showHint.t);
+  const h = $('hint');
+  h.innerHTML = msg || (nav.play ? `Flying${nav.rec ? ' · <b>recording video</b>' : ''} · <b>■ Stop</b> to end`
+    : nav.drawing ? `Click on the scene to add route points (<b>${nav.path.length}</b>) · <b>✓ Done</b> when finished`
+    : nav.mode === 'fly' ? '<b>Drag</b> to look · <b>W A S D</b> move · <b>R / F</b> up / down · <b>Shift</b> faster · click = measure'
+    : nav.mode === 'street' ? '<b>Drag</b> to look around · <b>W A S D</b> move (buildings block you; on flooded streets you float) · <b>Shift</b> faster'
+    : '');
+  h.hidden = !h.innerHTML;
+  if (ms) showHint.t = setTimeout(() => showHint(), ms);
+}
+function resetNav() {      // new scene: back to orbit, no route
+  if (nav.play) stopPath();
+  nav.path = []; nav.drawing = false; nav.keys.clear();
+  $('pathbtn').classList.remove('on'); $('pathbtn').textContent = '✎ Draw path';
+  nav.mode = $('cam').value = 'orbit'; controls.enabled = true;
+  camera.near = 1; camera.fov = 50; camera.updateProjectionMatrix();
+  showHint();
+}
+$('pathbtn').onclick = togglePath;
+$('playbtn').onclick = () => playPath(false);
+$('recbtn').onclick = () => playPath(true);
+
+// ---------- downloads: GeoTIFFs as saved by the server, GLB built from the 3D scene ----------
+function download(href, name) { Object.assign(document.createElement('a'), { href, download: name }).click(); }
+async function exportGLB() {   // the 3D model in true metres (no exaggeration), current surface colours, water if flooding
+  const geo = mesh.geometry.clone(), pos = geo.attributes.position;
+  geo.deleteAttribute('steep');
+  for (let i = 0; i < pos.count; i++) pos.setY(i, (data.dtm ? data.dtm[i] - data.gmin : 0) + Math.max(0, data.grid[i]));
+  geo.computeVertexNormals();
+  const group = new THREE.Group();
+  group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: mesh.material.map, roughness: 1, metalness: 0 })));
+  if ($('flood').checked) {
+    const w = new THREE.Mesh(new THREE.PlaneGeometry(sceneW(), sceneH()).rotateX(-Math.PI / 2),
+      new THREE.MeshStandardMaterial({ color: 0x2f7fe0, transparent: true, opacity: 0.55 }));
+    w.position.y = +$('depth').value; w.name = 'water'; group.add(w);
+  }
+  group.name = data.name;
+  group.userData = { generator: 'DepthWizard (RS3DAda)', units: 'metre', y0_metres_above_sea_level: data.dtm ? data.gmin : null,
+    axes: 'origin = image centre; x = image columns (east if north-up), z = image rows (south), y = up' };
+  const glb = await new GLTFExporter().parseAsync(group, { binary: true });
+  geo.dispose();
+  return new Blob([glb], { type: 'model/gltf-binary' });
+}
+$('dl').onchange = async e => {
+  const v = e.target.value;
+  e.target.value = ''; e.target.blur();
+  if (!data || !v) return;
+  if (v !== 'glb') return download(`/results/${data.name}${v}`, `${data.name}${v}`);
+  e.target.options[1].textContent = 'building 3D model…';
+  try { download(URL.createObjectURL(await exportGLB()), `${data.name}.glb`); }
+  finally { e.target.options[1].textContent = '3D model (.glb)'; }
+};
+
+const clock = new THREE.Clock();
+function frame() {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.1, clock.getDelta());
+  if (!$('v3d').classList.contains('on')) return;
+  const el = $('v3d'), w = el.clientWidth, h = el.clientHeight;
+  if (renderer.domElement.width !== Math.floor(w * renderer.getPixelRatio())) { renderer.setSize(w, h); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+  if (nav.play) stepPath(dt); else if (controls.enabled) controls.update(); else if (data) walk(dt);
+  renderer.render(scene3, camera);
+  if (nav.rec) captionFrame();
+  if (markerPos) {
+    const p = markerPos.clone().project(camera);
+    $('pin').style.left = `${(p.x + 1) / 2 * w}px`; $('pin').style.top = `${(1 - p.y) / 2 * h}px`;
+  }
+}
+frame();
+
+// ---------- flood scenario ----------
+// Uniform water depth above local ground (the model gives height above ground, so terrain is flat here).
+const FLOOD_RGBA = { water: [47, 127, 224, 170], sub: [229, 72, 77, 235], part: [245, 165, 36, 215] };
+function renderFlood() {
+  // Bathtub model: every ground point below the water level floods (no drainage or flow barriers).
+  const r = +$('depth').value, L = waterLevel(), m = data.meta, W = m.grid_w, H = m.grid_h;
+  $('depthv').textContent = data.dtm ? `+${r.toFixed(1)} m (${L.toFixed(1)} m a.s.l.)` : `${r.toFixed(1)} m`;
+  const cv = data.floodCv || (data.floodCv = Object.assign(document.createElement('canvas'), { width: W, height: H }));
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), px = img.data;
+  const state = data.buildings.map(b => blockState(b, L));
+  let wetGround = 0, maxDepth = 0;
+  for (let i = 0; i < data.grid.length; i++) {
+    const g = data.dtm ? data.dtm[i] : 0, id = data.bid[i];
+    if (g < L) { wetGround++; maxDepth = Math.max(maxDepth, L - g); }
+    let c = null;
+    if (id > 0) { const st = state[id - 1]; if (st !== 'dry') c = st === 'sub' ? FLOOD_RGBA.sub : FLOOD_RGBA.part; }
+    else if (g + Math.max(0, data.grid[i]) < L) {           // water surface above ground, cars, low plants
+      const depth = L - g;
+      c = [FLOOD_RGBA.water[0], FLOOD_RGBA.water[1], FLOOD_RGBA.water[2], Math.min(235, 110 + depth * 25)];
+    }
+    if (c) px.set(c, i * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  // 3D texture: photo with the flood tints on top
+  const t = data.floodTex || (data.floodTex = Object.assign(document.createElement('canvas'),
+    { width: data.photo.naturalWidth, height: data.photo.naturalHeight }));
+  const tc = t.getContext('2d');
+  tc.drawImage(data.photo, 0, 0); tc.globalAlpha = 0.8; tc.drawImage(cv, 0, 0, t.width, t.height); tc.globalAlpha = 1;
+  // numbers
+  const count = st => state.filter(x => x === st).length, nAll = data.buildings.length;
+  // damage proxy: footprint × storeys under water at each block's own ground level
+  const floorArea = data.buildings.reduce((sum, b) =>
+    sum + b.area_m2 * Math.min(b.floors, Math.max(0, L - blockGround(b)) / m.floor_m), 0);
+  const cellM2 = (m.width * m.gsd / W) * (m.height * m.gsd / H), total = data.grid.length;
+  $('floodcard').innerHTML = `<h3>Flood scenario</h3>
+    <div class="big">${data.dtm ? L.toFixed(1) + ' m <span>water level above sea level</span>' : r.toFixed(1) + ' m <span>of water above ground</span>'}</div>
+    ${data.dtm ? `<div class="row"><span>Rise above lowest ground</span><b>${r.toFixed(1)} m</b></div>` : ''}
+    <div class="row"><span><i class="sw" style="background:#2f7fe0"></i>Ground under water</span><b>${(100 * wetGround / total).toFixed(0)}% · ${(wetGround * cellM2 / 1e4).toFixed(1)} ha</b></div>
+    <div class="row"><span>Deepest water</span><b>${maxDepth.toFixed(1)} m</b></div>
+    <div class="row"><span><i class="sw" style="background:#e5484d"></i>Blocks fully submerged</span><b>${count('sub')}</b></div>
+    <div class="row"><span><i class="sw" style="background:#f5a524"></i>Partly flooded (roof above water)</span><b>${count('part')}</b></div>
+    <div class="row"><span>Blocks still dry</span><b>${count('dry')}</b></div>
+    <div class="row"><span>Floor area under water</span><b>≈ ${Math.round(floorArea).toLocaleString('en-IN')} m²</b></div>
+    <small>${nAll} building blocks from the model's land-cover head (attached buildings count as one), ~${m.floor_m} m per floor. `
+    + (data.dtm ? `Bathtub model: all ground below the water level floods (no drainage or barriers). Terrain: ${m.terrain.source} (30 m, about ±2–4 m)${laserShift() != null ? ', levelled to ICESat-2 laser points' : ''}.`
+                : 'No terrain for this image: flat ground and one uniform water depth.') + ' Heights carry ± model uncertainty.</small>';
+}
+function updateFlood() {
+  const on = $('flood').checked;
+  document.querySelectorAll('.cflood').forEach(n => n.hidden = !on);
+  $('floodcard').hidden = !on || !data; $('floodlegend').hidden = !on; $('gradlegend').hidden = on;
+  $('v2d').classList.toggle('flooding', on);
+  $('layer').disabled = on; $('tex3d').disabled = on;
+  water.visible = on;
+  if (!data) return;
+  if (on) renderFlood();
+  water.position.y = +$('depth').value * +$('exag').value;   // mesh baseline (y = 0) is the lowest ground
+  showLayer();
+  if (mesh) { mesh.material.map.image = surfaceImage(); mesh.material.map.needsUpdate = true; }
+}
+$('flood').onchange = updateFlood;
+$('depth').oninput = updateFlood;
+
+// ---------- tabs / upload ----------
+function setView(v) {
+  for (const id of ['v2d', 'v3d', 'vwait']) $(id).classList.toggle('on', id === v);
+  $('controls').style.display = v === 'vwait' ? 'none' : 'flex';
+  $('floodcard').hidden = v === 'vwait' || !$('flood').checked;
+  document.querySelectorAll('.c2d').forEach(n => n.hidden = v !== 'v2d');
+  document.querySelectorAll('.c3d').forEach(n => n.hidden = v !== 'v3d');
+}
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
+  if (data) setView(b.dataset.v);
+});
+// URL shortcuts for demos: #3d 3D view, #unc uncertainty layer, #flood, #corr, #scene=<name> (combinable: #3d-flood-scene=iit_ropar)
+if (location.hash.includes('unc')) { $('layer').value = 'unc'; $('tex3d').value = 'unc'; }
+if (location.hash.includes('slope')) { $('layer').value = 'slope'; $('tex3d').value = 'slope'; }
+if (location.hash.includes('clean')) document.body.classList.add('clean');
+if (location.hash.includes('3d')) document.querySelector('.tabs [data-v=v3d]').click();
+if (location.hash.includes('corr')) $('corr').checked = true;
+const depthArg = location.hash.match(/depth=([\d.]+)/);   // e.g. #flood-depth=5
+if (depthArg) $('depth').value = depthArg[1];
+if (location.hash.includes('flood')) { $('flood').checked = true; updateFlood(); }
+// #fly / #street camera mode and #tour (start the fly-through), once the scene is loaded: e.g. #3d-tour-scene=iit_ropar
+if (/fly|street|tour/.test(location.hash)) {
+  const t = setInterval(() => {
+    if (!data || !mesh) return;
+    clearInterval(t);
+    if (/fly|street/.test(location.hash)) setCam(location.hash.includes('street') ? 'street' : 'fly');
+    if (location.hash.includes('tour')) playPath(false);
+  }, 300);
+}
+// #selftest: exercise the hover/click text paths on real data and report in the page title (for headless checks)
+if (location.hash.includes('selftest')) setTimeout(() => {
+  try {
+    const b = data.buildings.reduce((x, y) => (y.area_m2 > x.area_m2 ? y : x));
+    const found = buildingAt(b.cx, b.cy), L = waterLevel();
+    const txt = found ? buildingText(found, ' | ') : 'no building at centroid';
+    const nSub = data.buildings.filter(x => blockState(x, L) === 'sub').length;
+    // fly-through: the default drone tour stays above the roofs; street level starts outside buildings, at eye height
+    const clear = flightPoints().every(p => p.y > surfaceY(p.x, p.z));
+    setCam('street');
+    const c = camera.position, street = !blocked(c.x, c.z) && Math.abs(c.y - streetY(c.x, c.z)) < 1e-6 && c.y > surfaceY(c.x, c.z);
+    setCam('orbit');
+    document.title = `SELFTEST ok=${!!found && txt.startsWith('Block')} fly=${clear} street=${street} blocks=${data.buildings.length} level=${L.toFixed(1)} submerged=${nSub} terrain=${!!data.dtm} :: ${txt} || ${pointText(b.cx, b.cy, ' | ')}`;
+    const slopeMax = data.slope ? data.slope.reduce((a, v) => Math.max(a, v), 0) : null;
+    document.title += ` slope_max=${slopeMax === null ? 'none' : slopeMax.toFixed(1)}`;
+    if (location.hash.includes('glbtest'))     // build the GLB and check its header
+      exportGLB().then(async b => { const d = new DataView(await b.arrayBuffer());
+        document.title += ` GLB ${d.getUint32(0, true) === 0x46546C67 && d.getUint32(4, true) === 2 ? 'ok' : 'bad'} ${b.size} bytes`; });
+    if (location.hash.includes('rectest')) {   // record a 3 s tour and report the video file in the title
+      nav.testDur = 3; document.querySelector('.tabs [data-v=v3d]').click(); playPath(true);
+      const t = setInterval(() => nav.lastVideo && (clearInterval(t), document.title += ` VIDEO ${nav.lastVideo.type} ${nav.lastVideo.size} bytes`), 200);
+    }
+  } catch (e) { document.title = 'SELFTEST error ' + e; }
+}, 4000);
+
+async function upload(file) {
+  $('drop').firstChild.textContent = `Uploading ${file.name}…`;
+  const r = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+  const j = await r.json();
+  $('drop').firstChild.textContent = r.ok ? 'Drop a satellite image here, or click to upload' : `Upload failed: ${j.error}`;
+  if (r.ok) { await poll(); select(j.name); }
+}
+$('file').onchange = e => e.target.files[0] && upload(e.target.files[0]);
+const drop = $('drop');
+drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+drop.ondragleave = () => drop.classList.remove('over');
+drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); e.dataTransfer.files[0] && upload(e.dataTransfer.files[0]); };
+</script>
+</body>
+</html>
