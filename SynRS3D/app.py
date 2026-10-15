@@ -11,6 +11,7 @@ from math import atan, cos, sinh
 import cv2
 import numpy as np
 import rasterio
+import rasterio.warp
 from PIL import Image
 
 import infer_height
@@ -28,7 +29,7 @@ MAX_UPLOAD = 50 << 20
 BUILDING = infer_height.LANDCOVER.index('buildings')
 FLOOR_M = 3.0         # assumed storey height for floor estimates
 SUFFIXES = ('', '_height', '_unc', '_uncertainty', '_landcover', '_bid', '_buildings', '_corr',
-            '_height_corrected', '_dtm', '_dsm')  # per-scene result files
+            '_height_corrected', '_dtm', '_dsm', '_lc')  # per-scene result files
 TERRAIN_VERSION = 2  # bump to recompute terrain for every scene (2: ICESat-2 laser correction)
 # Height correction learned on DFC2019 LiDAR (demo/height_correction.py); only present if it passed every test split
 CHOSEN = os.path.join(ROOT, 'demo', 'benchmark', 'height_correction_chosen.json')
@@ -156,6 +157,27 @@ def ensure_terrain(name, path):
     json.dump(meta, open(meta_f, 'w'))
 
 
+def ensure_extras(name, path):
+    """Land-cover grid for the browser (route costs, rain runoff) and the scene centre in lon/lat (rain forecast).
+    Uses the saved rasters (no model run)."""
+    meta_f = os.path.join(RESULTS, name + '.json')
+    meta = json.load(open(meta_f))
+    lc_f = os.path.join(RESULTS, name + '_lc.f32')
+    if not os.path.exists(lc_f):
+        lc = rasterio.open(os.path.join(RESULTS, name + '_landcover.tif')).read(1).astype(np.float32)
+        grid = np.asarray(Image.fromarray(lc, 'F').resize((meta['grid_w'], meta['grid_h']), Image.NEAREST), np.float32)
+        grid.astype('<f4').tofile(lc_f)
+    if 'center_lonlat' not in meta:
+        with rasterio.open(path) as src:
+            ll = None
+            if src.crs:
+                x, y = src.xy(src.height // 2, src.width // 2)
+                lon, lat = rasterio.warp.transform(src.crs, 'EPSG:4326', [x], [y])
+                ll = [round(lon[0], 6), round(lat[0], 6)]
+        meta['center_lonlat'] = ll
+        json.dump(meta, open(meta_f, 'w'))
+
+
 def ensure_photo(name, path):
     out = os.path.join(RESULTS, name + '.jpg')
     if not os.path.exists(out):
@@ -198,6 +220,7 @@ def worker():
             json.dump(meta, open(os.path.join(RESULTS, name + '.json'), 'w'))
             ensure_corrected(name, path)
             ensure_terrain(name, path)
+            ensure_extras(name, path)
             st.update(state='done', progress=1.0)
         except Exception as e:
             traceback.print_exc()
@@ -213,6 +236,7 @@ def enqueue_missing():
         if os.path.exists(meta) and 'buildings' in json.load(open(meta)):  # older results lack newer outputs
             ensure_corrected(name, path)
             ensure_terrain(name, path)
+            ensure_extras(name, path)
             status[name] = {'state': 'done', 'progress': 1.0}
         else:
             status[name] = {'state': 'queued', 'progress': 0.0}

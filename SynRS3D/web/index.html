@@ -43,7 +43,8 @@
   .view.on { display: block; }
   #v2d { display: none; place-items: center; padding: 16px 16px 76px; }
   #v2d.on { display: grid; }
-  #v2d.flooding { padding-right: 332px; }  /* keep the image clear of the flood card */
+  .stage.cardson #v2d { padding-right: 332px; }  /* keep the image clear of the side cards */
+  .stage.cardson .controls { right: 332px; }
   .imgwrap { position: relative; max-width: 100%; max-height: 100%; aspect-ratio: 1; height: 100%; cursor: crosshair; }
   .imgwrap img, .imgwrap canvas { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 6px; }
   #tip { position: absolute; pointer-events: none; background: rgba(15,20,25,.9); border: 1px solid var(--line); padding: 3px 8px; border-radius: 6px; font-size: 12.5px; font-variant-numeric: tabular-nums; display: none; white-space: nowrap; }
@@ -56,7 +57,29 @@
   #pin { position: absolute; pointer-events: none; transform: translate(-50%, -130%); background: var(--accent); color: #fff; padding: 3px 9px; border-radius: 6px; font-size: 13px; font-weight: 600; display: none; white-space: nowrap; }
   #vwait.on { display: grid; } .empty { place-items: center; height: 100%; color: var(--muted); text-align: center; padding: 20px; }
   .note { font-size: 11.5px; color: var(--muted); }
-  .floodcard { position: absolute; right: 16px; top: 16px; width: 300px; background: rgba(22,28,35,.95); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; z-index: 2; }
+  .cards { position: absolute; right: 16px; top: 16px; bottom: 16px; width: 300px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 2; pointer-events: none; }
+  .cards > * { pointer-events: auto; flex: none; }
+  .floodcard { background: rgba(22,28,35,.95); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; }
+  .floodcard button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; cursor: pointer; }
+  .floodcard button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .floodcard button:disabled { opacity: .45; cursor: default; }
+  .floodcard input[type=number] { width: 54px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 2px 4px; font: inherit; }
+  .floodcard .frm { display: grid; gap: 5px; margin: 6px 0 8px; color: var(--muted); }
+  .floodcard .frm label { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  .floodcard .btns { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 8px; }
+  .floodcard .msg { color: var(--muted); margin: 4px 0; }
+  .floodcard .warn { color: var(--err); }
+  .floodcard table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; margin-top: 6px; }
+  .floodcard th, .floodcard td { text-align: right; padding: 2px 4px; border-top: 1px solid var(--line); font-weight: 400; }
+  .floodcard th { color: var(--muted); font-size: 11.5px; }
+  .floodcard th:first-child, .floodcard td:first-child { text-align: left; }
+  .floodcard .tslide { display: flex; gap: 8px; align-items: center; margin: 8px 0 4px; }
+  .floodcard .tslide input { flex: 1; width: auto; }
+  .floodcard .site { display: grid; grid-template-columns: 30px 1fr auto; gap: 2px 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); }
+  .floodcard .site b.tag { color: #111; border-radius: 4px; text-align: center; font-size: 11.5px; padding: 1px 0; }
+  .floodcard .site small { grid-column: 2 / 4; margin: 0; }
+  .floodcard .keys { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0; color: var(--muted); font-size: 11.5px; }
+  #tchart svg { display: block; width: 100%; height: 84px; }
   .floodcard h3 { margin: 0 0 4px; font-size: 11.5px; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
   .floodcard .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
   .floodcard .big span { font-size: 12.5px; font-weight: 400; color: var(--muted); }
@@ -70,7 +93,7 @@
   #hint b { color: var(--text); }
   body.clean { grid-template-columns: 1fr; }   /* #clean: presentation mode, 3D / map only */
   .clean main { grid-template-rows: 1fr; }
-  .clean aside, .clean header, .clean .controls, .clean .floodcard, .clean #hint { display: none !important; }
+  .clean aside, .clean header, .clean .controls, .clean .cards, .clean #hint { display: none !important; }
   @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 42vh 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
 </style>
 <script type="importmap">
@@ -96,7 +119,7 @@
   </header>
   <div class="stage">
     <div id="v2d" class="view on">
-      <div class="imgwrap" id="wrap"><img id="photo" alt=""><canvas id="heat"></canvas><div id="tip"></div></div>
+      <div class="imgwrap" id="wrap"><img id="photo" alt=""><canvas id="heat"></canvas><canvas id="ovl"></canvas><div id="tip"></div></div>
     </div>
     <div id="v3d" class="view"><div id="pin"></div><div id="hint" hidden></div></div>
     <div class="empty view" id="vwait"></div>
@@ -114,13 +137,59 @@
         <button id="recbtn" title="Fly the route and save it as a video file">● Record video</button></span>
       <label id="corrwrap" hidden title="Height correction learned on US LiDAR (DFC2019); not yet verified on Indian cities"><input id="corr" type="checkbox"> Bias correction</label>
       <label><input id="flood" type="checkbox"> Flood</label>
+      <button id="routebtn" title="Find a route between two points that avoids buildings, steep ground and deep water">⤳ Route</button>
+      <button id="sitebtn" title="Find flat, open, dry places for a helicopter to land or a relief camp">🚁 Relief sites</button>
       <label title="GeoTIFFs open in QGIS / ArcGIS; the 3D model (true metres) in Blender or any glTF viewer">Download <select id="dl"><option value="">…</option><option value="glb">3D model (.glb)</option>
         <option value="_dsm.tif">DSM, m a.s.l. (.tif)</option><option value="_dtm.tif">Terrain DTM (.tif)</option>
         <option value="_height.tif">Height above ground (.tif)</option><option value="_uncertainty.tif">Uncertainty ± (.tif)</option>
         <option value="_buildings.json">Building blocks (.json)</option></select></label>
-      <label class="cflood" hidden>Water level <input id="depth" type="range" min="0" max="15" step="0.1" value="3"><span id="depthv">3.0 m</span></label>
+      <label class="cflood" hidden>Water level <input id="depth" type="range" min="0" max="15" step="any" value="3"><span id="depthv">3.0 m</span></label>
+      <label class="cflood" hidden title="All low ground: everything below the water level floods. Scene edges: water comes in from outside the image (river, sea) and floods only ground it can flow to. Points I click: water spreads from the points you place.">Water from
+        <select id="fsrc"><option value="all">all low ground</option><option value="edges">scene edges</option><option value="pick">points I click</option></select></label>
+      <button class="cflood" id="timebtn" hidden title="How the flood develops if rain continues or the river keeps rising">⏱ Timeline</button>
     </div>
-    <div class="floodcard" id="floodcard" hidden></div>
+    <div class="cards" id="cards">
+      <div class="floodcard" id="floodcard" hidden></div>
+      <div class="floodcard" id="routecard" hidden>
+        <h3>Route finder</h3>
+        <div class="frm">
+          <label>Travel <select id="rmode"><option value="foot">On foot</option><option value="car">Car</option></select>
+            <span title="Water deeper than this blocks the route">max water <input id="rdepth" type="number" min="0" max="3" step="0.05" value="0.5"> m</span></label>
+          <label title="Count buildings with at least one floor above the water as safe places (vertical evacuation)"><input id="rbuild" type="checkbox" checked> Tall buildings count as safe places</label>
+        </div>
+        <div class="btns"><button id="rpickA">Set A</button><button id="rpickB">Set B</button>
+          <button id="rsafe" title="Nearest place from A that is at least 1 m above the water, or a building with a dry floor">Nearest safe place</button>
+          <button id="rfly" title="Fly along the route at street level">▶ Fly</button><button id="rclear">Clear</button></div>
+        <div id="rout" class="msg"></div>
+      </div>
+      <div class="floodcard" id="sitecard" hidden>
+        <h3>Helipad &amp; relief camp finder</h3>
+        <div class="frm">
+          <label title="Rule of thumb (ICAO): a landing area at least 1.5 × the helicopter's overall length with rotors turning: about 24 m for an ALH Dhruv, about 38 m for a Mi-17. Confirm with the air wing.">Helipad clear circle <input id="spad" type="number" min="10" max="100" step="1" value="25"> m</label>
+          <label>Camp area at least <input id="scamp" type="number" min="100" step="100" value="1000"> m²</label>
+          <label title="Sphere humanitarian standard: at least 45 m² of usable site area per person in a camp, including shelters, paths and services">Space per person <input id="sper" type="number" min="5" step="5" value="45"> m²</label>
+          <label>Max slope <input id="sslope" type="number" min="0" max="20" step="0.5" value="5">° · dry by <input id="sdry" type="number" min="0" max="5" step="0.1" value="0.5"> m</label>
+          <label id="stlwrap" hidden><input id="stl" type="checkbox" checked> Must stay dry for the whole timeline</label>
+        </div>
+        <div id="sout"></div>
+      </div>
+      <div class="floodcard" id="timecard" hidden>
+        <h3>Rain &amp; rise timeline</h3>
+        <div class="frm">
+          <label>Rain <input id="train" type="number" min="0" max="300" step="1" value="15"> mm/h for <input id="thours" type="number" min="0" max="384" step="1" value="12"> h</label>
+          <label><button id="tfc" title="Hourly rain forecast for this location from Open-Meteo (needs internet and a GeoTIFF scene)">Use rain forecast</button><span id="tfcinfo"></span></label>
+          <label title="Water coming from outside the image: a river or the sea rising (read off a gauge trend or a CWC forecast). Negative = falling.">River / outside rise <input id="trise" type="number" step="0.1" value="0"> m/day</label>
+          <label title="Rain the storm drains can carry away. Indian city drains are typically designed for about 25–50 mm/h.">Drains carry away <input id="tdrain" type="number" min="0" step="5" value="25"> mm/h</label>
+          <label title="Rain that falls uphill / upstream and flows into this scene. 1 = only the rain falling on this image.">Area draining here <input id="tup" type="number" min="1" step="0.5" value="1"> × scene</label>
+          <label>Simulate <input id="tdays" type="number" min="1" max="16" step="1" value="3"> days</label>
+        </div>
+        <label class="tslide">Time <input id="tt" type="range" min="0" max="72" step="1" value="0"><span id="ttv">now</span></label>
+        <label><input id="tarr" type="checkbox"> Show “time until flooded” map</label>
+        <div class="keys" id="tkeys" hidden></div>
+        <div id="tchart"></div>
+        <div id="tout"></div>
+      </div>
+    </div>
   </div>
 </main>
 
@@ -226,16 +295,19 @@ async function load(name, m) {
   const vmax = Math.max(5, m.p99), umax = Math.max(0.5, m.unc_p95);
   const uncCv = colourCanvas(unc, m.grid_w, m.grid_h, inferno, umax);
   const hasTerrain = !!(m.terrain && m.terrain.source);
-  const [bid, buildings, dtm] = await Promise.all([
+  const [bid, buildings, dtm, lc] = await Promise.all([
     fetch(`/results/${name}_bid.f32`).then(r => r.arrayBuffer()).then(b => new Float32Array(b)),
     fetch(`/results/${name}_buildings.json`).then(r => r.json()),
-    hasTerrain ? fetch(`/results/${name}_dtm.f32`).then(r => r.arrayBuffer()).then(b => new Float32Array(b)) : null]);
+    hasTerrain ? fetch(`/results/${name}_dtm.f32`).then(r => r.arrayBuffer()).then(b => new Float32Array(b)) : null,
+    fetch(`/results/${name}_lc.f32`).then(r => r.ok ? r.arrayBuffer() : null).then(b => b && Uint8Array.from(new Float32Array(b))).catch(() => null)]);
   const photo = new Image(); photo.src = `/results/${name}.jpg`; await photo.decode();
   if (current !== name) return;
   for (const b of buildings) b.height_raw_m = b.height_m;
   const gmin = dtm ? dtm.reduce((a, v) => Math.min(a, v), Infinity) : 0, gmax = dtm ? dtm.reduce((a, v) => Math.max(a, v), -Infinity) : 0;
-  data = { name, meta: m, gridRaw, gridCorr, unc, uncCv, photo, vmax, umax, bid, buildings, dtm, gmin, gmax };
+  data = { name, meta: m, gridRaw, gridCorr, unc, uncCv, photo, vmax, umax, bid, buildings, dtm, gmin, gmax, lc,
+           sources: [], route: { a: null, b: null, kind: null, res: null }, tl: null, forecast: null, tlStart: +$('depth').value };
   data.slope = dtm && slopeGrid(dtm, m.grid_w, m.grid_h, m.width * m.gsd / m.grid_w, m.height * m.gsd / m.grid_h);
+  computeReach();
   data.slopeCv = dtm && colourCanvas(data.slope, m.grid_w, m.grid_h, slopeRamp, 50);
   for (const o of document.querySelectorAll('option[value=slope], #dl option[value^="_d"]')) o.hidden = o.disabled = !dtm;  // need terrain
   for (const [id, dflt] of [['layer', 'height'], ['tex3d', 'photo']]) if ($(id).value === 'slope' && !dtm) $(id).value = dflt;
@@ -251,6 +323,7 @@ async function load(name, m) {
   build3D();
   setView(document.querySelector('.tabs .on').dataset.v);
   updateFlood();
+  toolsSceneLoaded();
 }
 
 // raw model heights or the learned bias correction, used by every view
@@ -294,14 +367,17 @@ function heightAt(u, v) { return sampleAt(data.grid, u, v); }
 function groundAt(u, v) { return data.dtm ? sampleAt(data.dtm, u, v) : 0; }
 function waterLevel() { return data.gmin + +$('depth').value; }          // flat scenes: gmin = 0
 function blockGround(b) { return b.ground_m ?? data.gmin; }
-function blockState(b, L) { const g = blockGround(b); return L > g + b.height_m ? 'sub' : L > g ? 'part' : 'dry'; }
+// a block takes water once the level passes its ground and the water can reach it (connected-flood modes)
+function blockReached(b, L) { return $('fsrc').value === 'all' || L > data.blockReach[b.id]; }
+function blockDepth(b, L) { return blockReached(b, L) ? Math.max(0, L - blockGround(b)) : 0; }
+function blockState(b, L) { const g = blockGround(b); return !blockReached(b, L) ? 'dry' : L > g + b.height_m ? 'sub' : L > g ? 'part' : 'dry'; }
 function pointText(u, v, sep) {
   const h = Math.max(0, heightAt(u, v)), un = uncAt(u, v);
-  if (!data.dtm) return `${h.toFixed(1)} ± ${un.toFixed(1)} m above ground`;
+  if (!data.dtm) return `${h.toFixed(1)} ± ${un.toFixed(1)} m above ground` + floodText(u, v, sep);
   const g = groundAt(u, v);
   const sl = sampleAt(data.slope, u, v);
   return `${(g + h).toFixed(1)} m a.s.l.${sep}ground ${g.toFixed(1)} m + height ${h.toFixed(1)} ± ${un.toFixed(1)} m`
-    + `${sep}terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})`;
+    + `${sep}terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})` + floodText(u, v, sep);
 }
 function buildingAt(u, v) {   // nearest grid cell → building record or null
   const { grid_w: W, grid_h: H } = data.meta;
@@ -316,8 +392,14 @@ function buildingText(b, sep) {
     const L = waterLevel(), st = blockState(b, L);
     t += sep + (st === 'sub' ? 'Fully submerged at this water level' : st === 'dry' ? 'Dry at this water level'
       : `≈ ${Math.min(b.floors, (L - blockGround(b)) / data.meta.floor_m).toFixed(1)} floor(s) under water`);
+    if (data.tl) { const a = data.tl.bArr[b.id];
+      t += sep + (a === 0 ? 'Timeline: water inside from the start' : a < NEVER ? `Timeline: water reaches the ground floor ${fmtWhen(a)}` : 'Timeline: stays dry'); }
   }
   return t;
+}
+function cellAt(u, v) {      // u,v in 0..1 → nearest grid cell index
+  const { grid_w: W, grid_h: H } = data.meta;
+  return Math.min(H - 1, Math.max(0, Math.round(v * (H - 1)))) * W + Math.min(W - 1, Math.max(0, Math.round(u * (W - 1))));
 }
 function uncAt(u, v) { return sampleAt(data.unc, u, v); }
 function sampleAt(g, u, v) {   // u,v in 0..1 → value (bilinear on grid)
@@ -349,6 +431,11 @@ $('wrap').onmousemove = e => {
   tip.style.left = `${e.clientX - r.left + 14}px`; tip.style.top = `${e.clientY - r.top + 14}px`;
 };
 $('wrap').onmouseleave = () => $('tip').style.display = 'none';
+$('wrap').onclick = e => {   // place route points / water sources on the 2D map
+  if (!data) return;
+  const r = e.currentTarget.getBoundingClientRect();
+  onPick((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+};
 
 // ---------- 3D ----------
 const renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -364,9 +451,17 @@ controls.maxPolarAngle = Math.PI * 0.49;
 scene3.add(new THREE.HemisphereLight(0xffffff, 0x445566, 1.6));
 const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(-1, 2, 1); scene3.add(sun);
 let mesh = null, marker = null, markerPos = null;
-const water = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
+// water surface on the terrain grid: at the water level where the water reaches, tucked under the ground elsewhere
+const water = new THREE.Mesh(new THREE.BufferGeometry(),
   new THREE.MeshStandardMaterial({ color: 0x2f7fe0, transparent: true, opacity: 0.55, roughness: 0.2, metalness: 0.1, depthWrite: false }));
-water.rotation.x = -Math.PI / 2; water.visible = false; water.renderOrder = 1; scene3.add(water);
+water.visible = false; water.renderOrder = 1; water.frustumCulled = false; scene3.add(water);
+const marks = new THREE.Group(); scene3.add(marks);   // route, A / B, water sources
+function waterHeights(pos, k) {
+  const L = waterLevel(), g = groundGrid(), y0 = (L - data.gmin) * k;
+  for (let i = 0; i < pos.count; i++) pos.setY(i, data.reach[i] < L ? y0 : (g[i] - data.gmin - 1) * k);
+  pos.needsUpdate = true;
+}
+function updateWater() { if (data && water.visible && water.geometry.attributes.position) waterHeights(water.geometry.attributes.position, +$('exag').value); }
 
 function build3D() {
   const m = data.meta;
@@ -383,7 +478,8 @@ function build3D() {
     for (let yy = Math.max(0, y - 1); yy <= Math.min(gh - 1, y + 1); yy++)
       for (let xx = Math.max(0, x - 1); xx <= Math.min(gw - 1, x + 1); xx++) near[yy * gw + xx] = 1;
   scene3.add(mesh);
-  water.scale.set(W, H, 1);
+  water.geometry.dispose();
+  water.geometry = new THREE.PlaneGeometry(W, H, m.grid_w - 1, m.grid_h - 1).rotateX(-Math.PI / 2);
   resetNav();
   applyExag();
   overview();
@@ -398,9 +494,10 @@ function applyExag() {
   const n = mesh.geometry.attributes.normal, steep = new Float32Array(n.count);
   for (let i = 0; i < n.count; i++) steep[i] = data.nearBuilding[i] ? 1 - Math.abs(n.getY(i)) : 0;
   mesh.geometry.setAttribute('steep', new THREE.BufferAttribute(steep, 1));
-  water.position.y = +$('depth').value * k;
+  updateWater();
   clearPin();
   drawRoute();
+  drawMarks3D();
 }
 // building walls in plain grey: a top-down photo has no facade pixels, stretching roof pixels down looks wrong
 function greyWalls(sh) {
@@ -427,9 +524,10 @@ renderer.domElement.addEventListener('pointerup', e => {
   ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
   const hit = ray.intersectObject(mesh)[0];
   if (!hit) return clearPin();
-  if (nav.drawing) { nav.path.push(new THREE.Vector2(hit.point.x, hit.point.z)); drawRoute(); return showHint(); }
   const W = data.meta.width * data.meta.gsd, H = data.meta.height * data.meta.gsd;
   const hu = hit.point.x / W + 0.5, hv = hit.point.z / H + 0.5;
+  if (onPick(hu, hv)) return;
+  if (nav.drawing) { nav.path.push(new THREE.Vector2(hit.point.x, hit.point.z)); drawRoute(); return showHint(); }
 
   if (!marker) { marker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x3d9be9 })); scene3.add(marker); }
   marker.scale.setScalar(Math.max(W, H) / 250);
@@ -454,7 +552,9 @@ function blocked(x, z) { const [u, v] = uvOf(x, z); return u < 0 || u > 1 || v <
 function streetY(x, z) {   // eye height above the ground but never inside the modelled surface (cars, trees, blurred
   const k = +$('exag').value;  // building edges); on a flooded street you float at the water surface
   const y = Math.max(groundY(x, z) + EYE * k, surfaceY(x, z) + 0.5 * EYE * k);
-  return $('flood').checked ? Math.max(y, water.position.y + 0.8 * k) : y;
+  if (!$('flood').checked) return y;
+  const [u, v] = uvOf(x, z), L = waterLevel();
+  return data.reach[cellAt(u, v)] < L ? Math.max(y, (L - data.gmin + 0.8) * k) : y;
 }
 function aimPoint() {      // where the centre of the view meets the scene
   camera.updateMatrixWorld();
@@ -662,16 +762,17 @@ async function exportGLB() {   // the 3D model in true metres (no exaggeration),
   geo.computeVertexNormals();
   const group = new THREE.Group();
   group.add(new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ map: mesh.material.map, roughness: 1, metalness: 0 })));
-  if ($('flood').checked) {
-    const w = new THREE.Mesh(new THREE.PlaneGeometry(sceneW(), sceneH()).rotateX(-Math.PI / 2),
-      new THREE.MeshStandardMaterial({ color: 0x2f7fe0, transparent: true, opacity: 0.55 }));
-    w.position.y = +$('depth').value; w.name = 'water'; group.add(w);
+  let wg = null;
+  if ($('flood').checked) {   // water only where it reaches, true metres
+    wg = water.geometry.clone(); waterHeights(wg.attributes.position, 1);
+    const w = new THREE.Mesh(wg, new THREE.MeshStandardMaterial({ color: 0x2f7fe0, transparent: true, opacity: 0.55 }));
+    w.name = 'water'; group.add(w);
   }
   group.name = data.name;
   group.userData = { generator: 'DepthWizard (RS3DAda)', units: 'metre', y0_metres_above_sea_level: data.dtm ? data.gmin : null,
     axes: 'origin = image centre; x = image columns (east if north-up), z = image rows (south), y = up' };
   const glb = await new GLTFExporter().parseAsync(group, { binary: true });
-  geo.dispose();
+  geo.dispose(); wg?.dispose();
   return new Blob([glb], { type: 'model/gltf-binary' });
 }
 $('dl').onchange = async e => {
@@ -705,19 +806,22 @@ frame();
 // Uniform water depth above local ground (the model gives height above ground, so terrain is flat here).
 const FLOOD_RGBA = { water: [47, 127, 224, 170], sub: [229, 72, 77, 235], part: [245, 165, 36, 215] };
 function renderFlood() {
-  // Bathtub model: every ground point below the water level floods (no drainage or flow barriers).
+  // Water level L floods every cell whose reach (computeReach) is below L: all ground below L in the bathtub mode,
+  // only ground the water can flow to from the scene edges / picked points otherwise. No drainage or flow speed.
   const r = +$('depth').value, L = waterLevel(), m = data.meta, W = m.grid_w, H = m.grid_h;
   $('depthv').textContent = data.dtm ? `+${r.toFixed(1)} m (${L.toFixed(1)} m a.s.l.)` : `${r.toFixed(1)} m`;
   const cv = data.floodCv || (data.floodCv = Object.assign(document.createElement('canvas'), { width: W, height: H }));
   const ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), px = img.data;
   const state = data.buildings.map(b => blockState(b, L));
+  const arr = $('tarr').checked && data.tl && !$('timecard').hidden ? data.tl : null;   // "time until flooded" view
   let wetGround = 0, maxDepth = 0;
   for (let i = 0; i < data.grid.length; i++) {
-    const g = data.dtm ? data.dtm[i] : 0, id = data.bid[i];
-    if (g < L) { wetGround++; maxDepth = Math.max(maxDepth, L - g); }
+    const g = data.dtm ? data.dtm[i] : 0, id = data.bid[i], wet = data.reach[i] < L;
+    if (wet) { wetGround++; maxDepth = Math.max(maxDepth, L - g); }
     let c = null;
-    if (id > 0) { const st = state[id - 1]; if (st !== 'dry') c = st === 'sub' ? FLOOD_RGBA.sub : FLOOD_RGBA.part; }
-    else if (g + Math.max(0, data.grid[i]) < L) {           // water surface above ground, cars, low plants
+    if (arr) { const a = id > 0 ? arr.bArr[id] : arr.arrival[i]; if (a < NEVER) c = arrivalRGBA(a); }
+    else if (id > 0) { const st = state[id - 1]; if (st !== 'dry') c = st === 'sub' ? FLOOD_RGBA.sub : FLOOD_RGBA.part; }
+    else if (wet && g + Math.max(0, data.grid[i]) < L) {    // water surface above ground, cars, low plants
       const depth = L - g;
       c = [FLOOD_RGBA.water[0], FLOOD_RGBA.water[1], FLOOD_RGBA.water[2], Math.min(235, 110 + depth * 25)];
     }
@@ -733,7 +837,11 @@ function renderFlood() {
   const count = st => state.filter(x => x === st).length, nAll = data.buildings.length;
   // damage proxy: footprint × storeys under water at each block's own ground level
   const floorArea = data.buildings.reduce((sum, b) =>
-    sum + b.area_m2 * Math.min(b.floors, Math.max(0, L - blockGround(b)) / m.floor_m), 0);
+    sum + b.area_m2 * Math.min(b.floors, blockDepth(b, L) / m.floor_m), 0);
+  const mode = $('fsrc').value, nSrc = data.sources.length;
+  const model = mode === 'all' ? 'Bathtub model: all ground below the water level floods (no drainage or barriers).'
+    : mode === 'edges' ? 'Connected model: water comes in at the scene edges and floods only ground it can flow to; low spots behind higher ground stay dry (no drainage).'
+    : `Connected model: water spreads from the ${nSrc} point${nSrc === 1 ? '' : 's'} you placed and floods only ground it can flow to (no drainage).`;
   const cellM2 = (m.width * m.gsd / W) * (m.height * m.gsd / H), total = data.grid.length;
   $('floodcard').innerHTML = `<h3>Flood scenario</h3>
     <div class="big">${data.dtm ? L.toFixed(1) + ' m <span>water level above sea level</span>' : r.toFixed(1) + ' m <span>of water above ground</span>'}</div>
@@ -744,31 +852,773 @@ function renderFlood() {
     <div class="row"><span><i class="sw" style="background:#f5a524"></i>Partly flooded (roof above water)</span><b>${count('part')}</b></div>
     <div class="row"><span>Blocks still dry</span><b>${count('dry')}</b></div>
     <div class="row"><span>Floor area under water</span><b>≈ ${Math.round(floorArea).toLocaleString('en-IN')} m²</b></div>
-    <small>${nAll} building blocks from the model's land-cover head (attached buildings count as one), ~${m.floor_m} m per floor. `
-    + (data.dtm ? `Bathtub model: all ground below the water level floods (no drainage or barriers). Terrain: ${m.terrain.source} (30 m, about ±2–4 m)${laserShift() != null ? ', levelled to ICESat-2 laser points' : ''}.`
-                : 'No terrain for this image: flat ground and one uniform water depth.') + ' Heights carry ± model uncertainty.</small>';
+    ${mode === 'pick' ? `<div class="btns" style="margin-top:8px"><button id="fpick" class="${pick.mode === 'src' ? 'on' : ''}">${pick.mode === 'src' ? '✓ Done placing' : '＋ Place water sources'}</button>
+      <button id="fclear" ${nSrc ? '' : 'disabled'}>Clear sources</button></div>
+      ${nSrc ? '' : '<div class="msg warn">Click “Place water sources”, then click the map where water comes in (a river, a canal, a breached embankment).</div>'}` : ''}
+    <small>${nAll} building blocks from the model's land-cover head (attached buildings count as one), ~${m.floor_m} m per floor. ${model} `
+    + (data.dtm ? `Terrain: ${m.terrain.source} (30 m, about ±2–4 m)${laserShift() != null ? ', levelled to ICESat-2 laser points' : ''}.`
+                : 'No terrain for this image: flat ground and one uniform water depth.') + ' Heights carry ± model uncertainty. Hover or click a point to see the water level at which it floods.</small>';
+  drawOverlay();
 }
 function updateFlood() {
   const on = $('flood').checked;
   document.querySelectorAll('.cflood').forEach(n => n.hidden = !on);
-  $('floodcard').hidden = !on || !data; $('floodlegend').hidden = !on; $('gradlegend').hidden = on;
-  $('v2d').classList.toggle('flooding', on);
+  $('floodcard').hidden = !on || !data; $('gradlegend').hidden = on;
+  $('floodlegend').hidden = !on || ($('tarr').checked && !$('timecard').hidden);   // the timeline card has its own key
   $('layer').disabled = on; $('tex3d').disabled = on;
   water.visible = on;
+  if (!on) {
+    if (pick.mode === 'src') setPick(null);
+    if (!$('timecard').hidden && data) { data.tl = null; $('depth').value = data.tlStart; }
+    $('timecard').hidden = true; $('timebtn').classList.remove('on');
+  }
+  layoutCards();
   if (!data) return;
-  if (on) renderFlood();
-  water.position.y = +$('depth').value * +$('exag').value;   // mesh baseline (y = 0) is the lowest ground
+  if (on) renderFlood(); else drawOverlay();
+  updateWater();
   showLayer();
   if (mesh) { mesh.material.map.image = surfaceImage(); mesh.material.map.needsUpdate = true; }
+  drawMarks3D();
+  scheduleRoute();
+  scheduleSites();
 }
 $('flood').onchange = updateFlood;
-$('depth').oninput = updateFlood;
+$('depth').oninput = () => {   // the user sets the water level by hand: that is the timeline's new starting point
+  if (data) { data.tlStart = +$('depth').value; $('tt').value = 0; }
+  updateFlood();
+  if (!$('timecard').hidden) scheduleTimeline();
+};
+
+// ---------- connected flooding, route finder, rain & rise timeline ----------
+const NEVER = 65535;   // "never floods" in the hour-of-arrival grids
+const NX = [1, -1, 0, 0, 1, 1, -1, -1], NY = [0, 0, 1, -1, 1, -1, 1, -1];   // 4 straight neighbours first, then diagonals
+// share of rain that runs off, per land-cover class (typical rational-method coefficients), in the order of
+// infer_height.LANDCOVER: bareland, rangeland, developed, road, trees, water, agriculture, buildings
+const LC_RUNOFF = [0.5, 0.35, 0.8, 0.9, 0.2, 1.0, 0.3, 0.9];
+// travel cost per land-cover class (1 = paved road), slope penalty (cost × 1 + slope / s), limits, speed (m/s)
+const TRAVEL = {
+  foot: { lc: [1.2, 1.3, 1.15, 1, 1.3, Infinity, 1.5, 2], slope: 15, maxSlope: 30, speed: 1.2, depth: 0.5 },
+  car:  { lc: [3, 4, 2.5, 1, 2.5, Infinity, 6, 6], slope: 8, maxSlope: 15, speed: 5.5, depth: 0.3 },
+};
+class MinHeap {   // binary min-heap of grid cells keyed by a float; callers skip stale entries
+  constructor() { this.k = new Float64Array(1 << 16); this.v = new Int32Array(1 << 16); this.n = 0; }
+  push(key, val) {
+    if (this.n === this.k.length) {
+      const k = new Float64Array(this.n * 2), v = new Int32Array(this.n * 2);
+      k.set(this.k); v.set(this.v); this.k = k; this.v = v;
+    }
+    let i = this.n++;
+    while (i > 0) { const p = (i - 1) >> 1; if (this.k[p] <= key) break; this.k[i] = this.k[p]; this.v[i] = this.v[p]; i = p; }
+    this.k[i] = key; this.v[i] = val;
+  }
+  pop() {         // → cell; this.key = its key
+    const top = this.v[0]; this.key = this.k[0];
+    const key = this.k[--this.n], val = this.v[this.n];
+    let i = 0;
+    for (;;) {
+      let c = 2 * i + 1;
+      if (c >= this.n) break;
+      if (c + 1 < this.n && this.k[c + 1] < this.k[c]) c++;
+      if (this.k[c] >= key) break;
+      this.k[i] = this.k[c]; this.v[i] = this.v[c]; i = c;
+    }
+    this.k[i] = key; this.v[i] = val;
+    return top;
+  }
+}
+function groundGrid() { return data.dtm || data.flat || (data.flat = new Float32Array(data.grid.length)); }
+function cellArea() { const m = data.meta; return (m.width * m.gsd / m.grid_w) * (m.height * m.gsd / m.grid_h); }
+function curLevel() { return $('flood').checked ? waterLevel() : -Infinity; }
+
+// data.reach[i] = the lowest water level at which cell i is under water. Bathtub: its own ground. Connected: water
+// spreads from the sources (scene edges or picked points) and passes a cell once it rises above that cell's ground,
+// so reach = the lowest "highest ground on the way" over all paths from a source (priority flood, 4-connected so a
+// one-cell embankment is not leaked through diagonally).
+function computeReach() {
+  const m = data.meta, W = m.grid_w, H = m.grid_h, N = W * H, g = groundGrid(), mode = $('fsrc').value;
+  const reach = data.reach = mode === 'all' ? Float32Array.from(g) : new Float32Array(N).fill(Infinity);
+  if (mode !== 'all') {
+    const heap = new MinHeap(), seed = i => { if (g[i] < reach[i]) { reach[i] = g[i]; heap.push(g[i], i); } };
+    if (mode === 'edges') {
+      for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
+      for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + W - 1); }
+    } else for (const i of data.sources) seed(i);
+    while (heap.n) {
+      const i = heap.pop(), k = heap.key;
+      if (k > reach[i]) continue;
+      const x = i % W, y = (i - x) / W;
+      for (let d = 0; d < 4; d++) {
+        const nx = x + NX[d], ny = y + NY[d];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny * W + nx, nk = Math.max(k, g[j]);
+        if (nk < reach[j]) { reach[j] = nk; heap.push(nk, j); }
+      }
+    }
+  }
+  const br = data.blockReach = new Float32Array(data.buildings.length + 1).fill(Infinity);   // per block: its lowest cell
+  for (let i = 0; i < N; i++) { const id = data.bid[i]; if (id > 0 && reach[i] < br[id]) br[id] = reach[i]; }
+  data.vol = null;
+}
+function reachChanged() {
+  computeReach();
+  if ($('flood').checked) updateFlood(); else drawOverlay();
+  if (!$('timecard').hidden) runTimeline();
+}
+function floodText(u, v, sep) {   // hover / click: when does this point go under?
+  if (!$('flood').checked || !data.reach) return '';
+  const i = cellAt(u, v), r = data.reach[i], L = waterLevel();
+  if (data.bid[i] > 0) return '';   // buildings: see the block text
+  if (!(r < Infinity)) return `${sep}water from the chosen source cannot reach here`;
+  let t = r < L ? `${sep}under ${(L - groundGrid()[i]).toFixed(1)} m of water`
+    : `${sep}floods when the water reaches +${(r - data.gmin).toFixed(1)} m (${(r - L).toFixed(1)} m above now)`;
+  if (data.tl) { const a = data.tl.arrival[i]; t += a === 0 ? '' : a < NEVER ? ` · timeline: ${fmtWhen(a)}` : ' · timeline: stays dry'; }
+  return t;
+}
+$('fsrc').onchange = e => {
+  e.target.blur();
+  if (!data) return;
+  if (e.target.value === 'pick' && !data.sources.length) setPick('src'); else if (pick.mode === 'src') setPick(null);
+  reachChanged();
+};
+$('floodcard').onclick = e => {
+  if (!data) return;
+  if (e.target.id === 'fpick') { setPick(pick.mode === 'src' ? null : 'src'); renderFlood(); }
+  if (e.target.id === 'fclear') { data.sources = []; reachChanged(); }
+};
+
+// ----- click tools: route ends and water sources, on the 2D map or the 3D scene -----
+const pick = { mode: null };   // 'A' / 'B' route ends, 'src' water sources
+function setPick(mode) {
+  pick.mode = mode;
+  $('rpickA').classList.toggle('on', mode === 'A'); $('rpickB').classList.toggle('on', mode === 'B');
+  $('wrap').style.cursor = mode ? 'copy' : '';
+  showHint(mode === 'src' ? 'Click where water comes in (river, canal, breached embankment) · <b>✓ Done placing</b> when finished'
+    : mode ? `Click the scene to place <b>${mode}</b>` : undefined);
+  routeMsg();
+}
+function onPick(u, v) {        // → true if the click was used by a tool
+  if (!pick.mode || !data || u < 0 || u > 1 || v < 0 || v > 1) return false;
+  const i = cellAt(u, v), R = data.route;
+  if (pick.mode === 'src') { data.sources.push(i); reachChanged(); return true; }
+  if (pick.mode === 'A') {
+    R.a = i;
+    if (R.kind !== 'safe') R.kind = R.b != null ? 'ab' : null;
+    setPick(R.kind || R.b != null ? null : 'B');
+  } else { R.b = i; R.kind = 'ab'; setPick(null); }
+  updateRoute();
+  return true;
+}
+function layoutCards() {
+  const any = !$('cards').hidden && [...$('cards').children].some(c => !c.hidden);
+  document.querySelector('.stage').classList.toggle('cardson', any);
+}
+
+// ----- route finder: A* on the grid (8-connected), cost = distance × land cover × slope × water depth -----
+function travelCost(L) {       // per cell: cost factor (1 = dry paved road, Infinity = impassable) and water depth at level L
+  const N = data.grid.length, tr = TRAVEL[$('rmode').value], maxD = Math.max(0, +$('rdepth').value || 0), g = groundGrid();
+  const f = new Float32Array(N), depth = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    const lc = data.lc ? data.lc[i] : 2;
+    if (data.bid[i] > 0 || (lc === 7 && data.grid[i] > 2.5)) { f[i] = Infinity; continue; }   // buildings
+    let c = data.lc ? tr.lc[lc] : 1.2;
+    if (data.slope) { const s = data.slope[i]; c = s > tr.maxSlope ? Infinity : c * (1 + s / tr.slope); }
+    if (data.reach[i] < L) { const d = depth[i] = L - g[i]; c = d > maxD ? Infinity : c * (1 + 3 * d / Math.max(0.05, maxD)); }
+    f[i] = c;
+  }
+  return { f, depth };
+}
+function nearestOpen(i, f) {   // a route end placed on a roof or in deep water: nearest cell you can stand on
+  if (f[i] < Infinity) return i;
+  const W = data.meta.grid_w, H = data.meta.grid_h, x0 = i % W, y0 = (i - x0) / W;
+  for (let r = 1; r < 60; r++)
+    for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+      if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+      const x = x0 + dx, y = y0 + dy;
+      if (x >= 0 && y >= 0 && x < W && y < H && f[y * W + x] < Infinity) return y * W + x;
+    }
+  return -1;
+}
+// a → b, or (target given) a → the nearest cell where target(cell) is truthy (Dijkstra). null if there is no way.
+function findRoute(a, b, L, target) {
+  const m = data.meta, W = m.grid_w, H = m.grid_h, N = W * H, tr = TRAVEL[$('rmode').value], maxD = +$('rdepth').value;
+  const dx = m.width * m.gsd / W, dy = m.height * m.gsd / H, dd = Math.hypot(dx, dy);
+  const { f, depth } = travelCost(L);
+  const s = nearestOpen(a, f), e = target ? -1 : nearestOpen(b, f);
+  if (s < 0 || (!target && e < 0)) return null;
+  const ex = e % W, ey = (e - ex) / W;   // heuristic: straight-line distance (cost factors are all ≥ 1)
+  const hfn = target ? () => 0 : i => { const x = i % W, y = (i - x) / W; return Math.hypot((x - ex) * dx, (y - ey) * dy); };
+  const cost = new Float64Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), heap = new MinHeap();
+  cost[s] = 0; heap.push(hfn(s), s);
+  let end = -1, hit = null;
+  while (heap.n) {
+    const i = heap.pop();
+    if (heap.key > cost[i] + hfn(i) + 1e-6) continue;
+    if (target ? (hit = target(i)) : i === e) { end = i; break; }
+    const x = i % W, y = (i - x) / W;
+    for (let d = 0; d < 8; d++) {
+      const nx = x + NX[d], ny = y + NY[d];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const j = ny * W + nx;
+      if (!(f[j] < Infinity)) continue;
+      if (d >= 4 && !(f[y * W + nx] < Infinity && f[ny * W + x] < Infinity)) continue;   // no slipping between two blocked cells
+      const c = cost[i] + (d < 4 ? (NX[d] ? dx : dy) : dd) * (f[i] + f[j]) / 2;
+      if (c < cost[j]) { cost[j] = c; from[j] = i; heap.push(c + hfn(j), j); }
+    }
+  }
+  if (end < 0) return null;
+  const path = [];
+  for (let i = end; i >= 0; i = from[i]) path.push(i);
+  path.reverse();
+  let len = 0, time = 0, wetLen = 0, roadLen = 0, maxDepth = depth[s];
+  for (let k = 1; k < path.length; k++) {
+    const i = path[k - 1], j = path[k], xi = i % W, xj = j % W;
+    const seg = Math.hypot((xi - xj) * dx, ((i - xi) / W - (j - xj) / W) * dy), dep = Math.max(depth[i], depth[j]);
+    len += seg; time += seg / tr.speed * (1 + 2 * dep / Math.max(0.05, maxD));   // wading / driving through water is slower
+    if (dep > 0) wetLen += seg;
+    if (data.lc && data.lc[j] === 3) roadLen += seg;
+    maxDepth = Math.max(maxDepth, depth[j]);
+  }
+  return { path, len, time, wetLen, roadLen, maxDepth, depth, end, target: hit, snapped: s !== a || (!target && e !== b) };
+}
+function safeTarget(L) {       // high ground ≥ 1 m above the water, or next to a block with a whole floor above it
+  const W = data.meta.grid_w, H = data.meta.grid_h, fl = data.meta.floor_m, refuge = $('rbuild').checked;
+  const tall = id => { const b = data.buildings[id - 1], g = blockGround(b); return g + b.height_m >= Math.max(L, g) + fl; };
+  return i => {
+    if (data.reach[i] >= L + 1) return 'ground';
+    if (!refuge) return null;
+    const x = i % W, y = (i - x) / W;
+    for (let d = 0; d < 4; d++) {
+      const nx = x + NX[d], ny = y + NY[d];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const id = data.bid[ny * W + nx];
+      if (id > 0 && tall(id)) return id;
+    }
+    return null;
+  };
+}
+function updateRoute() {
+  if (!data) return;
+  const R = data.route, L = curLevel();
+  R.res = null; R.why = '';
+  if (!$('routecard').hidden && R.a != null) {
+    if (R.kind === 'ab' && R.b != null) {
+      R.res = findRoute(R.a, R.b, L);
+      if (!R.res) R.why = L > -Infinity && findRoute(R.a, R.b, -Infinity)
+        ? `No route at this water level: water deeper than ${$('rdepth').value} m blocks every way (a dry-weather route exists).`
+        : 'No route: buildings, water bodies or steep ground block every way between A and B inside this scene.';
+    }
+    if (R.kind === 'safe' && L > -Infinity) {
+      R.res = findRoute(R.a, -1, L, safeTarget(L));
+      if (!R.res) R.why = 'No safe place can be reached from A at this water level inside this scene.';
+    }
+  }
+  routeMsg(); drawOverlay(); drawMarks3D();
+  if (data.tl) renderTimelineOut();
+}
+let routeTimer = 0;
+function scheduleRoute() { clearTimeout(routeTimer); routeTimer = setTimeout(updateRoute, 150); }
+function safeBlockText(id) {
+  const b = data.buildings[id - 1], g = blockGround(b), L = waterLevel();
+  const dry = Math.min(b.floors, Math.floor((g + b.height_m - Math.max(L, g)) / data.meta.floor_m));
+  return `building, ~${b.floors} floor${b.floors > 1 ? 's' : ''}, ${dry} above water`;
+}
+function routeMsg() {
+  if (!data) return;
+  const R = data.route, res = R.res, el = $('rout'), how = $('rmode').value === 'car' ? 'by car' : 'on foot';
+  if (pick.mode === 'A') return void (el.innerHTML = 'Click the map (2D or 3D) to place <b>A</b>, the start.');
+  if (pick.mode === 'B') return void (el.innerHTML = 'Click the map to place <b>B</b>, the destination.');
+  if (R.a == null || !R.kind) return void (el.innerHTML = 'Set <b>A</b> and <b>B</b>, or A and <b>Nearest safe place</b>. '
+    + 'Routes avoid buildings, water bodies, steep ground and water deeper than the limit, and prefer roads.');
+  if (R.kind === 'safe' && !$('flood').checked) return void (el.innerHTML = '<span class="warn">Turn on Flood and set the water level to look for safe places.</span>');
+  if (!res) return void (el.innerHTML = `<span class="warn">${R.why || 'No route found.'}</span>`);
+  const min = res.time / 60;
+  let t = `<div class="big" style="font-size:18px">${res.len < 1000 ? Math.round(res.len) + ' m' : (res.len / 1000).toFixed(2) + ' km'}
+    <span>≈ ${min < 1 ? '<1' : Math.round(min)} min ${how}</span></div>`;
+  if (R.kind === 'safe') t += `<div class="row"><span>Safe place ★</span><b>${res.target === 'ground' ? 'ground ≥ 1 m above water' : safeBlockText(res.target)}</b></div>`;
+  if ($('flood').checked) t += `<div class="row"><span>Through water</span><b>${Math.round(res.wetLen)} m · deepest ${res.maxDepth.toFixed(2)} m</b></div>`;
+  if (data.lc) t += `<div class="row"><span>On roads</span><b>${Math.round(100 * res.roadLen / Math.max(1, res.len))}%</b></div>`;
+  if (res.snapped) t += '<div class="msg">A point was on a building or in deep water; the route uses the nearest spot you can stand on.</div>';
+  const dl = ensureDeadline();
+  if (dl) t += `<div class="msg">${dl}</div>`;
+  el.innerHTML = t + '<small>Green = dry, blue = through water. Water depths come from the 30 m terrain (about ±2–4 m) and roads from the model\'s land cover: check on the ground before relying on a route.</small>';
+}
+function routeCells(path, every) {   // grid cells → scene x / z
+  const W = data.meta.grid_w, H = data.meta.grid_h;
+  return path.filter((_, k) => k % every === 0 || k === path.length - 1).map(i => {
+    const x = i % W, y = (i - x) / W;
+    return [(x / (W - 1) - 0.5) * sceneW(), (y / (H - 1) - 0.5) * sceneH()];
+  });
+}
+$('routebtn').onclick = e => {
+  e.target.blur();
+  const on = $('routecard').hidden;
+  $('routecard').hidden = !on; $('routebtn').classList.toggle('on', on);
+  layoutCards();
+  if (!data) return;
+  if (on && data.route.a == null) setPick('A'); else if (!on && pick.mode !== 'src') setPick(null);
+  updateRoute();
+};
+$('rpickA').onclick = () => setPick(pick.mode === 'A' ? null : 'A');
+$('rpickB').onclick = () => setPick(pick.mode === 'B' ? null : 'B');
+$('rsafe').onclick = () => {
+  if (!data) return;
+  data.route.kind = 'safe';
+  if (data.route.a == null) return setPick('A');
+  setPick(null); updateRoute();
+};
+$('rclear').onclick = () => { if (!data) return; data.route = { a: null, b: null, kind: null, res: null }; setPick('A'); updateRoute(); };
+$('rmode').onchange = e => { e.target.blur(); $('rdepth').value = TRAVEL[e.target.value].depth; updateRoute(); };
+$('rdepth').oninput = scheduleRoute;
+$('rbuild').onchange = updateRoute;
+$('rfly').onclick = () => {    // fly the route at street level
+  const res = data && data.route.res;
+  if (!res || res.path.length < 2) return;
+  const cell = Math.sqrt(cellArea());
+  document.querySelector('.tabs [data-v=v3d]').click();
+  if (nav.drawing) togglePath();
+  setCam('street');
+  nav.path = routeCells(res.path, Math.max(1, Math.round(6 / cell))).map(([x, z]) => new THREE.Vector2(x, z));
+  drawRoute(); playPath(false);
+};
+
+// ----- drawing: 2D overlay canvas and 3D markers -----
+function drawOverlay() {
+  if (!data) return;
+  const c = $('ovl'), m = data.meta, W = m.grid_w, H = m.grid_h, s = 2;
+  if (c.width !== W * s || c.height !== H * s) { c.width = W * s; c.height = H * s; }
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+  const xy = i => [(i % W + 0.5) * s, (Math.floor(i / W) + 0.5) * s];
+  const R = data.route, routeOn = !$('routecard').hidden, S = !$('sitecard').hidden && data.sites;
+  const label = (x, y, txt, col) => {
+    ctx.font = 'bold 17px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)'; ctx.strokeText(txt, x, y); ctx.fillStyle = col; ctx.fillText(txt, x, y);
+  };
+  if (S) {
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(S.campCv, 0, 0, c.width, c.height);
+    const rpx = S.R / (m.width * m.gsd / W) * s;
+    S.pads.forEach((p, k) => {
+      const [x, y] = xy(p.cell);
+      ctx.beginPath(); ctx.arc(x, y, rpx, 0, 2 * Math.PI); ctx.fillStyle = 'rgba(255,212,0,.18)'; ctx.fill();
+      ctx.setLineDash([8, 6]); ctx.lineWidth = 3; ctx.strokeStyle = '#ffd400'; ctx.stroke(); ctx.setLineDash([]);
+      label(x, y, `H${k + 1}`, '#ffd400');
+    });
+    S.camps.forEach((cp, k) => {   // camp label; moved below a helipad circle drawn at the same spot
+      let [x, y] = xy(cp.cell);
+      const pad = S.pads.find(p => { const [px, py] = xy(p.cell); return Math.hypot(px - x, py - y) < rpx + 12; });
+      if (pad) { const [px, py] = xy(pad.cell); x = px; y = py + rpx + 14; }
+      label(x, y, `C${k + 1}`, '#4fe08a');
+    });
+  }
+  if (routeOn && R.res) {
+    const p = R.res.path, line = (from, to, w, col) => {
+      ctx.beginPath();
+      for (let k = from; k <= to; k++) { const [x, y] = xy(p[k]); k === from ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke();
+    };
+    ctx.lineJoin = ctx.lineCap = 'round';
+    line(0, p.length - 1, 8, 'rgba(0,0,0,.6)');
+    line(0, p.length - 1, 4, '#4fe08a');
+    for (let k = 1; k < p.length; k++)   // stretches through water in blue
+      if (R.res.depth[p[k]] > 0 || R.res.depth[p[k - 1]] > 0) line(k - 1, k, 4, '#3da5ff');
+  }
+  const dot = (i, col, label) => {
+    const [x, y] = xy(i);
+    ctx.beginPath(); ctx.arc(x, y, 15, 0, 2 * Math.PI); ctx.fillStyle = col; ctx.fill();
+    ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 17px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(label, x, y + 0.5);
+  };
+  if ($('flood').checked && $('fsrc').value === 'pick') for (const i of data.sources) dot(i, '#2f7fe0', '≈');
+  if (routeOn) {
+    if (R.a != null) dot(R.a, '#2e9e5b', 'A');
+    if (R.kind === 'ab' && R.b != null) dot(R.b, '#d64545', 'B');
+    if (R.kind === 'safe' && R.res) dot(R.res.end, '#e08a00', '★');
+  }
+}
+function drawMarks3D() {
+  for (const o of marks.children) { o.geometry.dispose(); o.material.dispose(); }
+  marks.clear();
+  if (!data || !mesh) return;
+  const m = data.meta, W = m.grid_w, k = +$('exag').value, L = curLevel(), r = sceneS() / 160, R = data.route;
+  const at = (x, z) => {         // on the surface, or on the water where it is flooded
+    const i = cellAt(x / sceneW() + 0.5, z / sceneH() + 0.5);
+    return Math.max(surfaceY(x, z), data.reach[i] < L ? (L - data.gmin) * k : -Infinity);
+  };
+  const ball = (i, color) => {
+    const [[x, z]] = routeCells([i], 1), b = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color }));
+    b.position.set(x, at(x, z) + r, z); marks.add(b);
+  };
+  if ($('flood').checked && $('fsrc').value === 'pick') for (const i of data.sources) ball(i, 0x2f7fe0);
+  const S = !$('sitecard').hidden && data.sites;
+  if (S) {
+    for (const p of S.pads) {
+      const [[x, z]] = routeCells([p.cell], 1), ring = new THREE.Mesh(new THREE.RingGeometry(S.R * 0.88, S.R, 64).rotateX(-Math.PI / 2),
+        new THREE.MeshBasicMaterial({ color: 0xffd400, side: THREE.DoubleSide }));
+      ring.position.set(x, at(x, z) + 0.3 * k, z); marks.add(ring);
+    }
+    for (const cp of S.camps) {
+      const [[x, z]] = routeCells([cp.cell], 1), cone = new THREE.Mesh(new THREE.ConeGeometry(r, r * 3, 16).rotateX(Math.PI), new THREE.MeshBasicMaterial({ color: 0x4fe08a }));
+      cone.position.set(x, at(x, z) + r * 2, z); marks.add(cone);
+    }
+  }
+  if ($('routecard').hidden) return;
+  if (R.res && R.res.path.length > 1) {
+    const pts = routeCells(R.res.path, 3).map(([x, z]) => new THREE.Vector3(x, at(x, z) + r * 0.5, z));
+    if (pts.length > 1)
+      marks.add(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), pts.length * 3, r * 0.35, 6, false),
+                               new THREE.MeshBasicMaterial({ color: 0x4fe08a })));
+  }
+  if (R.a != null) ball(R.a, 0x2e9e5b);
+  if (R.kind === 'ab' && R.b != null) ball(R.b, 0xd64545);
+  if (R.kind === 'safe' && R.res) ball(R.res.end, 0xe08a00);
+}
+
+// ----- rain & rise timeline -----
+// One water level for the flooded area, stepped hourly. Water from outside (river / sea) rises at the rate entered;
+// rain adds volume = rain × runoff coefficient (from land cover) × area draining here, minus what the drains carry
+// away; that volume spreads over the ground the water can reach, filling the lowest first: V(L) = Σ (L − ground)
+// over cells with reach < L. A scenario tool, not a forecast: no flow speed, blocked drains or soil saturation.
+const ARR_KEYS = [[0, 'under water at the start', [73, 0, 106]], [6, 'within 6 h', [215, 48, 31]], [12, '6–12 h', [252, 141, 89]],
+                  [24, '12–24 h', [253, 204, 138]], [48, 'day 2', [166, 189, 219]], [Infinity, 'later', [116, 169, 207]]];
+function arrivalRGBA(a) { return [...ARR_KEYS.find(([t]) => a <= t)[2], 215]; }
+function volumeTable() {       // cells sorted by reach + running sums of their ground → V(L) in O(log N)
+  if (data.vol) return data.vol;
+  const r = data.reach, g = groundGrid(), N = r.length;
+  const idx = new Uint32Array(N);
+  for (let i = 0; i < N; i++) idx[i] = i;
+  idx.sort((a, b) => r[a] < r[b] ? -1 : r[a] > r[b] ? 1 : 0);
+  let M = 0;
+  while (M < N && r[idx[M]] < Infinity) M++;
+  const rs = new Float64Array(M), G = new Float64Array(M + 1);
+  for (let k = 0; k < M; k++) { rs[k] = r[idx[k]]; G[k + 1] = G[k] + g[idx[k]]; }
+  return data.vol = { rs, G, M, cell: cellArea() };
+}
+function wetCount(T, L) { let lo = 0, hi = T.M; while (lo < hi) { const mid = (lo + hi) >> 1; if (T.rs[mid] < L) lo = mid + 1; else hi = mid; } return lo; }
+function volAt(T, L) { const n = wetCount(T, L); return T.cell * (n * L - T.G[n]); }   // m³ of water at level L
+function levelFor(T, V, Lmin) {  // lowest level ≥ Lmin that holds V m³
+  if (!T.M || V <= volAt(T, Lmin)) return Lmin;
+  let lo = Lmin, step = 0.5, hi = Lmin + step;
+  while (volAt(T, hi) < V) { lo = hi; step *= 2; hi += step; }
+  for (let it = 0; it < 50; it++) { const mid = (lo + hi) / 2; if (volAt(T, mid) < V) lo = mid; else hi = mid; }
+  return hi;
+}
+function runoffCoef() {
+  if (data.runoffC != null) return data.runoffC;
+  if (!data.lc) return data.runoffC = 0.7;
+  let s = 0;
+  for (const c of data.lc) s += LC_RUNOFF[c] ?? 0.7;
+  return data.runoffC = s / data.lc.length;
+}
+function rainSeries(T) {       // mm per hour for each hour of the run
+  const P = new Float32Array(T);
+  if (data.forecast) for (let h = 0; h < T; h++) P[h] = data.forecast.mm[h] ?? 0;
+  else {
+    const rate = Math.max(0, +$('train').value || 0), hrs = Math.max(0, +$('thours').value || 0);
+    for (let h = 0; h < T; h++) P[h] = !hrs || h < hrs ? rate : 0;
+  }
+  return P;
+}
+function clockAt(h) {
+  return new Date(data.tl.base + h * 3600e3).toLocaleString('en-IN', { weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false });
+}
+function fmtWhen(h) { return `in ≈ ${h < 48 ? h + ' h' : (h / 24).toFixed(1) + ' days'} (${clockAt(h)})`; }
+function imdClass(mm) {       // IMD categories for 24-hour rainfall
+  return mm >= 204.5 ? 'extremely heavy' : mm >= 115.6 ? 'very heavy' : mm >= 64.5 ? 'heavy' : mm >= 15.6 ? 'moderate'
+    : mm >= 2.5 ? 'light' : mm > 0 ? 'very light' : 'no rain';
+}
+let tlTimer = 0;
+function scheduleTimeline() { clearTimeout(tlTimer); tlTimer = setTimeout(runTimeline, 250); }
+function runTimeline() {
+  if (!data || $('timecard').hidden) return;
+  const days = Math.min(16, Math.max(1, Math.round(+$('tdays').value || 3))), T = days * 24;
+  const Tb = volumeTable(), N = data.reach.length, A = N * Tb.cell, C = runoffCoef();
+  const D = Math.max(0, +$('tdrain').value || 0), up = Math.max(1, +$('tup').value || 1), rise = (+$('trise').value || 0) / 24;
+  const P = rainSeries(T), L0 = data.gmin + data.tlStart;
+  const L = new Float64Array(T + 1), Lmax = new Float64Array(T + 1);
+  L[0] = Lmax[0] = L0;
+  let Vr = 0;                   // rain water standing on the ground (m³)
+  for (let h = 0; h < T; h++) {
+    const e = P[h] * C - D;     // mm/h of runoff the drains cannot take; negative = drains have spare capacity
+    Vr = Math.max(0, Vr + (e > 0 ? up * e : e) * A / 1000);
+    const Le = L0 + rise * (h + 1);
+    L[h + 1] = levelFor(Tb, volAt(Tb, Le) + Vr, Le);
+    Lmax[h + 1] = Math.max(Lmax[h], L[h + 1]);
+  }
+  const first = lv => {         // first hour the water (highest so far) passes level lv
+    if (!(Lmax[T] > lv)) return NEVER;
+    let lo = 0, hi = T;
+    while (lo < hi) { const mid = (lo + hi) >> 1; if (Lmax[mid] > lv) hi = mid; else lo = mid + 1; }
+    return lo;
+  };
+  const arrival = new Uint16Array(N);
+  for (let i = 0; i < N; i++) arrival[i] = first(data.reach[i]);
+  const bArr = new Uint16Array(data.buildings.length + 1).fill(NEVER);
+  for (const b of data.buildings) bArr[b.id] = first($('fsrc').value === 'all' ? blockGround(b) : Math.max(blockGround(b), data.blockReach[b.id]));
+  const base = data.forecast ? new Date(data.forecast.start).getTime() : (() => { const d = new Date(); d.setMinutes(0, 0, 0); return d.getTime(); })();
+  data.tl = { L, Lmax, P, T, days, C, D, up, arrival, bArr, base };
+  $('tt').max = T;
+  if (+$('tt').value > T) $('tt').value = T;
+  renderTimelineOut();
+  applyTime(+$('tt').value);
+}
+function applyTime(h) {        // show the flood at hour h of the run
+  const tl = data.tl;
+  h = Math.min(tl.T, Math.max(0, h));
+  const rise = Math.max(0, tl.L[h] - data.gmin);
+  if (rise > +$('depth').max) $('depth').max = Math.ceil(rise + 1);
+  $('depth').value = rise;
+  $('ttv').textContent = h ? `+${h} h · ${clockAt(h)}` : 'now';
+  updateFlood();
+  drawChart(h);
+}
+function drawChart(h) {        // rain bars on top, water level line below, cursor at the shown hour
+  const tl = data.tl, T = tl.T, w = 272, ht = 84, top = 20, bot = 12;
+  const rises = Array.from(tl.L, l => l - data.gmin), lo = Math.min(...rises), hi = Math.max(lo + 0.5, ...rises);
+  const pmax = Math.max(1, ...tl.P), x = t => 4 + t / T * (w - 8), y = r => top + (1 - (r - lo) / (hi - lo)) * (ht - top - bot);
+  let s = '';
+  for (let d = 1; d < tl.days; d++) s += `<line x1="${x(d * 24)}" x2="${x(d * 24)}" y1="0" y2="${ht}" stroke="#2a343f"/>`;
+  tl.P.forEach((p, t) => { if (p > 0) s += `<rect x="${x(t)}" y="${top - 2 - p / pmax * 16}" width="${Math.max(1, (w - 8) / T)}" height="${p / pmax * 16}" fill="#6aa9e9"/>`; });
+  s += `<polyline fill="none" stroke="#e6edf3" stroke-width="1.6" points="${rises.map((r, t) => `${x(t).toFixed(1)},${y(r).toFixed(1)}`).join(' ')}"/>`;
+  s += `<line x1="${x(h)}" x2="${x(h)}" y1="0" y2="${ht}" stroke="#f5a524" stroke-width="1.5"/>`;
+  s += `<text x="${w - 4}" y="9" fill="#8b98a5" font-size="9" text-anchor="end">rain, max ${pmax.toFixed(0)} mm/h</text>`
+     + `<text x="${w - 4}" y="${ht - 2}" fill="#8b98a5" font-size="9" text-anchor="end">water +${lo.toFixed(1)} → +${hi.toFixed(1)} m</text>`;
+  $('tchart').innerHTML = `<svg viewBox="0 0 ${w} ${ht}" width="${w}" height="${ht}">${s}</svg>`;
+}
+function routeDeadline() {     // last hour the A → B route still exists, as the water keeps rising
+  const R = data.route, tl = data.tl, ok = h => !!findRoute(R.a, R.b, tl.Lmax[h]);
+  const who = $('rmode').value === 'car' ? 'cars' : 'people on foot';
+  if (!ok(0)) return `<b>Route A → B is already blocked</b> for ${who} at the starting water level.`;
+  if (ok(tl.T)) return `Route A → B stays open for ${who} for the whole ${tl.days}-day period.`;
+  let lo = 0, hi = tl.T;
+  while (hi - lo > 1) { const mid = (lo + hi) >> 1; if (ok(mid)) lo = mid; else hi = mid; }
+  return `<b>Route A → B stays open until ≈ ${clockAt(hi)}</b> (+${hi} h) for ${who}; after that water deeper than ${$('rdepth').value} m blocks every way.`;
+}
+function ensureDeadline() {    // cached per route / travel mode / timeline run
+  const R = data.route, tl = data.tl;
+  if (!tl || $('routecard').hidden || R.kind !== 'ab' || R.a == null || R.b == null) return '';
+  const key = [R.a, R.b, $('rmode').value, $('rdepth').value].join();
+  if (tl.dlKey !== key) { tl.dlKey = key; tl.deadline = routeDeadline(); }
+  return tl.deadline;
+}
+function renderTimelineOut() {
+  const tl = data.tl, Tb = data.vol, ha = n => (n * Tb.cell / 1e4).toFixed(1);
+  let total = 0, run = 0, max24 = 0;
+  for (let h = 0; h < tl.T; h++) { total += tl.P[h]; run += tl.P[h] - (h >= 24 ? tl.P[h - 24] : 0); max24 = Math.max(max24, run); }
+  let peakH = 0;
+  for (let h = 1; h <= tl.T; h++) if (tl.L[h] > tl.L[peakH]) peakH = h;
+  const rows = [];
+  for (let d = 0; d <= tl.days; d++) {
+    const h = d * 24, L = tl.L[h];
+    rows.push(`<tr><td>${d ? `+${d} d · ${clockAt(h)}` : 'Now'}</td><td>+${(L - data.gmin).toFixed(2)} m</td><td>${ha(wetCount(Tb, L))} ha</td>`
+      + `<td>${tl.bArr.reduce((n, a, id) => n + (id > 0 && a <= h ? 1 : 0), 0)}</td></tr>`);
+  }
+  const fc = data.forecast, dl = ensureDeadline();
+  $('tout').innerHTML = (Tb.M ? '' : '<div class="msg warn">Place water sources first: the water has nowhere to go.</div>')
+    + `<div class="row"><span>Rain in ${tl.days} days</span><b>${total.toFixed(0)} mm</b></div>`
+    + `<div class="row"><span>Max 24 h</span><b>${max24.toFixed(0)} mm · IMD ${imdClass(max24)}</b></div>`
+    + `<div class="row"><span>Peak water</span><b>+${(tl.L[peakH] - data.gmin).toFixed(2)} m${peakH ? ` at +${peakH} h` : ' (now)'}</b></div>`
+    + (dl ? `<div class="msg">${dl}</div>` : '')
+    + `<table><tr><th>When</th><th>Water</th><th>Flooded</th><th>Blocks wet</th></tr>${rows.join('')}</table>`
+    + `<small>Runoff coefficient ${tl.C.toFixed(2)} (${data.lc ? 'from the model\'s land cover' : 'default'}); drains take ${tl.D} mm/h; `
+    + `area draining here ×${tl.up}. ${fc && fc.mm.length < tl.T ? `The forecast covers ${fc.mm.length} h; no rain is assumed after that. ` : ''}`
+    + 'Scenario, not a forecast: one water level over the flooded area, no flow speed, blocked drains or soaked soil; '
+    + 'water from outside the image comes only from the river rise you enter. Terrain is 30 m (about ±2–4 m).</small>';
+  $('tkeys').hidden = !$('tarr').checked;
+  $('tkeys').innerHTML = ARR_KEYS.map(([, l, c]) => `<span><i class="sw" style="background:rgb(${c})"></i>${l}</span>`).join('');
+}
+$('timebtn').onclick = e => {
+  e.target.blur();
+  const on = $('timecard').hidden;
+  $('timecard').hidden = !on; e.target.classList.toggle('on', on);
+  layoutCards();
+  if (!data) return;
+  if (on) { data.tlStart = +$('depth').value; $('tt').value = 0; runTimeline(); }
+  else { data.tl = null; $('depth').value = data.tlStart; updateFlood(); routeMsg(); }   // back to the starting level
+};
+for (const id of ['train', 'thours', 'trise', 'tdrain', 'tup', 'tdays']) $(id).oninput = scheduleTimeline;
+$('tt').oninput = e => data && data.tl && applyTime(+e.target.value);
+$('tarr').onchange = () => { if (data && data.tl) { renderTimelineOut(); updateFlood(); } };
+function forecastUI() {
+  const f = data && data.forecast;
+  $('train').disabled = $('thours').disabled = !!f;
+  $('tfc').textContent = f ? 'Use constant rain' : 'Use rain forecast';
+  $('tfc').classList.toggle('on', !!f);
+  $('tfcinfo').textContent = f ? ` Open-Meteo: ${f.mm.reduce((a, b) => a + b, 0).toFixed(0)} mm in the next ${f.mm.length} h` : '';
+}
+$('tfc').onclick = async () => {   // hourly rain forecast for the scene centre (Open-Meteo, free, no key)
+  if (!data) return;
+  if (data.forecast) { data.forecast = null; forecastUI(); return runTimeline(); }
+  const ll = data.meta.center_lonlat;
+  if (!ll) return void ($('tfcinfo').textContent = ' needs a GeoTIFF scene (location unknown)');
+  $('tfcinfo').textContent = ' loading…';
+  try {
+    const days = Math.min(16, Math.round(+$('tdays').value || 3) + 1);
+    const j = await (await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${ll[1]}&longitude=${ll[0]}&hourly=precipitation&forecast_days=${days}&timezone=auto`)).json();
+    if (!j.hourly) throw new Error(j.reason || 'no data');
+    const now = new Date(Date.now() + j.utc_offset_seconds * 1000).toISOString().slice(0, 13);   // local hour there
+    let s = j.hourly.time.findIndex(t => t.slice(0, 13) >= now);
+    if (s < 0) s = 0;
+    data.forecast = { start: j.hourly.time[s], mm: j.hourly.precipitation.slice(s).map(v => v ?? 0) };
+  } catch (err) { $('tfcinfo').textContent = ` forecast unavailable (${err.message})`; return; }
+  forecastUI(); runTimeline();
+};
+function toolsSceneLoaded() {  // a new scene: fresh route and sources; open cards keep working
+  setPick(!$('routecard').hidden ? 'A' : $('flood').checked && $('fsrc').value === 'pick' ? 'src' : null);
+  forecastUI();
+  if (!$('timecard').hidden) runTimeline();
+  updateRoute();
+}
+
+// ---------- helipad & relief camp finder ----------
+// A site cell must be: no building block; land cover bareland / rangeland / developed / road / agriculture (not trees,
+// water, buildings); model height < 1 m (no cars, walls, shrubs); terrain slope ≤ the limit; and dry by the margin
+// at the water level (current flood, or the highest water of the timeline). Helipads = the largest clear circles
+// (distance transform, so street orientation does not matter); camps = the largest connected open areas.
+const SITE_LC = [true, true, true, true, false, false, true, false];
+const MAX_SITES = 5;
+function edt(blocked, W, H, dx, dy) {   // metres from each cell centre to the nearest blocked cell centre (exact, Felzenszwalb–Huttenlocher)
+  const n = Math.max(W, H), f = new Float64Array(n), d = new Float64Array(n), v = new Int32Array(n), z = new Float64Array(n + 1);
+  const D = new Float64Array(W * H);
+  for (let i = 0; i < W * H; i++) D[i] = blocked[i] ? 0 : 1e20;
+  const pass = (len, s2) => {
+    let k = 0; v[0] = 0; z[0] = -Infinity; z[1] = Infinity;
+    for (let q = 1; q < len; q++) {
+      let sx;
+      for (;;) { const p = v[k]; sx = ((f[q] + q * q * s2) - (f[p] + p * p * s2)) / (2 * s2 * (q - p)); if (sx <= z[k]) k--; else break; }
+      k++; v[k] = q; z[k] = sx; z[k + 1] = Infinity;
+    }
+    k = 0;
+    for (let q = 0; q < len; q++) { while (z[k + 1] < q) k++; d[q] = s2 * (q - v[k]) ** 2 + f[v[k]]; }
+  };
+  for (let x = 0; x < W; x++) { for (let y = 0; y < H; y++) f[y] = D[y * W + x]; pass(H, dy * dy); for (let y = 0; y < H; y++) D[y * W + x] = d[y]; }
+  for (let y = 0; y < H; y++) { for (let x = 0; x < W; x++) f[x] = D[y * W + x]; pass(W, dx * dx); for (let x = 0; x < W; x++) D[y * W + x] = d[x]; }
+  for (let i = 0; i < W * H; i++) D[i] = Math.sqrt(D[i]);
+  return D;
+}
+function siteLevel() { return data.tl && $('stl').checked ? data.tl.Lmax[data.tl.T] : curLevel(); }
+function findSites() {
+  if (!data || $('sitecard').hidden) return;
+  const m = data.meta, W = m.grid_w, H = m.grid_h, N = W * H, dx = m.width * m.gsd / W, dy = m.height * m.gsd / H, cell = dx * dy;
+  const L = siteLevel(), dry = Math.max(0, +$('sdry').value || 0), maxS = +$('sslope').value || 0;
+  const R = Math.max(5, +$('spad').value || 25) / 2, minArea = Math.max(50, +$('scamp').value || 1000), per = Math.max(1, +$('sper').value || 45);
+  const blocked = new Uint8Array(N);
+  for (let i = 0; i < N; i++)
+    blocked[i] = data.bid[i] > 0 || (data.lc && !SITE_LC[data.lc[i]]) || data.grid[i] >= 1
+      || (data.slope && data.slope[i] > maxS) || data.reach[i] < L + dry ? 1 : 0;
+  // clearance = distance to the nearest blocked cell's edge (half a cell less than centre to centre), or to the scene edge
+  const dist = edt(blocked, W, H, dx, dy), half = Math.min(dx, dy) / 2;
+  for (let i = 0; i < N; i++) {
+    const x = i % W, y = (i - x) / W;
+    dist[i] = blocked[i] ? 0 : Math.min(dist[i] - half, (x + 0.5) * dx, (W - x - 0.5) * dx, (y + 0.5) * dy, (H - y - 0.5) * dy);
+  }
+  const g = groundGrid(), flood = L > -Infinity, xyOf = i => [i % W, Math.floor(i / W)];
+  const aboveWater = cells => { let lo = Infinity; for (const i of cells) lo = Math.min(lo, data.reach[i] - L); return lo; };
+  // helipads: greedy, most clearance first, centres at least one pad diameter apart
+  const cand = [];
+  for (let i = 0; i < N; i++) if (dist[i] >= R) cand.push(i);
+  cand.sort((a, b) => dist[b] - dist[a]);
+  const pads = [];
+  for (const i of cand) {
+    if (pads.length >= MAX_SITES) break;
+    const [x, y] = xyOf(i);
+    if (pads.some(p => Math.hypot((p.x - x) * dx, (p.y - y) * dy) < 2 * R)) continue;
+    const disc = [], near = { h: 0, d: 0 }, rr = Math.ceil((R + 30) / Math.min(dx, dy));
+    for (let yy = Math.max(0, y - rr); yy <= Math.min(H - 1, y + rr); yy++)
+      for (let xx = Math.max(0, x - rr); xx <= Math.min(W - 1, x + rr); xx++) {
+        const j = yy * W + xx, dd = Math.hypot((xx - x) * dx, (yy - y) * dy);
+        if (dd <= R) disc.push(j);
+        else if (dd <= R + 30 && data.grid[j] > near.h) { near.h = data.grid[j]; near.d = dd - R; }   // tallest thing on the approach
+      }
+    pads.push({ cell: i, x, y, clear: 2 * dist[i], slope: data.slope ? data.slope[i] : null, above: flood ? aboveWater(disc) : null, near });
+  }
+  // camps: connected areas of cells ≥ 3 m from any obstacle (no slivers between buildings), largest first
+  const lab = new Int32Array(N), queue = new Int32Array(N), comps = [];
+  for (let s = 0; s < N; s++) {
+    if (lab[s] || dist[s] < 3) continue;
+    const id = comps.length + 1; let qh = 0, qt = 0, best = s;
+    lab[s] = id; queue[qt++] = s;
+    while (qh < qt) {
+      const i = queue[qh++], x = i % W, y = (i - x) / W;
+      if (dist[i] > dist[best]) best = i;
+      for (let d = 0; d < 8; d++) {
+        const nx = x + NX[d], ny = y + NY[d];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny * W + nx;
+        if (!lab[j] && dist[j] >= 3) { lab[j] = id; queue[qt++] = j; }
+      }
+    }
+    comps.push({ id, n: qt, best, cells: queue.slice(0, qt) });
+  }
+  const big = comps.filter(c => c.n * cell >= minArea).sort((a, b) => b.n - a.n).slice(0, MAX_SITES);
+  let roadDist = null;
+  if (data.lc && big.length) {   // distance to the nearest dry road cell, for access
+    const road = new Uint8Array(N);
+    for (let i = 0; i < N; i++) road[i] = data.lc[i] === 3 && !(data.reach[i] < L) ? 1 : 0;   // as the "blocked" input, edt = distance to a road
+    roadDist = edt(road, W, H, dx, dy);
+  }
+  const camps = big.map(c => {
+    let road = Infinity;
+    if (roadDist) for (const i of c.cells) road = Math.min(road, roadDist[i]);
+    const [x, y] = xyOf(c.best);
+    return { cell: c.best, x, y, id: c.id, area: c.n * cell, people: Math.floor(c.n * cell / per), road, slope: data.slope ? data.slope[c.best] : null, above: flood ? aboveWater(c.cells) : null };
+  });
+  const cv = Object.assign(document.createElement('canvas'), { width: W, height: H }), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+  const keep = new Map(camps.map((c, k) => [c.id, k]));
+  for (let i = 0; i < N; i++) if (keep.has(lab[i])) img.data.set([79, 224, 138, 105], i * 4);
+  ctx.putImageData(img, 0, 0);
+  data.sites = { pads, camps, campCv: cv, R, blocked, L };
+  renderSites(); drawOverlay(); drawMarks3D();
+}
+function renderSites() {
+  const S = data.sites, tl = data.tl && $('stl').checked, f = v => v == null ? '' : v;
+  $('stlwrap').hidden = !data.tl;
+  const water = S.L > -Infinity ? (tl ? 'the highest water of the timeline' : 'the current water') : null;
+  const aboveTxt = a => a == null ? '' : a < Infinity ? ` · ${a.toFixed(1)} m above water` : ' · water cannot reach';
+  const pads = S.pads.map((p, k) => `<div class="site"><b class="tag" style="background:#ffd400">H${k + 1}</b>
+      <span>${p.clear > 80 ? '80+' : Math.floor(p.clear)} m clear${p.slope != null ? ` · ${p.slope.toFixed(1)}°` : ''}${aboveTxt(p.above)}</span>
+      <button data-site="p${k}">Route here</button>
+      <small>${p.near.h >= 3 ? `approach: ${p.near.h.toFixed(0)} m tall obstacle ${Math.round(p.near.d)} m from the edge` : 'no obstacle over 3 m within 30 m'}</small></div>`).join('');
+  const camps = S.camps.map((c, k) => `<div class="site"><b class="tag" style="background:#4fe08a">C${k + 1}</b>
+      <span>${Math.round(c.area).toLocaleString('en-IN')} m² · ~${c.people.toLocaleString('en-IN')} people</span>
+      <button data-site="c${k}">Route here</button>
+      <small>${c.road < Infinity ? (c.road < 2 ? 'on a road' : `road ${Math.round(c.road)} m away`) : 'no dry road found'}${c.slope != null ? ` · ${c.slope.toFixed(1)}°` : ''}${aboveTxt(c.above)}</small></div>`).join('');
+  $('sout').innerHTML = `<div class="msg"><b>Helicopter landing sites</b> (≥ ${f(+$('spad').value)} m clear circle)</div>`
+    + (pads || '<div class="msg warn">No clear circle that size: try a smaller circle, a steeper slope limit or a lower water level.</div>')
+    + `<div class="msg" style="margin-top:8px"><b>Relief camp sites</b> (≥ ${(+$('scamp').value).toLocaleString('en-IN')} m²)</div>`
+    + (camps || '<div class="msg warn">No open area that large here.</div>')
+    + `<small>Open = no building, trees or water in the model's land cover, nothing over 1 m tall, slope ≤ ${$('sslope').value}°`
+    + (water ? `, and at least ${$('sdry').value} m above ${water}` : ' (Flood is off, so water is not considered)')
+    + `. Camp capacity at ${$('sper').value} m² per person (Sphere standard); camp areas count only ground ≥ 3 m from obstacles. `
+    + 'Slope comes from the 30 m terrain and heights from the model: inspect a site (and its approach for helicopters) before using it.</small>';
+}
+let siteTimer = 0;
+function scheduleSites() { if (!$('sitecard').hidden) { clearTimeout(siteTimer); siteTimer = setTimeout(findSites, 200); } }
+$('sitebtn').onclick = e => {
+  e.target.blur();
+  const on = $('sitecard').hidden;
+  $('sitecard').hidden = !on; $('sitebtn').classList.toggle('on', on);
+  layoutCards();
+  if (!data) return;
+  if (on) findSites(); else { data.sites = null; drawOverlay(); drawMarks3D(); }
+};
+for (const id of ['spad', 'scamp', 'sper', 'sslope', 'sdry']) $(id).oninput = scheduleSites;
+$('stl').onchange = findSites;
+$('sout').onclick = e => {      // "Route here": the site becomes route point B
+  const k = e.target.dataset.site;
+  if (!k || !data || !data.sites) return;
+  const s = (k[0] === 'p' ? data.sites.pads : data.sites.camps)[+k.slice(1)], R = data.route;
+  R.b = s.cell; R.kind = R.a != null ? 'ab' : null;
+  if ($('routecard').hidden) $('routebtn').click(); else if (R.a == null) setPick('A');
+  updateRoute();
+};
 
 // ---------- tabs / upload ----------
 function setView(v) {
   for (const id of ['v2d', 'v3d', 'vwait']) $(id).classList.toggle('on', id === v);
   $('controls').style.display = v === 'vwait' ? 'none' : 'flex';
   $('floodcard').hidden = v === 'vwait' || !$('flood').checked;
+  $('cards').hidden = v === 'vwait';
+  layoutCards();
   document.querySelectorAll('.c2d').forEach(n => n.hidden = v !== 'v2d');
   document.querySelectorAll('.c3d').forEach(n => n.hidden = v !== 'v3d');
 }
@@ -776,7 +1626,7 @@ document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
   document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
   if (data) setView(b.dataset.v);
 });
-// URL shortcuts for demos: #3d 3D view, #unc uncertainty layer, #flood, #corr, #scene=<name> (combinable: #3d-flood-scene=iit_ropar)
+// URL shortcuts for demos: #3d 3D view, #unc uncertainty layer, #flood, #sites, #corr, #scene=<name> (combinable: #3d-flood-scene=iit_ropar)
 if (location.hash.includes('unc')) { $('layer').value = 'unc'; $('tex3d').value = 'unc'; }
 if (location.hash.includes('slope')) { $('layer').value = 'slope'; $('tex3d').value = 'slope'; }
 if (location.hash.includes('clean')) document.body.classList.add('clean');
@@ -785,6 +1635,7 @@ if (location.hash.includes('corr')) $('corr').checked = true;
 const depthArg = location.hash.match(/depth=([\d.]+)/);   // e.g. #flood-depth=5
 if (depthArg) $('depth').value = depthArg[1];
 if (location.hash.includes('flood')) { $('flood').checked = true; updateFlood(); }
+if (location.hash.includes('sites')) $('sitebtn').click();   // #sites: open the helipad & relief camp finder
 // #fly / #street camera mode and #tour (start the fly-through), once the scene is loaded: e.g. #3d-tour-scene=iit_ropar
 if (/fly|street|tour/.test(location.hash)) {
   const t = setInterval(() => {
@@ -815,6 +1666,39 @@ if (location.hash.includes('selftest')) setTimeout(() => {
     if (location.hash.includes('rectest')) {   // record a 3 s tour and report the video file in the title
       nav.testDur = 3; document.querySelector('.tabs [data-v=v3d]').click(); playPath(true);
       const t = setInterval(() => nav.lastVideo && (clearInterval(t), document.title += ` VIDEO ${nav.lastVideo.type} ${nav.lastVideo.size} bytes`), 200);
+    }
+    if (location.hash.includes('toolstest')) {   // connected flood, routing, safe place, timeline: invariants + timings
+      const W = data.meta.grid_w, H = data.meta.grid_h, g = groundGrid(), ms = [], t0 = performance.now(), lap = () => ms.push(Math.round(performance.now() - t0));
+      $('fsrc').value = 'edges'; computeReach(); lap();
+      let reachOk = true, reached = 0;
+      for (let i = 0; i < W * H; i++) { if (data.reach[i] < Infinity) reached++; if (data.reach[i] < g[i]) reachOk = false; }
+      const { f } = travelCost(-Infinity);
+      const a = nearestOpen(Math.round(H * 0.1) * W + Math.round(W * 0.1), f), b = nearestOpen(Math.round(H * 0.9) * W + Math.round(W * 0.9), f);
+      const r1 = findRoute(a, b, -Infinity); lap();
+      const straight = Math.hypot((a % W - b % W) * data.meta.width * data.meta.gsd / W, (Math.floor(a / W) - Math.floor(b / W)) * data.meta.height * data.meta.gsd / H);
+      const routeOk = !!r1 && r1.path.every(i => !(data.bid[i] > 0)) && r1.len >= straight - 1e-6 && r1.path[0] === a && r1.path.at(-1) === b;
+      const Lw = data.gmin + 2, r2 = findRoute(a, -1, Lw, safeTarget(Lw)); lap();
+      const Tb = volumeTable(), Vt = 12345, Lv = levelFor(Tb, Vt, data.gmin), volOk = Math.abs(volAt(Tb, Lv) - Vt) < 1;
+      $('flood').checked = true; $('depth').value = 0; updateFlood();
+      $('train').value = 60; $('thours').value = 6; $('tdrain').value = 20; $('tup').value = 5;
+      $('timebtn').click(); lap();
+      const tl = data.tl, mono = tl.Lmax.every((v, i) => !i || v >= tl.Lmax[i - 1]);
+      document.title += ` TOOLS reach=${reached}/${W * H} reach_ge_ground=${reachOk} route=${r1 ? Math.round(r1.len) + 'm/' + Math.round(straight) + 'm' : 'none'} route_ok=${routeOk}`
+        + ` safe=${r2 ? Math.round(r2.len) + 'm:' + r2.target : 'none'} vol_ok=${volOk} peak=+${(Math.max(...tl.L) - data.gmin).toFixed(2)}m`
+        + ` rain_C=${tl.C.toFixed(2)} lmax_mono=${mono} arrived=${tl.arrival.reduce((n, x) => n + (x < NEVER), 0)} blocks_wet=${tl.bArr.reduce((n, x, i) => n + (i > 0 && x < NEVER), 0)} ms=${ms.join('/')}`;
+      $('sitebtn').click();   // relief sites at the highest water of the timeline
+      const S = data.sites, dxm = data.meta.width * data.meta.gsd / W, dym = data.meta.height * data.meta.gsd / H;
+      const padOk = S.pads.every(p => { for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+          if (Math.hypot((x - p.x) * dxm, (y - p.y) * dym) <= S.R - Math.max(dxm, dym) && S.blocked[y * W + x]) return false; return true; })
+        && S.pads.every((p, i) => S.pads.every((q, j) => i === j || Math.hypot((p.x - q.x) * dxm, (p.y - q.y) * dym) >= 2 * S.R - 1e-6));
+      const campOk = S.camps.every(c => c.people === Math.floor(c.area / 45) && c.area >= 1000);
+      document.title += ` SITES pads=${S.pads.length} pad_ok=${padOk} best_pad=${S.pads[0] ? Math.floor(S.pads[0].clear) + 'm' : '-'} camps=${S.camps.length} camp_ok=${campOk}`
+        + ` best_camp=${S.camps[0] ? Math.round(S.camps[0].area) + 'm2/' + S.camps[0].people + 'p/road' + Math.round(S.camps[0].road) + 'm' : '-'} level=${(S.L - data.gmin).toFixed(2)}`;
+      if (location.hash.includes('toolsview')) {   // leave the route + "time until flooded" map on screen (screenshots)
+        $('routebtn').click(); Object.assign(data.route, { a, b, kind: 'ab' }); setPick(null);
+        $('tarr').checked = true; $('tt').value = 6; renderTimelineOut(); applyTime(6); updateRoute();
+        document.title += ` ROUTE_AT_6H=${data.route.res ? Math.round(data.route.res.len) + 'm wet ' + Math.round(data.route.res.wetLen) + 'm' : 'blocked'}`;
+      }
     }
   } catch (e) { document.title = 'SELFTEST error ' + e; }
 }, 4000);
