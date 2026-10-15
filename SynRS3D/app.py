@@ -4,7 +4,7 @@ GeoTIFF scenes also get bare-ground terrain and an absolute DSM (metres above se
 usage: .venv/bin/python app.py   ->   http://127.0.0.1:8000
 Scenes live in demo/samples (any PNG/JPG/TIF); results are cached in demo/results.
 """
-import hashlib, json, os, queue, re, threading, traceback
+import hashlib, json, os, queue, re, threading, traceback, urllib.parse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from math import atan, cos, sinh
 
@@ -16,6 +16,7 @@ from PIL import Image
 
 import infer_height
 import terrain
+import validate
 from utils import geo_func
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +30,7 @@ MAX_UPLOAD = 50 << 20
 BUILDING = infer_height.LANDCOVER.index('buildings')
 FLOOR_M = 3.0         # assumed storey height for floor estimates
 SUFFIXES = ('', '_height', '_unc', '_uncertainty', '_landcover', '_bid', '_buildings', '_corr',
-            '_height_corrected', '_dtm', '_dsm', '_lc')  # per-scene result files
+            '_height_corrected', '_dtm', '_dsm', '_lc', '_valerr', '_validation', '_dsm_gcp')  # per-scene result files
 TERRAIN_VERSION = 2  # bump to recompute terrain for every scene (2: ICESat-2 laser correction)
 # Height correction learned on DFC2019 LiDAR (demo/height_correction.py); only present if it passed every test split
 CHOSEN = os.path.join(ROOT, 'demo', 'benchmark', 'height_correction_chosen.json')
@@ -126,7 +127,7 @@ def ensure_terrain(name, path):
     meta_f = os.path.join(RESULTS, name + '.json')
     meta = json.load(open(meta_f))
     t = meta.get('terrain', {})
-    if t.get('version') == TERRAIN_VERSION and 'error' not in t:
+    if t.get('version') == TERRAIN_VERSION and 'error' not in t and 'unavailable' not in (t.get('laser') or {}).get('none', ''):
         return
     h = rasterio.open(os.path.join(RESULTS, name + '_height.tif')).read(1)
     lc = rasterio.open(os.path.join(RESULTS, name + '_landcover.tif')).read(1).astype(np.uint8)
@@ -265,7 +266,7 @@ class Handler(BaseHTTPRequestHandler):
                     st['meta'] = json.load(open(meta))
                 out.append({'name': name, **st})
             return self.send(200, out)
-        m = re.fullmatch(r'/results/([\w-]+)\.(jpg|f32|json|tif)', self.path)
+        m = re.fullmatch(r'/results/([\w-]+)\.(jpg|f32|json|tif)', urllib.parse.urlsplit(self.path).path)
         if m:
             f = os.path.join(RESULTS, f'{m[1]}.{m[2]}')
             if os.path.exists(f):
@@ -277,6 +278,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, {'error': 'not found'})
 
     def do_POST(self):
+        if self.path.startswith('/api/validate') or self.path.startswith('/api/icesat2') or self.path.startswith('/api/gcp'):
+            return self.validation_api()
         m = re.fullmatch(r'/api/upload\?name=([^&]+)', self.path)
         size = int(self.headers.get('Content-Length', 0))
         if not m or not 0 < size <= MAX_UPLOAD:
@@ -298,6 +301,63 @@ class Handler(BaseHTTPRequestHandler):
             os.remove(path)
             return self.send(400, {'error': f'could not read image: {e}'})
         self.send(200, {'name': name})
+
+    def validation_api(self):
+        """POST /api/validate?name=&kind=dsm|ndsm|dtm|points&datum=egm2008|egm96|ellipsoid&file=  (body: raster or CSV)
+             /api/icesat2?name=      laser check
+             /api/gcp?name=          (body: {"points": [{u, v, z}]}, or {"clear": true})
+        Results are kept per scene in <scene>_validation.json (one entry per check), GCP fit in the scene metadata."""
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(self.path).query))
+        name, size = q.get('name', ''), int(self.headers.get('Content-Length', 0))
+        path = scene_files().get(name)
+        if not path or status.get(name, {}).get('state') != 'done':
+            return self.send(400, {'error': 'unknown or unprocessed scene'})
+        if size > MAX_UPLOAD:
+            return self.send(400, {'error': 'file over 50 MB'})
+        body = self.rfile.read(size) if size else b''
+        val_f = os.path.join(RESULTS, name + '_validation.json')
+        saved = json.load(open(val_f)) if os.path.exists(val_f) else {}
+        try:
+            scene = validate.Scene(name, path)
+            if self.path.startswith('/api/gcp'):
+                req = json.loads(body or b'{}')
+                meta_f = os.path.join(RESULTS, name + '.json')
+                meta = json.load(open(meta_f))
+                if req.get('clear'):
+                    meta.pop('gcp', None)
+                    out_f = os.path.join(RESULTS, name + '_dsm_gcp.tif')
+                    if os.path.exists(out_f):
+                        os.remove(out_f)
+                    json.dump(meta, open(meta_f, 'w'))
+                    return self.send(200, {'cleared': True})
+                fit = validate.fit_gcp(scene, req.get('points', []))
+                terrain.save_with_tags(path, os.path.join(RESULTS, name + '_dsm_gcp.tif'), validate.apply_gcp(scene, fit),
+                                       infer_height.save_tiff_with_geo_info, CONTENT='surface model calibrated with ground control points',
+                                       UNITS='metre', GCP_TERMS=','.join(fit['terms']))
+                meta['gcp'] = fit
+                json.dump(meta, open(meta_f, 'w'))
+                return self.send(200, fit)
+            if self.path.startswith('/api/icesat2'):
+                res = validate.compare_icesat2(scene)
+                key = 'icesat2'
+            else:
+                kind, datum = q.get('kind', 'dsm'), q.get('datum', 'egm2008')
+                fname = re.sub(r'[^\w.-]+', '_', q.get('file', 'reference'))[:80]
+                if not body:
+                    return self.send(400, {'error': 'no file'})
+                if kind == 'points' or fname.lower().endswith(('.csv', '.txt')):
+                    res, key = validate.compare_points(scene, validate.read_points(body.decode('utf-8-sig')), datum), 'points'
+                else:
+                    os.makedirs(validate.REFERENCE, exist_ok=True)
+                    ref = os.path.join(validate.REFERENCE, f'{name}__{fname}')
+                    open(ref, 'wb').write(body)
+                    res, key = validate.compare_raster(scene, ref, kind, datum), 'raster'
+            saved[key] = res
+            json.dump(saved, open(val_f, 'w'))
+            return self.send(200, {'key': key, **res})
+        except Exception as e:
+            traceback.print_exc()
+            return self.send(400, {'error': f'{type(e).__name__}: {e}'})
 
     def log_message(self, *a):
         pass

@@ -22,6 +22,9 @@ DATA = os.path.join(B.ROOT, 'data', 'GAMUS')
 LIST = os.path.join(B.ROOT, 'data', 'GAMUS_bench.txt')
 PRED = os.path.join(B.OUT, 'gamus', 'pred')
 CLASSES = {1: 'ground', 2: 'low vegetation', 3: 'buildings', 4: 'water', 5: 'road', 6: 'trees'}  # GAMUS codes
+# GAMUS classes grouped into the landscape types SIH26175 evaluates (urban / sparse / forested; hilly needs terrain,
+# which GAMUS's flat US cities do not have: see demo/landscape_benchmark.py for that)
+LANDSCAPES = {'urban (buildings, roads)': (3, 5), 'forested (trees)': (6,), 'sparse / open (ground, low vegetation)': (1, 2), 'water': (4,)}
 KINDS = {'images': 'RGB', 'heights': 'AGL', 'classes': 'CLS'}
 
 
@@ -35,6 +38,7 @@ def tile_list(per_city):
     for city in sorted({n.split('_')[0] for n in names}):
         c = [n for n in names if n.split('_')[0] == city]
         out += [c[int(i)] for i in np.linspace(0, len(c) - 1, min(per_city, len(c)))]
+    os.makedirs(os.path.dirname(LIST), exist_ok=True)   # data/ is not in the repo
     open(LIST, 'w').write('\n'.join(out) + '\n')
     return out
 
@@ -97,8 +101,10 @@ def main():
         rows.append((n, c['single'].astype(np.float32), c['tta'].astype(np.float32), c['std'].astype(np.float32)))
 
     gts = {r[0]: read('heights', r[0]).astype(np.float32) for r in rows}
+    import torch
+    dev = 'CUDA GPU' if torch.cuda.is_available() else 'Apple MPS' if torch.backends.mps.is_available() else 'CPU'
     res = {'tiles': len(rows), 'protocol': 'GAMUS test split (Hugging Face earthflow/GAMUS), evenly spaced tiles per '
-           'city, 504x504 centre crop, LiDAR nDSM ground truth, official utils/metrics.py; fp16 on Apple MPS'}
+           f'city, 504x504 centre crop, LiDAR nDSM ground truth, official utils/metrics.py; fp16 on {dev}'}
     for city in ['ALL'] + sorted({r[0].split('_')[0] for r in rows}):
         sel = [r for r in rows if city == 'ALL' or r[0].split('_')[0] == city]
         entry = {'tiles': len(sel)}
@@ -109,6 +115,7 @@ def main():
             G = np.concatenate([np.clip(gts[r[0]], 0, None).ravel() for r in sel])
             L = np.concatenate([read('classes', r[0]).ravel() for r in sel])
             entry['by_land_cover'] = {lbl: B.pooled(P, G, L == c) for c, lbl in CLASSES.items()}
+            entry['by_landscape'] = {lbl: B.pooled(P, G, np.isin(L, cls)) for lbl, cls in LANDSCAPES.items()}
             entry['by_true_height'] = {f'{lo}-{hi if hi < 1e9 else "inf"} m': B.pooled(P, G, (G >= lo) & (G < hi)) for lo, hi in B.BANDS}
             entry['all_pixels'] = B.pooled(P, G, np.isfinite(G))
             U, err = np.concatenate([r[3].ravel() for r in sel]), np.abs(P - G)
@@ -124,18 +131,21 @@ def main():
 
 def write_md(res):
     a = res['ALL']
-    L = ['# RS3DAda on GAMUS (LiDAR ground truth), measured on this Mac', '', res['protocol'] + '.', '',
+    L = ['# RS3DAda on GAMUS (LiDAR ground truth)', '', res['protocol'] + '.', '',
          '| Tiles | Pass | MAE whole (m) | RMSE whole (m) | MAE >3 m (m) | RMSE >3 m (m) |', '|---|---|---|---|---|---|']
     for city in [k for k in res if k not in ('tiles', 'protocol')]:
         for mode in ['single_pass', 'tta']:
             e = res[city][mode]
             L.append(f"| {city} ({res[city]['tiles']}) | {mode.replace('_', ' ')} | {e['whole']['mae']:.2f} | "
                      f"{e['whole']['rmse']:.2f} | {e['high']['mae']:.2f} | {e['high']['rmse']:.2f} |")
-    L += ['', 'Pixel-pooled, TTA prediction:', '', '| Group | MAE (m) | RMSE (m) | Bias (m) | Pixels |', '|---|---|---|---|---|']
-    for grp in ['by_land_cover', 'by_true_height']:
-        for k, e in a[grp].items():
+    L += ['', 'Pixel-pooled, TTA prediction (r = Pearson correlation with the LiDAR heights):', '',
+          '| Group | MAE (m) | RMSE (m) | Bias (m) | r | Pixels |', '|---|---|---|---|---|---|']
+    for grp in ['all_pixels', 'by_landscape', 'by_land_cover', 'by_true_height']:
+        items = {'all pixels': a[grp]}.items() if grp == 'all_pixels' else a.get(grp, {}).items()
+        for k, e in items:
             if e:
-                L.append(f"| {k} | {e['mae']:.2f} | {e['rmse']:.2f} | {e['bias']:+.2f} | {e['pixels']:,} |")
+                r = '–' if e.get('r') is None else f"{e['r']:.3f}"
+                L.append(f"| {k} | {e['mae']:.2f} | {e['rmse']:.2f} | {e['bias']:+.2f} | {r} | {e['pixels']:,} |")
     L += ['', f"Uncertainty (± = spread of the 4 flips) vs real error, Spearman rank correlation: {a['spearman_unc_vs_error']:.2f}"]
     open(os.path.join(B.OUT, 'gamus_results.md'), 'w').write('\n'.join(L) + '\n')
     print('\n'.join(L))

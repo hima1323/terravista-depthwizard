@@ -1,4 +1,5 @@
 import argparse
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -143,9 +144,14 @@ class DPT_DINOv2(nn.Module):
         
         assert encoder in ['vits', 'vitb', 'vitl']
         
-        # in case the Internet connection is not stable, please load the DINOv2 locally
-
-        self.pretrained = torch.hub.load('facebookresearch/dinov2', 'dinov2_{:}14'.format(encoder), pretrained=pretrained)
+        # DINOv2 code: a local copy if there is one (installer / torch hub cache), so the app also starts offline;
+        # otherwise GitHub (downloaded once into the torch hub cache)
+        local = [d for d in (os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'pretrain', 'dinov2'),
+                             os.path.join(torch.hub.get_dir(), 'facebookresearch_dinov2_main')) if os.path.isfile(os.path.join(d, 'hubconf.py'))]
+        if local:
+            self.pretrained = torch.hub.load(local[0], 'dinov2_{:}14'.format(encoder), source='local', pretrained=pretrained)
+        else:
+            self.pretrained = torch.hub.load('facebookresearch/dinov2', 'dinov2_{:}14'.format(encoder), pretrained=pretrained)
         
         dim = self.pretrained.blocks[0].attn.qkv.in_features
         

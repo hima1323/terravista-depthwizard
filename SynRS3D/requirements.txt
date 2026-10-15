@@ -1,0 +1,13 @@
+# DepthWizard Python packages (Python 3.10+). PyTorch is installed separately by install.ps1:
+#   NVIDIA GPU:  pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+#   CPU only:    pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+numpy
+opencv-python
+rasterio            # GeoTIFF read/write, reprojection (bundles GDAL)
+pyproj              # vertical datums (EGM96 / EGM2008 / ellipsoid)
+pillow
+albumentations      # image normalisation for the model
+tqdm
+huggingface_hub     # model weights download
+sliderule           # NASA ICESat-2 laser photons (terrain levelling, validation)
+h5py                # only for demo/gamus_benchmark.py (GAMUS tiles are HDF5)

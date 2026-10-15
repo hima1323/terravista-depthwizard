@@ -67,9 +67,14 @@ def official(pairs):
 
 
 def pooled(pred, gt, mask):
-    d = pred[mask] - gt[mask]
-    return {'mae': float(np.abs(d).mean()), 'rmse': float(np.sqrt((d ** 2).mean())),
-            'bias': float(d.mean()), 'pixels': int(mask.sum())} if mask.any() else None
+    """Pixel-pooled MAE, RMSE, bias and Pearson correlation r (SIH26175 asks for RMSE, MAE and correlation)."""
+    if not mask.any():
+        return None
+    p, g = pred[mask].astype(np.float64), gt[mask].astype(np.float64)
+    d = p - g
+    r = float(np.corrcoef(p, g)[0, 1]) if p.std() > 0 and g.std() > 0 else None
+    return {'mae': float(np.abs(d).mean()), 'rmse': float(np.sqrt((d ** 2).mean())), 'bias': float(d.mean()),
+            'r': r, 'pixels': int(mask.sum())}
 
 
 def save_example(name, rgb, gt, pred):

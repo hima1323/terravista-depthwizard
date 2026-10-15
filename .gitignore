@@ -11,3 +11,8 @@ SynRS3D/logs/
 SynRS3D/snapshot*/
 SynRS3D/demo/*/
 !SynRS3D/demo/*.py
+# benchmark reports are part of the documentation; their caches (predictions, laser photons, tiles) are not
+!SynRS3D/demo/benchmark/
+SynRS3D/demo/benchmark/*
+!SynRS3D/demo/benchmark/*.md
+!SynRS3D/demo/benchmark/*_results.json

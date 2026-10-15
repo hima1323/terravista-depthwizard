@@ -56,7 +56,7 @@ def load_model(restore_from, fp16=False):
     device = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
     model.load_state_dict(torch.load(restore_from, map_location='cpu', weights_only=True))
     model.eval()
-    dtype = torch.float16 if fp16 else torch.float32
+    dtype = torch.float16 if fp16 and device != 'cpu' else torch.float32   # half precision only on a GPU
     model.to(device, dtype)
     return model, device, dtype
 

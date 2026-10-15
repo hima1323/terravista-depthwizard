@@ -59,6 +59,7 @@
   .note { font-size: 11.5px; color: var(--muted); }
   .cards { position: absolute; right: 16px; top: 16px; bottom: 16px; width: 300px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; z-index: 2; pointer-events: none; }
   .cards > * { pointer-events: auto; flex: none; }
+  .cards { overflow-x: hidden; }
   .floodcard { background: rgba(22,28,35,.95); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; font-size: 12.5px; }
   .floodcard button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 3px 9px; font: inherit; font-size: 12px; cursor: pointer; }
   .floodcard button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
@@ -80,6 +81,14 @@
   .floodcard .site small { grid-column: 2 / 4; margin: 0; }
   .floodcard .keys { display: flex; flex-wrap: wrap; gap: 4px 10px; margin: 4px 0; color: var(--muted); font-size: 11.5px; }
   #tchart svg { display: block; width: 100%; height: 84px; }
+  #modes button.on { background: #7a5cf0; }
+  .floodcard canvas.chart { display: block; margin: 6px 0; background: rgba(0,0,0,.18); border-radius: 6px; }
+  .floodcard .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 6px 0; }
+  .floodcard .kpi { background: var(--panel-2); border-radius: 6px; padding: 5px 7px; }
+  .floodcard .kpi b { display: block; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .floodcard .kpi span { color: var(--muted); font-size: 11px; }
+  .floodcard input[type=file] { max-width: 210px; color: var(--muted); font-size: 11.5px; }
+  .floodcard h4 { margin: 10px 0 2px; font-size: 11.5px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
   .floodcard h3 { margin: 0 0 4px; font-size: 11.5px; letter-spacing: .6px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
   .floodcard .big { font-size: 22px; font-weight: 700; font-variant-numeric: tabular-nums; margin-bottom: 6px; }
   .floodcard .big span { font-size: 12.5px; font-weight: 400; color: var(--muted); }
@@ -115,7 +124,10 @@
   <header>
     <div class="ttl"><h2 id="title">Select a scene</h2><div class="note" id="note"></div></div>
     <div class="stats" id="stats"></div>
-    <div class="tabs"><button data-v="v2d" class="on">2D compare</button><button data-v="v3d">3D view</button></div>
+    <div class="tabs" id="modes"><button data-m="explore" class="on" title="The height model: 2D compare, 3D terrain, flythrough, downloads">Explore</button>
+      <button data-m="validate" title="Check the heights against reference data (LiDAR / DSM / survey points / ICESat-2) and calibrate with ground control points">Validate &amp; calibrate</button>
+      <button data-m="disaster" title="Flood scenarios, rain timeline, routes, helipads and relief camps">Disaster tools</button></div>
+    <div class="tabs" id="views"><button data-v="v2d" class="on">2D compare</button><button data-v="v3d">3D view</button></div>
   </header>
   <div class="stage">
     <div id="v2d" class="view on">
@@ -124,55 +136,54 @@
     <div id="v3d" class="view"><div id="pin"></div><div id="hint" hidden></div></div>
     <div class="empty view" id="vwait"></div>
     <div class="controls" id="controls">
-      <div class="legend" id="floodlegend" hidden><span><i class="sw" style="background:#2f7fe0"></i>Water</span><span><i class="sw" style="background:#e5484d"></i>Submerged</span><span><i class="sw" style="background:#f5a524"></i>Partly flooded</span></div>
+      <div class="legend" id="floodlegend" data-mode="disaster" hidden><span><i class="sw" style="background:#2f7fe0"></i>Water</span><span><i class="sw" style="background:#e5484d"></i>Submerged</span><span><i class="sw" style="background:#f5a524"></i>Partly flooded</span></div>
       <div class="legend" id="gradlegend"><span id="llo">0 m</span><canvas id="legend" width="140" height="1"></canvas><span id="lmax">–</span></div>
-      <label class="c2d">Layer <select id="layer"><option value="height">Height</option><option value="unc">Uncertainty (±)</option><option value="slope" title="Terrain slope from the 30 m terrain model; classes as in BIS IS 14496 (Part 2) landslide hazard zonation">Slope (landslide)</option></select></label>
-      <label class="c2d">Overlay <input id="alpha" type="range" min="0" max="1" step="0.01" value="0.65"></label>
+      <label class="c2d" data-mode="explore">Layer <select id="layer"><option value="height">Height</option><option value="unc">Uncertainty (±)</option><option value="slope" title="Terrain slope from the 30 m terrain model; classes as in BIS IS 14496 (Part 2) landslide hazard zonation">Slope (landslide)</option></select></label>
+      <label class="c2d" data-mode="explore validate">Overlay <input id="alpha" type="range" min="0" max="1" step="0.01" value="0.65"></label>
       <label class="c3d" hidden>Height ×<input id="exag" type="range" min="1" max="5" step="0.5" value="2"><span id="exagv">2</span></label>
-      <label class="c3d" hidden>Surface <select id="tex3d"><option value="photo">Photo</option><option value="heat">Height colours</option><option value="unc">Uncertainty</option><option value="slope">Slope (landslide)</option></select></label>
+      <label class="c3d" data-mode="explore" hidden>Surface <select id="tex3d"><option value="photo">Photo</option><option value="heat">Height colours</option><option value="unc">Uncertainty</option><option value="slope">Slope (landslide)</option></select></label>
       <label class="c3d" hidden><input id="spin" type="checkbox"> Auto-orbit</label>
       <label class="c3d" hidden>Camera <select id="cam"><option value="orbit">Orbit</option><option value="fly">Fly (W A S D)</option><option value="street">Street level</option></select></label>
-      <span class="c3d" hidden><button id="pathbtn" title="Click points on the 3D scene to plan a route">✎ Draw path</button>
+      <span class="c3d" data-mode="explore disaster" hidden><button id="pathbtn" title="Click points on the 3D scene to plan a route">✎ Draw path</button>
         <button id="playbtn" title="Fly along your route (or an automatic tour if none is drawn)">▶ Fly through</button>
         <button id="recbtn" title="Fly the route and save it as a video file">● Record video</button></span>
-      <label id="corrwrap" hidden title="Height correction learned on US LiDAR (DFC2019); not yet verified on Indian cities"><input id="corr" type="checkbox"> Bias correction</label>
-      <label><input id="flood" type="checkbox"> Flood</label>
-      <button id="routebtn" title="Find a route between two points that avoids buildings, steep ground and deep water">⤳ Route</button>
-      <button id="sitebtn" title="Find flat, open, dry places for a helicopter to land or a relief camp">🚁 Relief sites</button>
-      <label title="GeoTIFFs open in QGIS / ArcGIS; the 3D model (true metres) in Blender or any glTF viewer">Download <select id="dl"><option value="">…</option><option value="glb">3D model (.glb)</option>
+      <label id="corrwrap" data-mode="explore" data-need="corr" hidden title="Height correction learned on US LiDAR (DFC2019); not yet verified on Indian cities"><input id="corr" type="checkbox"> Bias correction</label>
+      <label data-mode="validate">Show <select id="vlayer"><option value="err">Error vs reference</option><option value="height">Our height</option><option value="none">Photo only</option></select></label>
+      <label data-mode="disaster"><input id="flood" type="checkbox"> Flood</label>
+      <button id="routebtn" data-mode="disaster" title="Find a route between two points that avoids buildings, steep ground and deep water">⤳ Route</button>
+      <button id="sitebtn" data-mode="disaster" title="Find flat, open, dry places for a helicopter to land or a relief camp">🚁 Relief sites</button>
+      <label data-mode="explore validate" title="GeoTIFFs open in QGIS / ArcGIS; the 3D model (true metres) in Blender or any glTF viewer">Download <select id="dl"><option value="">…</option><option value="glb">3D model (.glb)</option>
         <option value="_dsm.tif">DSM, m a.s.l. (.tif)</option><option value="_dtm.tif">Terrain DTM (.tif)</option>
         <option value="_height.tif">Height above ground (.tif)</option><option value="_uncertainty.tif">Uncertainty ± (.tif)</option>
+        <option value="_dsm_gcp.tif">DSM calibrated with control points (.tif)</option>
         <option value="_buildings.json">Building blocks (.json)</option></select></label>
-      <label class="cflood" hidden>Water level <input id="depth" type="range" min="0" max="15" step="any" value="3"><span id="depthv">3.0 m</span></label>
-      <label class="cflood" hidden title="All low ground: everything below the water level floods. Scene edges: water comes in from outside the image (river, sea) and floods only ground it can flow to. Points I click: water spreads from the points you place.">Water from
+      <label class="cflood" data-mode="disaster" hidden>Water level <input id="depth" type="range" min="0" max="15" step="any" value="3"><span id="depthv">3.0 m</span></label>
+      <label class="cflood" data-mode="disaster" hidden title="All low ground: everything below the water level floods. Scene edges: water comes in from outside the image (river, sea) and floods only ground it can flow to. Points I click: water spreads from the points you place.">Water from
         <select id="fsrc"><option value="all">all low ground</option><option value="edges">scene edges</option><option value="pick">points I click</option></select></label>
-      <button class="cflood" id="timebtn" hidden title="How the flood develops if rain continues or the river keeps rising">⏱ Timeline</button>
+      <button class="cflood" id="timebtn" data-mode="disaster" hidden title="How the flood develops if rain continues or the river keeps rising">⏱ Timeline</button>
     </div>
     <div class="cards" id="cards">
+      <div class="floodcard" id="valcard" hidden>
+        <h3>Validate against reference data</h3>
+        <div class="frm">
+          <label title="A GeoTIFF / TIFF raster (LiDAR DSM, nDSM or DTM, any coordinate system), or a CSV of surveyed points with lon,lat,z (WGS84) or col,row,z (image pixels)">Reference <input id="vfile" type="file" accept=".tif,.tiff,.csv,.txt"></label>
+          <label title="What the reference raster measures (CSV points are always surface heights)">Type <select id="vkind"><option value="dsm">Surface DSM, m above sea level</option><option value="ndsm">Height above ground (nDSM)</option><option value="dtm">Bare ground (DTM)</option></select></label>
+          <label title="Vertical datum of the reference; our heights are metres above mean sea level (EGM2008)">Datum <select id="vdatum"><option value="egm2008">Sea level, EGM2008</option><option value="egm96">Sea level, EGM96 (SRTM, CartoDEM)</option><option value="ellipsoid">Ellipsoid (GPS / GNSS)</option></select></label>
+        </div>
+        <div class="btns"><button id="vrun">Compare</button><button id="vice" title="Compare with NASA ICESat-2 laser photons that fall inside this scene (needs internet and a GeoTIFF scene)">Check with ICESat-2 laser</button></div>
+        <div class="msg" id="vmsg"></div>
+        <div class="btns" id="vtabs"></div>
+        <div id="vout"></div>
+      </div>
+      <div class="floodcard" id="gcpcard" hidden>
+        <h3>Calibrate with ground control points</h3>
+        <div class="msg">Click points of known elevation (survey marks, benchmarks, GNSS points) and enter their height in metres above sea level. 1 point fixes the level; 2+ points that differ in height also fix the height scale; 4+ also correct a tilt. Works for PNG/JPG too: they then get absolute heights.</div>
+        <div class="btns"><button id="gadd">＋ Add points</button><button id="gfit" disabled>Fit &amp; apply</button><button id="gclear">Clear</button></div>
+        <div id="glist"></div>
+        <label id="gonwrap" hidden><input id="gcpon" type="checkbox" checked> Use the calibrated heights in every view</label>
+        <div id="gout"></div>
+      </div>
       <div class="floodcard" id="floodcard" hidden></div>
-      <div class="floodcard" id="routecard" hidden>
-        <h3>Route finder</h3>
-        <div class="frm">
-          <label>Travel <select id="rmode"><option value="foot">On foot</option><option value="car">Car</option></select>
-            <span title="Water deeper than this blocks the route">max water <input id="rdepth" type="number" min="0" max="3" step="0.05" value="0.5"> m</span></label>
-          <label title="Count buildings with at least one floor above the water as safe places (vertical evacuation)"><input id="rbuild" type="checkbox" checked> Tall buildings count as safe places</label>
-        </div>
-        <div class="btns"><button id="rpickA">Set A</button><button id="rpickB">Set B</button>
-          <button id="rsafe" title="Nearest place from A that is at least 1 m above the water, or a building with a dry floor">Nearest safe place</button>
-          <button id="rfly" title="Fly along the route at street level">▶ Fly</button><button id="rclear">Clear</button></div>
-        <div id="rout" class="msg"></div>
-      </div>
-      <div class="floodcard" id="sitecard" hidden>
-        <h3>Helipad &amp; relief camp finder</h3>
-        <div class="frm">
-          <label title="Rule of thumb (ICAO): a landing area at least 1.5 × the helicopter's overall length with rotors turning: about 24 m for an ALH Dhruv, about 38 m for a Mi-17. Confirm with the air wing.">Helipad clear circle <input id="spad" type="number" min="10" max="100" step="1" value="25"> m</label>
-          <label>Camp area at least <input id="scamp" type="number" min="100" step="100" value="1000"> m²</label>
-          <label title="Sphere humanitarian standard: at least 45 m² of usable site area per person in a camp, including shelters, paths and services">Space per person <input id="sper" type="number" min="5" step="5" value="45"> m²</label>
-          <label>Max slope <input id="sslope" type="number" min="0" max="20" step="0.5" value="5">° · dry by <input id="sdry" type="number" min="0" max="5" step="0.1" value="0.5"> m</label>
-          <label id="stlwrap" hidden><input id="stl" type="checkbox" checked> Must stay dry for the whole timeline</label>
-        </div>
-        <div id="sout"></div>
-      </div>
       <div class="floodcard" id="timecard" hidden>
         <h3>Rain &amp; rise timeline</h3>
         <div class="frm">
@@ -188,6 +199,27 @@
         <div class="keys" id="tkeys" hidden></div>
         <div id="tchart"></div>
         <div id="tout"></div>
+      </div>
+      <div class="floodcard" id="routecard" hidden>
+        <h3>Route finder</h3>
+        <div class="frm">
+          <label>Travel <select id="rmode"><option value="foot">On foot</option><option value="car">Car</option></select>
+            <span title="Water deeper than this blocks the route">max water <input id="rdepth" type="number" min="0" max="3" step="0.05" value="0.5"> m</span></label>
+        </div>
+        <div class="btns"><button id="rpickA">Set A</button><button id="rpickB">Set B</button>
+          <button id="rfly" title="Fly along the route at street level">▶ Fly</button><button id="rclear">Clear</button></div>
+        <div id="rout" class="msg"></div>
+      </div>
+      <div class="floodcard" id="sitecard" hidden>
+        <h3>Helipad &amp; relief camp finder</h3>
+        <div class="frm">
+          <label title="Rule of thumb (ICAO): a landing area at least 1.5 × the helicopter's overall length with rotors turning: about 24 m for an ALH Dhruv, about 38 m for a Mi-17. Confirm with the air wing.">Helipad clear circle <input id="spad" type="number" min="10" max="100" step="1" value="25"> m</label>
+          <label>Camp area at least <input id="scamp" type="number" min="100" step="100" value="1000"> m²</label>
+          <label title="Sphere humanitarian standard: at least 45 m² of usable site area per person in a camp, including shelters, paths and services">Space per person <input id="sper" type="number" min="5" step="5" value="45"> m²</label>
+          <label>Max slope <input id="sslope" type="number" min="0" max="20" step="0.5" value="5">° · dry by <input id="sdry" type="number" min="0" max="5" step="0.1" value="0.5"> m</label>
+          <label id="stlwrap" hidden><input id="stl" type="checkbox" checked> Must stay dry for the whole timeline</label>
+        </div>
+        <div id="sout"></div>
       </div>
     </div>
   </div>
@@ -300,40 +332,70 @@ async function load(name, m) {
     fetch(`/results/${name}_buildings.json`).then(r => r.json()),
     hasTerrain ? fetch(`/results/${name}_dtm.f32`).then(r => r.arrayBuffer()).then(b => new Float32Array(b)) : null,
     fetch(`/results/${name}_lc.f32`).then(r => r.ok ? r.arrayBuffer() : null).then(b => b && Uint8Array.from(new Float32Array(b))).catch(() => null)]);
+  const [val, valerr] = await Promise.all([
+    fetch(`/results/${name}_validation.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})),
+    fetch(`/results/${name}_valerr.f32`).then(r => r.ok ? r.arrayBuffer() : null).then(b => b && new Float32Array(b)).catch(() => null)]);
   const photo = new Image(); photo.src = `/results/${name}.jpg`; await photo.decode();
   if (current !== name) return;
   for (const b of buildings) b.height_raw_m = b.height_m;
-  const gmin = dtm ? dtm.reduce((a, v) => Math.min(a, v), Infinity) : 0, gmax = dtm ? dtm.reduce((a, v) => Math.max(a, v), -Infinity) : 0;
-  data = { name, meta: m, gridRaw, gridCorr, unc, uncCv, photo, vmax, umax, bid, buildings, dtm, gmin, gmax, lc,
+  data = { name, meta: m, gridRaw, gridCorr, unc, uncCv, photo, vmax, umax, bid, buildings, dtmRaw: dtm, lc, val, valerr, vsel: null,
+           gcpPts: (m.gcp ? m.gcp.points : []).map(p => ({ u: p.u, v: p.v, z: p.z })),
            sources: [], route: { a: null, b: null, kind: null, res: null }, tl: null, forecast: null, tlStart: +$('depth').value };
-  data.slope = dtm && slopeGrid(dtm, m.grid_w, m.grid_h, m.width * m.gsd / m.grid_w, m.height * m.gsd / m.grid_h);
-  computeReach();
-  data.slopeCv = dtm && colourCanvas(data.slope, m.grid_w, m.grid_h, slopeRamp, 50);
-  for (const o of document.querySelectorAll('option[value=slope], #dl option[value^="_d"]')) o.hidden = o.disabled = !dtm;  // need terrain
-  for (const [id, dflt] of [['layer', 'height'], ['tex3d', 'photo']]) if ($(id).value === 'slope' && !dtm) $(id).value = dflt;
-  $('depth').max = Math.ceil(gmax - gmin + 15);
-  if (gmax - gmin > 50) { $('exag').value = 1; $('exagv').textContent = '1'; }   // hills: exaggeration would look unreal
-  $('corrwrap').hidden = !gridCorr;
-  setGrid();
+  applyTerrain();
+  if (data.gmax - data.gmin > 50) { $('exag').value = 1; $('exagv').textContent = '1'; }   // hills: exaggeration would look unreal
+  updateControls();
   renderStats();
   $('photo').src = photo.src;
   if ($('flood').checked) renderFlood();
   showLayer();
   $('wrap').style.aspectRatio = `${m.width} / ${m.height}`;
   build3D();
-  setView(document.querySelector('.tabs .on').dataset.v);
+  setView(document.querySelector('#views .on').dataset.v);
   updateFlood();
   toolsSceneLoaded();
+  renderValidation(); renderGcp();
+}
+// terrain + height scale used by every view: the model's terrain, or that terrain calibrated with control points
+// (z = ground + a + bx·u + by·v + s·height, fitted on the server). Without terrain (PNG/JPG) ground = 0.
+function gcpActive() { return !!(data.meta.gcp && $('gcpon').checked); }
+function applyTerrain() {
+  const m = data.meta, W = m.grid_w, H = m.grid_h, c = gcpActive() ? m.gcp : null;
+  data.calib = c;
+  if (c) {
+    const d = new Float32Array(W * H);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++)
+      d[y * W + x] = (data.dtmRaw ? data.dtmRaw[y * W + x] : 0) + c.a + c.bx * ((x + 0.5) / W - 0.5) + c.by * ((y + 0.5) / H - 0.5);
+    data.dtm = d;
+  } else data.dtm = data.dtmRaw;
+  data.hscale = c ? c.s : 1;
+  const dtm = data.dtm;
+  data.gmin = dtm ? dtm.reduce((a, v) => Math.min(a, v), Infinity) : 0;
+  data.gmax = dtm ? dtm.reduce((a, v) => Math.max(a, v), -Infinity) : 0;
+  data.flat = null;
+  data.slope = dtm && slopeGrid(dtm, W, H, m.width * m.gsd / W, m.height * m.gsd / H);
+  data.slopeCv = dtm && colourCanvas(data.slope, W, H, slopeRamp, 50);
+  for (const o of document.querySelectorAll('option[value=slope]')) o.hidden = o.disabled = !dtm;   // need terrain
+  for (const o of document.querySelectorAll('#dl option[value^="_d"]')) o.hidden = o.disabled = !data.dtmRaw;
+  const g = $('dl').querySelector('option[value="_dsm_gcp.tif"]'); g.hidden = g.disabled = !m.gcp;
+  for (const [id, dflt] of [['layer', 'height'], ['tex3d', 'photo']]) if ($(id).value === 'slope' && !dtm) $(id).value = dflt;
+  $('depth').max = Math.ceil(data.gmax - data.gmin + 15);
+  for (const b of data.buildings) b.ground_use = c ? (b.ground_m ?? 0) + c.a + c.bx * (b.cx - 0.5) + c.by * (b.cy - 0.5) : b.ground_m;
+  setGrid();
+  computeReach();
+}
+function terrainLabel() {
+  const c = data.calib, base = data.dtmRaw ? data.meta.terrain.source : null, n = c ? `${c.n} ground control point${c.n > 1 ? 's' : ''}` : '';
+  return c ? (base ? `${base} + ${n}` : `${n} (flat ground)`) : base;
 }
 
 // raw model heights or the learned bias correction, used by every view
 function laserShift() { const la = data.meta.terrain && data.meta.terrain.laser; return la && la.offset_m != null ? -la.offset_m : null; }
 function corrOn() { return $('corr').checked && !!data.gridCorr; }
 function setGrid() {
-  const on = corrOn(), m = data.meta;
-  data.grid = on ? data.gridCorr : data.gridRaw;
+  const on = corrOn(), m = data.meta, k = data.hscale ?? 1, src = on ? data.gridCorr : data.gridRaw;
+  data.grid = k === 1 ? src : Float32Array.from(src, v => v * k);
   for (const b of data.buildings) {
-    b.height_m = on && b.height_corr_m != null ? b.height_corr_m : b.height_raw_m;
+    b.height_m = (on && b.height_corr_m != null ? b.height_corr_m : b.height_raw_m) * k;
     b.floors = Math.max(1, Math.round(b.height_m / m.floor_m));
   }
   data.heat = colourCanvas(data.grid, m.grid_w, m.grid_h, turbo, data.vmax);  // same scale either way
@@ -341,20 +403,24 @@ function setGrid() {
 function renderStats() {
   const m = data.meta, c = corrOn() ? m.corrected : m;
   $('stats').innerHTML = [
-    ['Tallest', `${c.max.toFixed(1)} m`], ['99th pct', `${c.p99.toFixed(1)} m`],
+    ['Tallest', `${(c.max * (data.hscale ?? 1)).toFixed(1)} m`], ['99th pct', `${(c.p99 * (data.hscale ?? 1)).toFixed(1)} m`],
     ['Built-up (>3 m)', `${m.built_pct.toFixed(0)}%`], ['Avg uncertainty', `± ${m.unc_mean.toFixed(2)} m`], ['Building blocks', m.buildings],
     ...(data.dtm ? [['Ground', `${data.gmin.toFixed(0)}–${data.gmax.toFixed(0)} m a.s.l.`]] : []),
     ['GSD', `${m.gsd.toFixed(2)} m${m.gsd_assumed ? ' (assumed)' : ''}`]
   ].map(([k, v]) => `<span class="chip">${k} <b>${v}</b></span>`).join('');
-  $('note').textContent = m.gsd_assumed ? 'No georeferencing: heights are the model\'s estimate, scale assumes 0.5 m pixels.'
-    : (corrOn() ? 'Heights bias-corrected with a curve learned on US LiDAR (DFC2019); not yet verified on Indian cities. '
+  const cal = data.calib;
+  $('note').textContent = (m.gsd_assumed ? 'No georeferencing: scale assumes 0.5 m pixels. ' : '')
+    + (corrOn() ? 'Heights bias-corrected with a curve learned on US LiDAR (DFC2019); not yet verified on Indian cities. '
                 : 'Model estimate of height above ground. ')
-      + '± = spread of 4 flipped predictions (model self-consistency), not a calibrated error bar. '
-      + (data.dtm ? `Absolute heights in m above mean sea level (EGM2008); terrain: ${m.terrain.source}, cleaned with the model's land cover`
-         + (laserShift() != null ? `, then shifted ${laserShift().toFixed(1)} m to match ${m.terrain.laser.ground_photons} NASA ICESat-2 laser ground points.`
+    + (cal ? `Calibrated with ${cal.n} control point${cal.n > 1 ? 's' : ''}: level ${cal.a >= 0 ? '+' : ''}${cal.a.toFixed(2)} m`
+         + (cal.s !== 1 ? `, heights ×${cal.s.toFixed(2)}` : '') + (cal.terms.includes('bx') ? ', tilt corrected' : '') + '. ' : '')
+    + '± = spread of 4 flipped predictions (model self-consistency), not a calibrated error bar. '
+    + (data.dtmRaw ? `Absolute heights in m above mean sea level (EGM2008); terrain: ${terrainLabel()}, cleaned with the model's land cover`
+         + (laserShift() != null ? `, levelled ${laserShift().toFixed(1)} m to match ${m.terrain.laser.ground_photons} NASA ICESat-2 laser ground points.`
                                  : '; no ICESat-2 laser points in this scene.')
-         : m.terrain && m.terrain.error ? 'Terrain could not be loaded (offline?), so heights are relative to local ground.'
-         : 'No georeferencing, so heights are relative to local ground.');
+       : cal ? 'Absolute heights in m from the control points (the ground is taken as flat or tilted).'
+       : m.terrain && m.terrain.error ? 'Terrain could not be loaded (offline?), so heights are relative to local ground.'
+       : 'No georeferencing, so heights are relative to local ground (add control points to make them absolute).');
 }
 $('corr').onchange = () => {
   if (!data) return;
@@ -366,18 +432,18 @@ $('corr').onchange = () => {
 function heightAt(u, v) { return sampleAt(data.grid, u, v); }
 function groundAt(u, v) { return data.dtm ? sampleAt(data.dtm, u, v) : 0; }
 function waterLevel() { return data.gmin + +$('depth').value; }          // flat scenes: gmin = 0
-function blockGround(b) { return b.ground_m ?? data.gmin; }
+function blockGround(b) { return b.ground_use ?? data.gmin; }
 // a block takes water once the level passes its ground and the water can reach it (connected-flood modes)
 function blockReached(b, L) { return $('fsrc').value === 'all' || L > data.blockReach[b.id]; }
 function blockDepth(b, L) { return blockReached(b, L) ? Math.max(0, L - blockGround(b)) : 0; }
 function blockState(b, L) { const g = blockGround(b); return !blockReached(b, L) ? 'dry' : L > g + b.height_m ? 'sub' : L > g ? 'part' : 'dry'; }
 function pointText(u, v, sep) {
-  const h = Math.max(0, heightAt(u, v)), un = uncAt(u, v);
-  if (!data.dtm) return `${h.toFixed(1)} ± ${un.toFixed(1)} m above ground` + floodText(u, v, sep);
+  const h = Math.max(0, heightAt(u, v)), un = uncAt(u, v), extra = floodText(u, v, sep) + valText(u, v, sep);
+  if (!data.dtm) return `${h.toFixed(1)} ± ${un.toFixed(1)} m above ground` + extra;
   const g = groundAt(u, v);
   const sl = sampleAt(data.slope, u, v);
   return `${(g + h).toFixed(1)} m a.s.l.${sep}ground ${g.toFixed(1)} m + height ${h.toFixed(1)} ± ${un.toFixed(1)} m`
-    + `${sep}terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})` + floodText(u, v, sep);
+    + `${sep}terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})` + extra;
 }
 function buildingAt(u, v) {   // nearest grid cell → building record or null
   const { grid_w: W, grid_h: H } = data.meta;
@@ -412,11 +478,21 @@ function sampleAt(g, u, v) {   // u,v in 0..1 → value (bilinear on grid)
 // ---------- 2D ----------
 function showLayer() {
   const l = $('layer').value, hc = $('heat');
+  if (mode === 'validate') {   // error vs the reference raster, our heights, or the photo alone
+    const v = $('vlayer').value, err = v === 'err' && errCanvas(), src = err || (v === 'none' ? null : data.heat);
+    hc.width = data.meta.grid_w; hc.height = data.meta.grid_h;
+    const c = hc.getContext('2d'); c.clearRect(0, 0, hc.width, hc.height);
+    if (src) c.drawImage(src, 0, 0);
+    const lim = errLimit();
+    if (err) drawLegend(divRamp, `−${lim.toFixed(0)} m ours lower`, `+${lim.toFixed(0)} m ours higher`);
+    else drawLegend(turbo, 'Height above ground 0 m', `${data.vmax.toFixed(0)} m`);
+    return;
+  }
   const src = $('flood').checked ? data.floodCv : { unc: data.uncCv, slope: data.slopeCv }[l] || data.heat;
   hc.width = src.width; hc.height = src.height; hc.getContext('2d').drawImage(src, 0, 0);
   if (l === 'unc') drawLegend(inferno, '± 0 m', `± ${data.umax.toFixed(1)} m`);
   else if (l === 'slope') drawLegend(slopeRamp, '0°', '45°+ slope');
-  else drawLegend(turbo, '0 m', `${data.vmax.toFixed(0)} m`);
+  else drawLegend(turbo, 'Height above ground 0 m', `${data.vmax.toFixed(0)} m`);
 }
 $('layer').onchange = () => data && showLayer();
 $('alpha').oninput = e => $('heat').style.opacity = e.target.value;
@@ -508,6 +584,7 @@ function greyWalls(sh) {
 }
 $('exag').oninput = e => { $('exagv').textContent = e.target.value; applyExag(); };
 function surfaceImage() {
+  if (mode === 'validate') return $('vlayer').value === 'err' && errTexture() || ($('vlayer').value === 'none' ? data.photo : data.heat);
   if ($('flood').checked && data.floodTex) return data.floodTex;
   return { photo: data.photo, heat: data.heat, unc: data.uncCv, slope: data.slopeCv }[$('tex3d').value];
 }
@@ -532,12 +609,18 @@ renderer.domElement.addEventListener('pointerup', e => {
   if (!marker) { marker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x3d9be9 })); scene3.add(marker); }
   marker.scale.setScalar(Math.max(W, H) / 250);
   marker.position.copy(hit.point); marker.visible = true; markerPos = hit.point.clone();
-  const b = buildingAt(hu, hv);
-  $('pin').innerHTML = pointText(hu, hv, '<br><small style="font-weight:400">') + (data.dtm ? '</small>' : '')
-    + (b ? `<br><small style="font-weight:400">${buildingText(b, '<br>')}</small>` : '');
+  setPinText(hu, hv);
   $('pin').style.display = 'block';
 });
 function clearPin() { markerPos = null; if (marker) marker.visible = false; $('pin').style.display = 'none'; }
+let pinUV = null;
+function setPinText(u, v) {    // the clicked point's text; re-run when the water level or calibration changes
+  pinUV = [u, v];
+  const b = buildingAt(u, v);
+  $('pin').innerHTML = pointText(u, v, '<br><small style="font-weight:400">') + (data.dtm ? '</small>' : '')
+    + (b ? `<br><small style="font-weight:400">${buildingText(b, '<br>')}</small>` : '');
+}
+function refreshPin() { if (markerPos && pinUV && data) setPinText(...pinUV); }
 
 // ---------- fly-through: free flight, street level, planned route, video ----------
 const EYE = 1.7;   // eye height at street level, metres
@@ -856,15 +939,13 @@ function renderFlood() {
       <button id="fclear" ${nSrc ? '' : 'disabled'}>Clear sources</button></div>
       ${nSrc ? '' : '<div class="msg warn">Click “Place water sources”, then click the map where water comes in (a river, a canal, a breached embankment).</div>'}` : ''}
     <small>${nAll} building blocks from the model's land-cover head (attached buildings count as one), ~${m.floor_m} m per floor. ${model} `
-    + (data.dtm ? `Terrain: ${m.terrain.source} (30 m, about ±2–4 m)${laserShift() != null ? ', levelled to ICESat-2 laser points' : ''}.`
+    + (data.dtm ? `Terrain: ${terrainLabel()} (30 m, about ±2–4 m)${laserShift() != null ? ', levelled to ICESat-2 laser points' : ''}.`
                 : 'No terrain for this image: flat ground and one uniform water depth.') + ' Heights carry ± model uncertainty. Hover or click a point to see the water level at which it floods.</small>';
   drawOverlay();
 }
 function updateFlood() {
   const on = $('flood').checked;
-  document.querySelectorAll('.cflood').forEach(n => n.hidden = !on);
-  $('floodcard').hidden = !on || !data; $('gradlegend').hidden = on;
-  $('floodlegend').hidden = !on || ($('tarr').checked && !$('timecard').hidden);   // the timeline card has its own key
+  $('floodcard').hidden = !on || !data;
   $('layer').disabled = on; $('tex3d').disabled = on;
   water.visible = on;
   if (!on) {
@@ -872,6 +953,7 @@ function updateFlood() {
     if (!$('timecard').hidden && data) { data.tl = null; $('depth').value = data.tlStart; }
     $('timecard').hidden = true; $('timebtn').classList.remove('on');
   }
+  updateControls();
   layoutCards();
   if (!data) return;
   if (on) renderFlood(); else drawOverlay();
@@ -879,6 +961,7 @@ function updateFlood() {
   showLayer();
   if (mesh) { mesh.material.map.image = surfaceImage(); mesh.material.map.needsUpdate = true; }
   drawMarks3D();
+  refreshPin();
   scheduleRoute();
   scheduleSites();
 }
@@ -991,8 +1074,10 @@ const pick = { mode: null };   // 'A' / 'B' route ends, 'src' water sources
 function setPick(mode) {
   pick.mode = mode;
   $('rpickA').classList.toggle('on', mode === 'A'); $('rpickB').classList.toggle('on', mode === 'B');
+  $('gadd').classList.toggle('on', mode === 'gcp'); $('gadd').textContent = mode === 'gcp' ? '✓ Done adding' : '＋ Add points';
   $('wrap').style.cursor = mode ? 'copy' : '';
   showHint(mode === 'src' ? 'Click where water comes in (river, canal, breached embankment) · <b>✓ Done placing</b> when finished'
+    : mode === 'gcp' ? 'Click points of known elevation, then type their heights in the card · <b>✓ Done adding</b> when finished'
     : mode ? `Click the scene to place <b>${mode}</b>` : undefined);
   routeMsg();
 }
@@ -1000,10 +1085,15 @@ function onPick(u, v) {        // → true if the click was used by a tool
   if (!pick.mode || !data || u < 0 || u > 1 || v < 0 || v > 1) return false;
   const i = cellAt(u, v), R = data.route;
   if (pick.mode === 'src') { data.sources.push(i); reachChanged(); return true; }
+  if (pick.mode === 'gcp') {
+    data.gcpPts.push({ u, v, z: null }); renderGcp(); drawOverlay(); drawMarks3D();
+    const inp = $('glist').querySelector(`input[data-g="${data.gcpPts.length - 1}"]`); if (inp) inp.focus();
+    return true;
+  }
   if (pick.mode === 'A') {
     R.a = i;
-    if (R.kind !== 'safe') R.kind = R.b != null ? 'ab' : null;
-    setPick(R.kind || R.b != null ? null : 'B');
+    R.kind = R.b != null ? 'ab' : null;
+    setPick(R.b != null ? null : 'B');
   } else { R.b = i; R.kind = 'ab'; setPick(null); }
   updateRoute();
   return true;
@@ -1038,22 +1128,22 @@ function nearestOpen(i, f) {   // a route end placed on a roof or in deep water:
     }
   return -1;
 }
-// a → b, or (target given) a → the nearest cell where target(cell) is truthy (Dijkstra). null if there is no way.
-function findRoute(a, b, L, target) {
+// a → b (A*). null if there is no way.
+function findRoute(a, b, L) {
   const m = data.meta, W = m.grid_w, H = m.grid_h, N = W * H, tr = TRAVEL[$('rmode').value], maxD = +$('rdepth').value;
   const dx = m.width * m.gsd / W, dy = m.height * m.gsd / H, dd = Math.hypot(dx, dy);
   const { f, depth } = travelCost(L);
-  const s = nearestOpen(a, f), e = target ? -1 : nearestOpen(b, f);
-  if (s < 0 || (!target && e < 0)) return null;
+  const s = nearestOpen(a, f), e = nearestOpen(b, f);
+  if (s < 0 || e < 0) return null;
   const ex = e % W, ey = (e - ex) / W;   // heuristic: straight-line distance (cost factors are all ≥ 1)
-  const hfn = target ? () => 0 : i => { const x = i % W, y = (i - x) / W; return Math.hypot((x - ex) * dx, (y - ey) * dy); };
+  const hfn = i => { const x = i % W, y = (i - x) / W; return Math.hypot((x - ex) * dx, (y - ey) * dy); };
   const cost = new Float64Array(N).fill(Infinity), from = new Int32Array(N).fill(-1), heap = new MinHeap();
   cost[s] = 0; heap.push(hfn(s), s);
-  let end = -1, hit = null;
+  let end = -1;
   while (heap.n) {
     const i = heap.pop();
     if (heap.key > cost[i] + hfn(i) + 1e-6) continue;
-    if (target ? (hit = target(i)) : i === e) { end = i; break; }
+    if (i === e) { end = i; break; }
     const x = i % W, y = (i - x) / W;
     for (let d = 0; d < 8; d++) {
       const nx = x + NX[d], ny = y + NY[d];
@@ -1078,23 +1168,7 @@ function findRoute(a, b, L, target) {
     if (data.lc && data.lc[j] === 3) roadLen += seg;
     maxDepth = Math.max(maxDepth, depth[j]);
   }
-  return { path, len, time, wetLen, roadLen, maxDepth, depth, end, target: hit, snapped: s !== a || (!target && e !== b) };
-}
-function safeTarget(L) {       // high ground ≥ 1 m above the water, or next to a block with a whole floor above it
-  const W = data.meta.grid_w, H = data.meta.grid_h, fl = data.meta.floor_m, refuge = $('rbuild').checked;
-  const tall = id => { const b = data.buildings[id - 1], g = blockGround(b); return g + b.height_m >= Math.max(L, g) + fl; };
-  return i => {
-    if (data.reach[i] >= L + 1) return 'ground';
-    if (!refuge) return null;
-    const x = i % W, y = (i - x) / W;
-    for (let d = 0; d < 4; d++) {
-      const nx = x + NX[d], ny = y + NY[d];
-      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-      const id = data.bid[ny * W + nx];
-      if (id > 0 && tall(id)) return id;
-    }
-    return null;
-  };
+  return { path, len, time, wetLen, roadLen, maxDepth, depth, end, snapped: s !== a || e !== b };
 }
 function updateRoute() {
   if (!data) return;
@@ -1107,34 +1181,23 @@ function updateRoute() {
         ? `No route at this water level: water deeper than ${$('rdepth').value} m blocks every way (a dry-weather route exists).`
         : 'No route: buildings, water bodies or steep ground block every way between A and B inside this scene.';
     }
-    if (R.kind === 'safe' && L > -Infinity) {
-      R.res = findRoute(R.a, -1, L, safeTarget(L));
-      if (!R.res) R.why = 'No safe place can be reached from A at this water level inside this scene.';
-    }
   }
   routeMsg(); drawOverlay(); drawMarks3D();
   if (data.tl) renderTimelineOut();
 }
 let routeTimer = 0;
 function scheduleRoute() { clearTimeout(routeTimer); routeTimer = setTimeout(updateRoute, 150); }
-function safeBlockText(id) {
-  const b = data.buildings[id - 1], g = blockGround(b), L = waterLevel();
-  const dry = Math.min(b.floors, Math.floor((g + b.height_m - Math.max(L, g)) / data.meta.floor_m));
-  return `building, ~${b.floors} floor${b.floors > 1 ? 's' : ''}, ${dry} above water`;
-}
 function routeMsg() {
   if (!data) return;
   const R = data.route, res = R.res, el = $('rout'), how = $('rmode').value === 'car' ? 'by car' : 'on foot';
   if (pick.mode === 'A') return void (el.innerHTML = 'Click the map (2D or 3D) to place <b>A</b>, the start.');
   if (pick.mode === 'B') return void (el.innerHTML = 'Click the map to place <b>B</b>, the destination.');
-  if (R.a == null || !R.kind) return void (el.innerHTML = 'Set <b>A</b> and <b>B</b>, or A and <b>Nearest safe place</b>. '
-    + 'Routes avoid buildings, water bodies, steep ground and water deeper than the limit, and prefer roads.');
-  if (R.kind === 'safe' && !$('flood').checked) return void (el.innerHTML = '<span class="warn">Turn on Flood and set the water level to look for safe places.</span>');
+  if (R.a == null || !R.kind) return void (el.innerHTML = 'Set <b>A</b> and <b>B</b>. Routes avoid buildings, water bodies, steep ground '
+    + 'and water deeper than the limit, and prefer roads. To route to a helipad or relief camp, use <b>Relief sites → Route here</b>.');
   if (!res) return void (el.innerHTML = `<span class="warn">${R.why || 'No route found.'}</span>`);
   const min = res.time / 60;
   let t = `<div class="big" style="font-size:18px">${res.len < 1000 ? Math.round(res.len) + ' m' : (res.len / 1000).toFixed(2) + ' km'}
     <span>≈ ${min < 1 ? '<1' : Math.round(min)} min ${how}</span></div>`;
-  if (R.kind === 'safe') t += `<div class="row"><span>Safe place ★</span><b>${res.target === 'ground' ? 'ground ≥ 1 m above water' : safeBlockText(res.target)}</b></div>`;
   if ($('flood').checked) t += `<div class="row"><span>Through water</span><b>${Math.round(res.wetLen)} m · deepest ${res.maxDepth.toFixed(2)} m</b></div>`;
   if (data.lc) t += `<div class="row"><span>On roads</span><b>${Math.round(100 * res.roadLen / Math.max(1, res.len))}%</b></div>`;
   if (res.snapped) t += '<div class="msg">A point was on a building or in deep water; the route uses the nearest spot you can stand on.</div>';
@@ -1160,16 +1223,9 @@ $('routebtn').onclick = e => {
 };
 $('rpickA').onclick = () => setPick(pick.mode === 'A' ? null : 'A');
 $('rpickB').onclick = () => setPick(pick.mode === 'B' ? null : 'B');
-$('rsafe').onclick = () => {
-  if (!data) return;
-  data.route.kind = 'safe';
-  if (data.route.a == null) return setPick('A');
-  setPick(null); updateRoute();
-};
 $('rclear').onclick = () => { if (!data) return; data.route = { a: null, b: null, kind: null, res: null }; setPick('A'); updateRoute(); };
 $('rmode').onchange = e => { e.target.blur(); $('rdepth').value = TRAVEL[e.target.value].depth; updateRoute(); };
 $('rdepth').oninput = scheduleRoute;
-$('rbuild').onchange = updateRoute;
 $('rfly').onclick = () => {    // fly the route at street level
   const res = data && data.route.res;
   if (!res || res.path.length < 2) return;
@@ -1189,6 +1245,7 @@ function drawOverlay() {
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, c.width, c.height);
   const xy = i => [(i % W + 0.5) * s, (Math.floor(i / W) + 0.5) * s];
+  if (mode === 'validate') return drawValOverlay(ctx, c, W, H);
   const R = data.route, routeOn = !$('routecard').hidden, S = !$('sitecard').hidden && data.sites;
   const label = (x, y, txt, col) => {
     ctx.font = 'bold 17px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1232,7 +1289,6 @@ function drawOverlay() {
   if (routeOn) {
     if (R.a != null) dot(R.a, '#2e9e5b', 'A');
     if (R.kind === 'ab' && R.b != null) dot(R.b, '#d64545', 'B');
-    if (R.kind === 'safe' && R.res) dot(R.res.end, '#e08a00', '★');
   }
 }
 function drawMarks3D() {
@@ -1248,6 +1304,7 @@ function drawMarks3D() {
     const [[x, z]] = routeCells([i], 1), b = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color }));
     b.position.set(x, at(x, z) + r, z); marks.add(b);
   };
+  if (mode === 'validate') { for (const p of data.gcpPts) ball(cellAt(p.u, p.v), 0xff7ad9); return; }
   if ($('flood').checked && $('fsrc').value === 'pick') for (const i of data.sources) ball(i, 0x2f7fe0);
   const S = !$('sitecard').hidden && data.sites;
   if (S) {
@@ -1270,7 +1327,6 @@ function drawMarks3D() {
   }
   if (R.a != null) ball(R.a, 0x2e9e5b);
   if (R.kind === 'ab' && R.b != null) ball(R.b, 0xd64545);
-  if (R.kind === 'safe' && R.res) ball(R.res.end, 0xe08a00);
 }
 
 // ----- rain & rise timeline -----
@@ -1432,7 +1488,7 @@ $('timebtn').onclick = e => {
   $('timecard').hidden = !on; e.target.classList.toggle('on', on);
   layoutCards();
   if (!data) return;
-  if (on) { data.tlStart = +$('depth').value; $('tt').value = 0; runTimeline(); }
+  if (on) { data.tlStart = +$('depth').value; $('tt').value = 0; runTimeline(); $('timecard').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
   else { data.tl = null; $('depth').value = data.tlStart; updateFlood(); routeMsg(); }   // back to the starting level
 };
 for (const id of ['train', 'thours', 'trise', 'tdrain', 'tup', 'tdays']) $(id).oninput = scheduleTimeline;
@@ -1612,6 +1668,265 @@ $('sout').onclick = e => {      // "Route here": the site becomes route point B
   updateRoute();
 };
 
+// ---------- modes: Explore (the height model and 3D), Validate & calibrate, Disaster tools ----------
+let mode = 'explore';
+function updateControls() {    // a control shows when its mode (data-mode), view (.c2d / .c3d) and needs all match
+  const view = document.querySelector('#views .on').dataset.v, flood = $('flood').checked;
+  for (const el of $('controls').children) {
+    const modes = el.dataset.mode ? el.dataset.mode.split(' ') : null;
+    el.hidden = (modes && !modes.includes(mode)) || (el.classList.contains('c2d') && view !== 'v2d')
+      || (el.classList.contains('c3d') && view !== 'v3d') || (el.classList.contains('cflood') && !flood)
+      || (el.dataset.need === 'corr' && !(data && data.gridCorr));
+  }
+  $('floodlegend').hidden ||= !flood || ($('tarr').checked && !$('timecard').hidden);   // the timeline card has its own key
+  $('gradlegend').hidden = (mode === 'disaster' && flood) || (mode === 'validate' && $('vlayer').value === 'none');
+}
+function refreshSurface() { if (mesh) { mesh.material.map.image = surfaceImage(); mesh.material.map.needsUpdate = true; } }
+function setMode(m) {
+  if (m === mode) return;
+  const prev = mode;
+  mode = m;
+  document.querySelectorAll('#modes button').forEach(b => b.classList.toggle('on', b.dataset.m === m));
+  if (pick.mode) setPick(null);
+  if (prev === 'disaster') {     // the disaster tools run only in their own mode
+    for (const [card, btn] of [['routecard', 'routebtn'], ['sitecard', 'sitebtn']]) { $(card).hidden = true; $(btn).classList.remove('on'); }
+    if (data) data.sites = null;
+    if ($('flood').checked) { $('flood').checked = false; updateFlood(); }
+  }
+  $('valcard').hidden = $('gcpcard').hidden = m !== 'validate';
+  updateControls(); layoutCards();
+  if (!data) return;
+  if (m === 'validate') { renderValidation(); renderGcp(); }
+  showLayer(); refreshSurface(); drawOverlay(); drawMarks3D();
+}
+
+// ---------- validate against reference data ----------
+const VKEYS = { raster: 'Reference raster', points: 'Surveyed points', icesat2: 'ICESat-2 laser' };
+function divRamp(x) {          // ours lower (blue) – equal (white) – ours higher (red)
+  const a = [49, 104, 212], w = [240, 240, 240], b = [214, 57, 57];
+  x = Math.min(1, Math.max(0, x));
+  const [p, q, f] = x < 0.5 ? [a, w, x * 2] : [w, b, (x - 0.5) * 2];
+  return p.map((v, k) => Math.round(v + (q[k] - v) * f));
+}
+function errLimit() { return Math.max(1, Math.min(20, (data.val.raster && data.val.raster.error_range) || 5)); }
+function errCanvas() {         // error grid (ours − reference) as colours; no data = transparent
+  if (data.errCv || !data.valerr) return data.errCv || null;
+  const m = data.meta, lim = errLimit(), cv = Object.assign(document.createElement('canvas'), { width: m.grid_w, height: m.grid_h });
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(m.grid_w, m.grid_h);
+  data.valerr.forEach((e, i) => { if (Number.isFinite(e)) img.data.set([...divRamp(e / (2 * lim) + 0.5), 255], i * 4); });
+  ctx.putImageData(img, 0, 0);
+  return data.errCv = cv;
+}
+function errTexture() {        // 3D: the photo with the error colours over it
+  const e = errCanvas();
+  if (!e) return null;
+  if (data.errTex) return data.errTex;
+  const t = Object.assign(document.createElement('canvas'), { width: data.photo.naturalWidth, height: data.photo.naturalHeight }), c = t.getContext('2d');
+  c.drawImage(data.photo, 0, 0); c.globalAlpha = 0.8; c.drawImage(e, 0, 0, t.width, t.height);
+  return data.errTex = t;
+}
+function valText(u, v, sep) {  // hover: error vs the reference raster here
+  if (mode !== 'validate' || !data.valerr || $('vlayer').value !== 'err') return '';
+  const e = data.valerr[cellAt(u, v)];
+  return Number.isFinite(e) ? `${sep}vs reference: ${e >= 0 ? '+' : ''}${e.toFixed(2)} m (ours ${e >= 0 ? 'higher' : 'lower'})` : `${sep}no reference data here`;
+}
+const sgn = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+function statTable(title, obj) {
+  const keys = Object.keys(obj || {});
+  if (!keys.length) return '';
+  return `<table><tr><th>${title}</th><th>n</th><th>MAE</th><th>RMSE</th><th>bias</th><th>r</th></tr>` + keys.map(k => {
+    const m = obj[k];
+    return `<tr><td>${k.split(' (')[0]}</td><td>${m.n >= 1e4 ? Math.round(m.n / 1e3) + 'k' : m.n}</td><td>${m.mae.toFixed(2)}</td><td>${m.rmse.toFixed(2)}</td><td>${sgn(m.bias)}</td><td>${m.r == null ? '–' : m.r.toFixed(2)}</td></tr>`;
+  }).join('') + '</table>';
+}
+function kpis(m) {
+  if (!m) return '<div class="msg warn">Too few overlapping values to compute statistics.</div>';
+  const k = (v, l, t) => `<div class="kpi" title="${t}"><b>${v}</b><span>${l}</span></div>`;
+  return `<div class="kpis">${k(m.mae.toFixed(2) + ' m', 'MAE', 'Mean absolute error')}${k(m.rmse.toFixed(2) + ' m', 'RMSE', 'Root mean square error')}`
+    + `${k(m.r == null ? '–' : m.r.toFixed(3), 'correlation r', 'Pearson correlation between our heights and the reference')}`
+    + `${k(sgn(m.bias) + ' m', 'bias', 'Mean of ours − reference (negative = ours lower)')}${k((m.nmad ?? 0).toFixed(2) + ' m', 'NMAD', 'Robust spread: 1.4826 × median absolute deviation')}`
+    + `${k(m.within_2m_pct == null ? '–' : m.within_2m_pct.toFixed(0) + '%', 'within ±2 m', 'Share of values within 2 m of the reference')}</div>`
+    + `<div class="msg">${m.n.toLocaleString('en-IN')} values compared.</div>`;
+}
+function renderValidation() {
+  if (!data || mode !== 'validate') return;
+  const keys = Object.keys(VKEYS).filter(k => data.val[k]);
+  if (!keys.includes(data.vsel)) data.vsel = keys.includes('raster') ? 'raster' : keys[0] || null;
+  $('vtabs').innerHTML = keys.length > 1 ? keys.map(k => `<button data-vk="${k}" class="${k === data.vsel ? 'on' : ''}">${VKEYS[k]}</button>`).join('') : '';
+  $('vice').disabled = !(data.dtmRaw && data.meta.center_lonlat);
+  if (!$('vmsg').dataset.busy) $('vmsg').innerHTML = 'Load a GeoTIFF/TIFF raster (LiDAR DSM, nDSM or DTM) or a CSV of surveyed points, then <b>Compare</b>.'
+    + (data.dtmRaw ? '' : ' This scene has no georeferencing: a raster must cover exactly the same area; heights are compared after a best-fit scale.');
+  const r = data.val[data.vsel];
+  if (!r) { $('vout').innerHTML = '<div class="msg">No validation for this scene yet.</div>'; drawOverlay(); return; }
+  let h = '';
+  if (data.vsel === 'icesat2') {
+    if (!r.photons) h = `<div class="msg warn">${r.note || 'No ICESat-2 photons in this scene.'}</div>`;
+    else h = `<h4>Surface (our DSM) vs all ${r.photons} laser photons</h4>${kpis(r.surface_vs_all)}`
+      + `<h4>Terrain vs ${r.ground_photons} ground photons</h4>`
+      + (r.terrain_vs_ground ? `<div class="msg">Before the app's laser levelling: MAE ${r.terrain_vs_ground.mae.toFixed(2)} m, median ${sgn(r.terrain_vs_ground.median)} m, NMAD ${r.terrain_vs_ground.nmad.toFixed(2)} m, r ${r.terrain_vs_ground.r == null ? '–' : r.terrain_vs_ground.r.toFixed(2)}.</div>` : '<div class="msg">Too few ground photons.</div>')
+      + '<canvas class="chart" id="vscat"></canvas>'
+      + statTable('Landscape', r.landscape) + statTable('Terrain', r.slope) + statTable('Height', r.height)
+      + `<small>NASA ICESat-2 (ATL03 photons, ATL08 classes) via SlideRule, ${r.passes} pass${r.passes > 1 ? 'es' : ''} ${r.dates[0]} – ${r.dates[1]}; heights converted to m above sea level (EGM2008). `
+      + 'Laser footprints are ~11 m wide, so photons on roof edges and in trees mix heights; the median and NMAD are robust to that. Dots on the map: photon error (blue = ours lower, red = ours higher).</small>';
+  } else {
+    h = kpis(r.overall);
+    if (r.bias_removed) h += `<div class="msg">With the mean offset removed (e.g. a different datum): MAE ${r.bias_removed.mae.toFixed(2)} m, RMSE ${r.bias_removed.rmse.toFixed(2)} m.</div>`;
+    if (r.relative_fit) h += `<div class="msg">Relative heights (no georeferencing): compared after the best-fit line reference = ${r.relative_fit.offset.toFixed(2)} + ${r.relative_fit.scale.toFixed(3)} × ours.</div>`;
+    h += '<canvas class="chart" id="vscat"></canvas>' + (r.histogram ? '<canvas class="chart" id="vhist"></canvas>' : '')
+      + statTable('Landscape', r.landscape) + statTable('Terrain', r.slope) + statTable('Height', r.height)
+      + `<small>${r.reference ? `Reference: ${r.reference} (${r.kind === 'ndsm' ? 'height above ground' : r.kind === 'dtm' ? 'bare ground' : 'surface DSM'}), ${r.matched}; covers ${r.coverage_pct.toFixed(0)}% of the scene. ` : `${r.points ? r.points.length : ''} surveyed points. `}`
+      + `${r.datum_shift_m ? `Datum shift applied: ${sgn(r.datum_shift_m)} m. ` : ''}Landscape = the model's land cover at each pixel; terrain = slope of our ground model.</small>`;
+  }
+  $('vout').innerHTML = h;
+  const sc = data.vsel === 'icesat2' ? r.scatter : r.scatter;
+  if ($('vscat') && sc) drawScatter($('vscat'), sc.ref, sc.ours);
+  if ($('vhist') && r.histogram) drawHist($('vhist'), r.histogram);
+  showLayer(); refreshSurface(); drawOverlay();
+}
+function chartCtx(cv, w, h) {
+  const dpr = devicePixelRatio || 1;
+  cv.width = w * dpr; cv.height = h * dpr; cv.style.width = w + 'px'; cv.style.height = h + 'px';
+  const c = cv.getContext('2d'); c.scale(dpr, dpr);
+  c.font = '10px sans-serif'; c.fillStyle = '#8b98a5'; c.strokeStyle = '#2a343f';
+  return c;
+}
+function drawScatter(cv, xs, ys) {   // ours vs reference, 1:1 line, points coloured by their error
+  const w = 272, h = 220, L = 38, B = 26, T = 8, R = 8, c = chartCtx(cv, w, h);
+  const vals = xs.concat(ys).filter(Number.isFinite).sort((a, b) => a - b);
+  if (!vals.length) return;
+  let lo = vals[Math.floor(vals.length * 0.005)], hi = vals[Math.ceil(vals.length * 0.995) - 1];
+  const pad = Math.max(1, (hi - lo) * 0.05); lo -= pad; hi += pad;
+  const X = v => L + (v - lo) / (hi - lo) * (w - L - R), Y = v => h - B - (v - lo) / (hi - lo) * (h - B - T), lim = errLimit();
+  for (let k = 0; k <= 4; k++) {
+    const v = lo + (hi - lo) * k / 4;
+    c.beginPath(); c.moveTo(X(v), T); c.lineTo(X(v), h - B); c.moveTo(L, Y(v)); c.lineTo(w - R, Y(v)); c.stroke();
+    c.textAlign = 'center'; c.fillText(v.toFixed(0), X(v), h - B + 12); c.textAlign = 'right'; c.fillText(v.toFixed(0), L - 4, Y(v) + 3);
+  }
+  c.setLineDash([4, 3]); c.strokeStyle = '#e6edf3'; c.beginPath(); c.moveTo(X(lo), Y(lo)); c.lineTo(X(hi), Y(hi)); c.stroke(); c.setLineDash([]);
+  xs.forEach((x, i) => {
+    const y = ys[i];
+    if (!Number.isFinite(x) || !Number.isFinite(y) || x < lo || x > hi || y < lo || y > hi) return;
+    c.fillStyle = `rgba(${divRamp((y - x) / (2 * lim) + 0.5)},0.55)`; c.fillRect(X(x) - 1.2, Y(y) - 1.2, 2.4, 2.4);
+  });
+  c.fillStyle = '#8b98a5'; c.textAlign = 'center'; c.fillText('reference (m)', L + (w - L - R) / 2, h - 2);
+  c.save(); c.translate(10, T + (h - B - T) / 2); c.rotate(-Math.PI / 2); c.fillText('ours (m)', 0, 0); c.restore();
+  c.textAlign = 'left'; c.fillText('dashed = perfect agreement', L + 4, T + 10);
+}
+function drawHist(cv, hg) {    // distribution of ours − reference
+  const w = 272, h = 90, L = 8, B = 16, T = 6, c = chartCtx(cv, w, h), n = hg.counts.length, mx = Math.max(...hg.counts, 1);
+  hg.counts.forEach((k, i) => {
+    const x0 = L + i / n * (w - 2 * L), bw = (w - 2 * L) / n - 1, mid = hg.lo + (i + 0.5) / n * (hg.hi - hg.lo);
+    c.fillStyle = `rgb(${divRamp(mid / (2 * hg.hi) + 0.5)})`; c.fillRect(x0, h - B - k / mx * (h - B - T), bw, k / mx * (h - B - T));
+  });
+  c.fillStyle = '#8b98a5'; c.textAlign = 'left'; c.fillText(`${hg.lo.toFixed(1)} m`, L, h - 3);
+  c.textAlign = 'center'; c.fillText('0 · error (ours − reference)', w / 2, h - 3); c.textAlign = 'right'; c.fillText(`+${hg.hi.toFixed(1)} m`, w - L, h - 3);
+}
+function drawValOverlay(ctx, c, W, H) {   // validate mode: ICESat-2 photons / surveyed points by error, control points
+  const r = data.val[data.vsel], lim = errLimit(), P = (u, v) => [u * c.width, v * c.height];
+  const dot = (x, y, rad, rgb) => { ctx.beginPath(); ctx.arc(x, y, rad, 0, 2 * Math.PI); ctx.fillStyle = `rgb(${rgb})`; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.stroke(); };
+  if (data.vsel === 'icesat2' && r && r.photons_xy) {
+    const p = r.photons_xy;
+    p.u.forEach((u, i) => { const [x, y] = P(u, p.v[i]); dot(x, y, 3.5, divRamp((p.ours[i] - p.h[i]) / (2 * lim) + 0.5)); });
+  }
+  if (data.vsel === 'points' && r && r.points) for (const q of r.points) { const [x, y] = P(q.u, q.v); dot(x, y, 9, divRamp((q.ours - q.ref) / (2 * lim) + 0.5)); }
+  data.gcpPts.forEach((q, k) => {
+    const [x, y] = P(q.u, q.v);
+    ctx.beginPath(); ctx.arc(x, y, 14, 0, 2 * Math.PI); ctx.fillStyle = '#ff7ad9'; ctx.fill(); ctx.lineWidth = 3; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.fillStyle = '#111'; ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(k + 1, x, y + 0.5);
+  });
+}
+function vmsg(html, busy) { $('vmsg').innerHTML = html; if (busy) $('vmsg').dataset.busy = 1; else delete $('vmsg').dataset.busy; }
+async function runValidation(url, body, label) {
+  const name = data.name;
+  vmsg(label, true); $('vrun').disabled = $('vice').disabled = true;
+  try {
+    const r = await fetch(url, { method: 'POST', body }), j = await r.json();
+    if (!r.ok) throw new Error(j.error || r.statusText);
+    if (!data || data.name !== name) return;
+    data.val[j.key] = j; data.vsel = j.key;
+    if (j.key === 'raster') {
+      data.valerr = new Float32Array(await (await fetch(`/results/${name}_valerr.f32?t=${Date.now()}`)).arrayBuffer());
+      data.errCv = data.errTex = null; $('vlayer').value = 'err'; updateControls();
+    }
+    vmsg(`Done: ${VKEYS[j.key]}.`);
+  } catch (e) { vmsg(`<span class="warn">${e.message}</span>`); }
+  finally { $('vrun').disabled = false; renderValidation(); }
+}
+$('vrun').onclick = () => {
+  const f = $('vfile').files[0];
+  if (!data) return;
+  if (!f) return vmsg('<span class="warn">Choose a reference file first.</span>');
+  const csv = /\.(csv|txt)$/i.test(f.name);
+  runValidation(`/api/validate?name=${encodeURIComponent(data.name)}&kind=${csv ? 'points' : $('vkind').value}&datum=${$('vdatum').value}&file=${encodeURIComponent(f.name)}`,
+    f, `Comparing with ${f.name}…`);
+};
+$('vice').onclick = () => data && runValidation(`/api/icesat2?name=${encodeURIComponent(data.name)}`, '', 'Fetching NASA ICESat-2 laser photons for this scene (first time can take ~30 s)…');
+$('vtabs').onclick = e => { const k = e.target.dataset.vk; if (k && data) { data.vsel = k; renderValidation(); } };
+$('vlayer').onchange = e => { e.target.blur(); if (!data) return; updateControls(); showLayer(); refreshSurface(); };
+
+// ---------- calibrate with ground control points ----------
+function modelHeightAt(u, v) {  // uncalibrated model value at a point: terrain + height (relative without terrain)
+  const g = corrOn() ? data.gridCorr : data.gridRaw;
+  return (data.dtmRaw ? sampleAt(data.dtmRaw, u, v) : 0) + Math.max(0, sampleAt(g, u, v));
+}
+function renderGcp() {
+  if (!data) return;
+  const P = data.gcpPts, fit = data.meta.gcp;
+  $('glist').innerHTML = P.map((p, k) => `<div class="site"><b class="tag" style="background:#ff7ad9">${k + 1}</b>
+      <span>model ${modelHeightAt(p.u, p.v).toFixed(1)} m · known <input type="number" step="0.01" data-g="${k}" value="${p.z ?? ''}"> m</span>
+      <button data-gx="${k}" title="Remove this point">×</button></div>`).join('')
+    || '<div class="msg">No control points yet.</div>';
+  $('gfit').disabled = !P.some(p => Number.isFinite(p.z));
+  $('gonwrap').hidden = !fit;
+  if (!fit) { $('gout').innerHTML = ''; return; }
+  const terms = { a: 'level', bx: 'tilt', s: 'height scale' };
+  $('gout').innerHTML = `<div class="row"><span>Fitted with ${fit.n} point${fit.n > 1 ? 's' : ''}</span><b>${[...new Set(fit.terms.map(t => terms[t] || t))].join(', ')}</b></div>`
+    + `<div class="row"><span>Level shift</span><b>${sgn(fit.a)} m</b></div>`
+    + (fit.terms.includes('s') ? `<div class="row"><span>Height scale</span><b>×${fit.s.toFixed(3)}</b></div>` : '')
+    + (fit.terms.includes('bx') ? `<div class="row"><span>Tilt across the scene</span><b>${sgn(fit.bx)} / ${sgn(fit.by)} m</b></div>` : '')
+    + (fit.rmse_before != null ? `<div class="row"><span>Error at the points, before → after</span><b>${fit.rmse_before.toFixed(2)} → ${fit.rmse_after.toFixed(2)} m</b></div>`
+                               : `<div class="row"><span>Error at the points after</span><b>${fit.rmse_after.toFixed(2)} m</b></div>`)
+    + (fit.loo ? `<div class="row"><span title="Refit without each point in turn and predict it: an honest error estimate">Leave-one-out error</span><b>${fit.loo.rmse.toFixed(2)} m</b></div>`
+               : '<div class="msg">Add more points than fitted terms to get a leave-one-out error estimate.</div>')
+    + (fit.warning ? `<div class="msg warn">${fit.warning}</div>` : '')
+    + '<small>Applied to the terrain, 3D model, flood tools and the downloadable “DSM calibrated with control points” GeoTIFF.</small>';
+}
+function rebuildScene() {      // terrain or height scale changed: recompute everything that depends on them
+  applyTerrain(); renderStats(); showLayer(); build3D(); updateFlood(); renderGcp(); drawOverlay();
+}
+$('glist').oninput = e => {
+  const k = e.target.dataset.g;
+  if (k == null || !data) return;
+  data.gcpPts[+k].z = e.target.value === '' ? null : +e.target.value;
+  $('gfit').disabled = !data.gcpPts.some(p => Number.isFinite(p.z));
+};
+$('glist').onclick = e => {
+  const k = e.target.dataset.gx;
+  if (k == null || !data) return;
+  data.gcpPts.splice(+k, 1); renderGcp(); drawOverlay(); drawMarks3D();
+};
+$('gadd').onclick = () => data && setPick(pick.mode === 'gcp' ? null : 'gcp');
+$('gfit').onclick = async () => {
+  if (!data) return;
+  const pts = data.gcpPts.filter(p => Number.isFinite(p.z)), name = data.name;
+  setPick(null);
+  $('gout').innerHTML = '<div class="msg">Fitting…</div>';
+  const r = await fetch(`/api/gcp?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify({ points: pts }) }), j = await r.json();
+  if (!data || data.name !== name) return;
+  if (!r.ok) return void ($('gout').innerHTML = `<div class="msg warn">${j.error}</div>`);
+  data.meta.gcp = j; data.gcpPts = j.points.map(p => ({ u: p.u, v: p.v, z: p.z }));
+  $('gcpon').checked = true;
+  rebuildScene();
+};
+$('gclear').onclick = async () => {
+  if (!data) return;
+  setPick(null);
+  if (data.meta.gcp) await fetch(`/api/gcp?name=${encodeURIComponent(data.name)}`, { method: 'POST', body: JSON.stringify({ clear: true }) });
+  delete data.meta.gcp; data.gcpPts = [];
+  rebuildScene();
+};
+$('gcpon').onchange = () => data && rebuildScene();
+
 // ---------- tabs / upload ----------
 function setView(v) {
   for (const id of ['v2d', 'v3d', 'vwait']) $(id).classList.toggle('on', id === v);
@@ -1619,23 +1934,32 @@ function setView(v) {
   $('floodcard').hidden = v === 'vwait' || !$('flood').checked;
   $('cards').hidden = v === 'vwait';
   layoutCards();
-  document.querySelectorAll('.c2d').forEach(n => n.hidden = v !== 'v2d');
-  document.querySelectorAll('.c3d').forEach(n => n.hidden = v !== 'v3d');
+  updateControls();
 }
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => {
-  document.querySelectorAll('.tabs button').forEach(x => x.classList.toggle('on', x === b));
-  if (data) setView(b.dataset.v);
+document.querySelectorAll('#views button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#views button').forEach(x => x.classList.toggle('on', x === b));
+  if (data) setView(b.dataset.v); else updateControls();
 });
+document.querySelectorAll('#modes button').forEach(b => b.onclick = () => { b.blur(); setMode(b.dataset.m); });
+// Start from the page's own defaults: on reload (F5) browsers restore old checkbox / slider / select states, which
+// would e.g. switch flooding back on outside the Disaster tools mode
+for (const el of document.querySelectorAll('input, select')) {
+  if (el.type === 'file') continue;
+  if (el.type === 'checkbox') el.checked = el.defaultChecked;
+  else if (el.tagName === 'SELECT') el.selectedIndex = Math.max(0, [...el.options].findIndex(o => o.defaultSelected));
+  else el.value = el.defaultValue;
+}
 // URL shortcuts for demos: #3d 3D view, #unc uncertainty layer, #flood, #sites, #corr, #scene=<name> (combinable: #3d-flood-scene=iit_ropar)
 if (location.hash.includes('unc')) { $('layer').value = 'unc'; $('tex3d').value = 'unc'; }
 if (location.hash.includes('slope')) { $('layer').value = 'slope'; $('tex3d').value = 'slope'; }
 if (location.hash.includes('clean')) document.body.classList.add('clean');
-if (location.hash.includes('3d')) document.querySelector('.tabs [data-v=v3d]').click();
+if (location.hash.includes('3d')) document.querySelector('#views [data-v=v3d]').click();
+if (location.hash.includes('validate')) setMode('validate');   // #validate: the validation & calibration mode
 if (location.hash.includes('corr')) $('corr').checked = true;
 const depthArg = location.hash.match(/depth=([\d.]+)/);   // e.g. #flood-depth=5
 if (depthArg) $('depth').value = depthArg[1];
-if (location.hash.includes('flood')) { $('flood').checked = true; updateFlood(); }
-if (location.hash.includes('sites')) $('sitebtn').click();   // #sites: open the helipad & relief camp finder
+if (location.hash.includes('flood')) { setMode('disaster'); $('flood').checked = true; updateFlood(); }
+if (location.hash.includes('sites')) { setMode('disaster'); $('sitebtn').click(); }   // #sites: open the helipad & relief camp finder
 // #fly / #street camera mode and #tour (start the fly-through), once the scene is loaded: e.g. #3d-tour-scene=iit_ropar
 if (/fly|street|tour/.test(location.hash)) {
   const t = setInterval(() => {
@@ -1667,9 +1991,9 @@ if (location.hash.includes('selftest')) setTimeout(() => {
       nav.testDur = 3; document.querySelector('.tabs [data-v=v3d]').click(); playPath(true);
       const t = setInterval(() => nav.lastVideo && (clearInterval(t), document.title += ` VIDEO ${nav.lastVideo.type} ${nav.lastVideo.size} bytes`), 200);
     }
-    if (location.hash.includes('toolstest')) {   // connected flood, routing, safe place, timeline: invariants + timings
+    if (location.hash.includes('toolstest')) {   // connected flood, routing, timeline, relief sites: invariants + timings
       const W = data.meta.grid_w, H = data.meta.grid_h, g = groundGrid(), ms = [], t0 = performance.now(), lap = () => ms.push(Math.round(performance.now() - t0));
-      $('fsrc').value = 'edges'; computeReach(); lap();
+      setMode('disaster'); $('fsrc').value = 'edges'; computeReach(); lap();
       let reachOk = true, reached = 0;
       for (let i = 0; i < W * H; i++) { if (data.reach[i] < Infinity) reached++; if (data.reach[i] < g[i]) reachOk = false; }
       const { f } = travelCost(-Infinity);
@@ -1677,14 +2001,13 @@ if (location.hash.includes('selftest')) setTimeout(() => {
       const r1 = findRoute(a, b, -Infinity); lap();
       const straight = Math.hypot((a % W - b % W) * data.meta.width * data.meta.gsd / W, (Math.floor(a / W) - Math.floor(b / W)) * data.meta.height * data.meta.gsd / H);
       const routeOk = !!r1 && r1.path.every(i => !(data.bid[i] > 0)) && r1.len >= straight - 1e-6 && r1.path[0] === a && r1.path.at(-1) === b;
-      const Lw = data.gmin + 2, r2 = findRoute(a, -1, Lw, safeTarget(Lw)); lap();
       const Tb = volumeTable(), Vt = 12345, Lv = levelFor(Tb, Vt, data.gmin), volOk = Math.abs(volAt(Tb, Lv) - Vt) < 1;
       $('flood').checked = true; $('depth').value = 0; updateFlood();
       $('train').value = 60; $('thours').value = 6; $('tdrain').value = 20; $('tup').value = 5;
       $('timebtn').click(); lap();
       const tl = data.tl, mono = tl.Lmax.every((v, i) => !i || v >= tl.Lmax[i - 1]);
       document.title += ` TOOLS reach=${reached}/${W * H} reach_ge_ground=${reachOk} route=${r1 ? Math.round(r1.len) + 'm/' + Math.round(straight) + 'm' : 'none'} route_ok=${routeOk}`
-        + ` safe=${r2 ? Math.round(r2.len) + 'm:' + r2.target : 'none'} vol_ok=${volOk} peak=+${(Math.max(...tl.L) - data.gmin).toFixed(2)}m`
+        + ` vol_ok=${volOk} peak=+${(Math.max(...tl.L) - data.gmin).toFixed(2)}m`
         + ` rain_C=${tl.C.toFixed(2)} lmax_mono=${mono} arrived=${tl.arrival.reduce((n, x) => n + (x < NEVER), 0)} blocks_wet=${tl.bArr.reduce((n, x, i) => n + (i > 0 && x < NEVER), 0)} ms=${ms.join('/')}`;
       $('sitebtn').click();   // relief sites at the highest water of the timeline
       const S = data.sites, dxm = data.meta.width * data.meta.gsd / W, dym = data.meta.height * data.meta.gsd / H;
@@ -1699,6 +2022,19 @@ if (location.hash.includes('selftest')) setTimeout(() => {
         $('tarr').checked = true; $('tt').value = 6; renderTimelineOut(); applyTime(6); updateRoute();
         document.title += ` ROUTE_AT_6H=${data.route.res ? Math.round(data.route.res.len) + 'm wet ' + Math.round(data.route.res.wetLen) + 'm' : 'blocked'}`;
       }
+    }
+    if (location.hash.includes('valtest')) {   // validate mode renders; GCP fit round trip (+2 m on 3 points), then cleared
+      setMode('validate');
+      const keys = Object.keys(data.val), modeOk = !$('valcard').hidden && $('floodcard').hidden && $('vlayer').closest('label').hidden === false;
+      document.title += ` VAL keys=${keys.join('+') || 'none'} err_map=${!!errCanvas()} scatter=${!!$('vscat')} mode_ok=${modeOk}`;
+      const before = groundAt(0.5, 0.5);
+      data.gcpPts = [[0.2, 0.2], [0.8, 0.3], [0.5, 0.8], [0.25, 0.75]].map(([u, v]) => ({ u, v, z: modelHeightAt(u, v) + 2 }));
+      $('gfit').onclick().then(() => {
+        const c = data.calib;
+        document.title += ` GCP terms=${c ? c.terms.join(',') : 'none'} a=${c ? c.a.toFixed(2) : '-'} s=${c ? c.s.toFixed(3) : '-'} rmse_after=${c ? c.rmse_after.toFixed(2) : '-'} ground_shift=${(groundAt(0.5, 0.5) - before).toFixed(2)}`;
+        return $('gclear').onclick();
+      }).then(() => { document.title += ` GCP_CLEARED=${!data.meta.gcp && Math.abs(groundAt(0.5, 0.5) - before) < 1e-6}`; })
+        .catch(e => { document.title += ' GCP error ' + e; });
     }
   } catch (e) { document.title = 'SELFTEST error ' + e; }
 }, 4000);
