@@ -34,11 +34,18 @@ Other scenes stay usable while you wait.
 Choose a scene, then switch between **2D compare** and **3D view**.
 
 **2D compare**
-- **Layer:** Height, Uncertainty (±) or Slope.
+- **Layer:** Height, Consistency score (flip spread) or Slope. The consistency score is the spread of 4 flipped
+  predictions. It points to likely errors on flat ground and edges, but not on tall buildings or trees, so it is not
+  an error bar.
 - **Overlay:** sets how transparent the layer is over the photo.
 - **Hover:** shows the height at any point. With terrain, this is metres above sea level = ground + height above
-  ground. It also shows the uncertainty and the slope.
-- **Hover over a building:** shows its height ± uncertainty, footprint area and estimated floors.
+  ground. It also shows the consistency score and the slope.
+- **Hover over a building:** shows its height, a 90% interval, footprint area and estimated floors (3 m per floor,
+  not validated). The interval was calibrated on LiDAR in three US cities.
+  - **Width:** it is about ±6 m wide.
+  - **Held-out cities:** it covered 83–97% of blocks there, but only about half of the blocks that are really
+    10–20 m tall, and few above 20 m.
+  - **Tall buildings:** treat it as too low for buildings over 10 m.
 
 **3D view:** the photo draped on the reconstructed surface.
 
@@ -48,13 +55,13 @@ Choose a scene, then switch between **2D compare** and **3D view**.
 | Camera: **Fly** | W A S D to move, R / F up and down, drag to look, Shift for faster |
 | Camera: **Street level** | Walk at eye height; buildings block you |
 | **Height ×** | Exaggerates relief, for flat towns |
-| **Surface** | Photo, height colours, uncertainty or slope |
+| **Surface** | Photo, height colours, consistency score or slope |
 | **Click** | Measure any point or building |
 | **✎ Draw path**, then **▶ Fly through** | Fly along your own route |
 | **● Record video** | Save the flythrough as an MP4/WebM file |
 
 **Download:**
-- DSM (m above sea level), terrain DTM, height above ground and uncertainty, as GeoTIFFs for QGIS or ArcGIS;
+- DSM (m above sea level), terrain DTM, height above ground and consistency score, as GeoTIFFs for QGIS or ArcGIS;
 - the 3D model as `.glb`, in true metres, for Blender or any glTF viewer;
 - building blocks as JSON.
 
@@ -76,6 +83,15 @@ Then press **Compare**.
 
 **Check with ICESat-2 laser** compares the scene with NASA ICESat-2 laser photons that cross it. This needs a
 GeoTIFF scene and internet. Laser tracks are kilometres apart, so many small scenes have none.
+- **The main numbers are not independent.** Where the terrain was levelled to these same photons, the surface figure
+  partly checks the laser against itself.
+- **Held-out passes (not used for levelling)** is the independent check. The terrain is levelled on some laser passes
+  and checked on the others. It needs at least 2 passes on each side; with fewer, the table shows a note instead.
+- **When the terrain was not levelled.** The terrain is only levelled when the photons come from 2 or more passes. One
+  pass is a single line, and a local DEM error along it is not an offset for the whole scene. If the scene has only
+  one pass, a note says so, and the figures describe the unlevelled terrain.
+- **Roof photons in towns.** ICESat-2 sometimes labels roof photons as ground. In dense towns the held-out terrain
+  figure can then measure roofs, not ground (in Chandigarh it reads about 15 m too low for this reason).
 
 **Results:**
 - **Summary figures:** MAE, RMSE, **correlation r**, bias, NMAD (a robust spread) and the share within ±2 m.
@@ -122,8 +138,11 @@ control points**. Untick "Use the calibrated heights" to compare with and withou
 | **⤳ Route** | Route from A to B, on foot or by car. Avoids buildings, steep ground and water deeper than the limit, and prefers roads. **▶ Fly** follows the route in 3D. |
 | **🚁 Relief sites** | Helicopter landing circles and relief camp areas: flat, open and dry ground. Shows capacity (45 m² per person), road access and **Route here**. |
 
-These tools give **scenarios, not forecasts**. The ground model has a 30 m resolution (about ±2–4 m in height), so
-check routes and sites on the ground.
+These tools give **scenarios, not forecasts**. The ground model has a 30 m resolution, so check routes and sites on
+the ground.
+- **Terrain error:** in our Indian laser tests (2 scenes per landscape) it was about 2 m on sparse and urban land,
+  about 8 m in hills, and about 20 m under dense forest.
+- **Building and tree heights:** they carry the model error. Tall buildings and trees come out too low.
 
 ## 6. Shortcuts
 

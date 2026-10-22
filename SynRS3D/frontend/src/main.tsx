@@ -1,0 +1,12 @@
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import { HashRouter } from 'react-router-dom';
+import '@fontsource-variable/montserrat';
+import '@fontsource-variable/oswald';
+import './styles.css';
+import App from './App';
+
+// Hash routing: app.py serves one static index.html, and deep links (#/respond) still work offline.
+createRoot(document.getElementById('root')!).render(
+  <StrictMode><HashRouter><App /></HashRouter></StrictMode>,
+);

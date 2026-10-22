@@ -49,10 +49,13 @@ def geoid_shift(lon, lat, src='EPSG:4326+5773', dst='EPSG:4326+3855'):
         return None
 
 
-def _sources(bounds):
-    """[(path, source label, needs EGM96->EGM2008 shift)] covering the lon/lat bounds."""
+def _sources(bounds, source=None):
+    """[(path, source label, needs EGM96->EGM2008 shift)] covering the lon/lat bounds. source: None = a covering DEM in
+    demo/terrain/ else GLO-30; 'glo30' = GLO-30 only; or the path of one DEM GeoTIFF."""
     w, s, e, n = bounds
-    for f in sorted(glob.glob(os.path.join(USER_DEM_DIR, '*.tif'))):
+    if source not in (None, 'glo30'):
+        return [(source, os.path.basename(source), 'egm96' in os.path.basename(source).lower())]
+    for f in sorted(glob.glob(os.path.join(USER_DEM_DIR, '*.tif'))) if source is None else []:
         with rasterio.open(f) as src:
             if not src.crs:
                 continue
@@ -111,10 +114,10 @@ def surface_share(dem, mean_h, inside, sigma=2.0):
     return float(np.clip((x * y).sum() / max((x * x).sum(), 1e-6), 0, 1))
 
 
-def build_dtm(image_path, ndsm, ground):
+def build_dtm(image_path, ndsm, ground, source=None):
     """Bare-ground elevation (float32, image pixel grid, EGM2008 metres) and an info dict, or (None, info)
     when the image has no georeferencing (PNG/JPG). ndsm = model height above ground, ground = bool mask of
-    pixels the model calls open ground (roads, bare, water...), both on the image grid."""
+    pixels the model calls open ground (roads, bare, water...), both on the image grid. source: see _sources."""
     with rasterio.open(image_path) as img:
         if not img.crs:
             return None, {'none': 'image has no georeferencing, so heights stay relative (above ground)'}
@@ -128,7 +131,7 @@ def build_dtm(image_path, ndsm, ground):
     dem = np.full((gh, gw), np.nan, np.float32)
     labels, shift_needed = [], False
     with rasterio.Env(**GDAL_ENV):
-        for path, label, egm96 in _sources((w, s, e, n)):
+        for path, label, egm96 in _sources((w, s, e, n), source):
             try:
                 with rasterio.open(path) as src:
                     part = _warp(rasterio.band(src, 1), src.transform, src.crs, dem.shape, grid_t, 'EPSG:4326',
@@ -184,6 +187,33 @@ def build_dtm(image_path, ndsm, ground):
 
 ICESAT2_CACHE = os.path.join(ROOT, 'demo', 'benchmark', 'icesat2')
 LASER_MIN_PHOTONS = 50   # ICESat-2 ground photons needed before we trust a laser offset
+# passes (one ground track in one cycle) needed before laser_correct shifts the terrain. One pass is one line across the
+# scene: in Silent Valley it runs along a valley floor the 30 m DEMs fill in, and its 47 m median shift (correct on that
+# line, GEDI agrees there) made the terrain 30+ m too low elsewhere (demo/benchmark/v2/dtm_v2.md).
+LASER_MIN_PASSES = 2
+# N5: ATL08 sometimes classes flat roofs as ground. In Chandigarh every held-out "ground" photon was a roof, 15 m above the
+# other ground photons, which read as a 15 m terrain error. A ground photon is treated as a roof only with both signs:
+# it falls on the model's buildings (grown by ROOF_BUFFER_M) AND it stands more than ROOF_MIN_M above where the other
+# ground photons put the terrain. The building mask alone is not enough: in Sarandi, Mumbai and Delhi most photons on
+# "building" pixels are at street level (image/laser dates, registration, leaning roofs), and dropping them lost good ground.
+ROOF_BUFFER_M = 2.0
+ROOF_MIN_M = 3.0
+BUILDING = 7   # index of 'buildings' in infer_height.LANDCOVER (not imported here: it pulls in torch)
+
+
+def roof_mask(h, lc, px_m, buffer_m=ROOF_BUFFER_M):
+    """The model's buildings (>= 2 m, as app.extract_buildings) grown by buffer_m: where a ground photon may be a roof.
+    h, lc on the image grid; px_m = metres per pixel."""
+    m = ((lc == BUILDING) & (h >= 2)).astype(np.uint8)
+    k = int(math.ceil(buffer_m / px_m))
+    return (cv2.dilate(m, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2 * k + 1, 2 * k + 1))) if k > 0 else m).astype(bool)
+
+
+def roof_photons(on_building, above):
+    """Which ground-class photons are roofs: on a building pixel (roof_mask) and more than ROOF_MIN_M above the median of
+    all of them. above = photon height - terrain, one value per ground photon (any common offset cancels in the median)."""
+    above = np.asarray(above, np.float64)
+    return np.asarray(on_building, bool) & (above - np.nanmedian(above) > ROOF_MIN_M) if len(above) else np.zeros(0, bool)
 
 
 def icesat2_photons(bounds):
@@ -207,9 +237,10 @@ def icesat2_photons(bounds):
     return dict(np.load(f))
 
 
-def laser_offset(dtm, transform, crs, p, undulation):
-    """Median of (terrain - ICESat-2 ground photon heights) inside the scene, or None if there are too few photons.
-    undulation = EGM2008 geoid height above the ellipsoid, to put the photons on the terrain's datum."""
+def laser_offset(dtm, transform, crs, p, undulation, min_passes=1, buildings=None):
+    """Median of (terrain - ICESat-2 ground photon heights) inside the scene, or None if there are too few photons
+    or fewer than min_passes passes (track // 100) among them. undulation = EGM2008 geoid height above the ellipsoid,
+    to put the photons on the terrain's datum. buildings = roof_mask grid like dtm: roof photons there are dropped."""
     g = p['cls'] == 1
     info = {'ground_photons': int(g.sum())}
     if undulation is None or g.sum() < LASER_MIN_PHOTONS:
@@ -217,26 +248,41 @@ def laser_offset(dtm, transform, crs, p, undulation):
     xs, ys = rasterio.warp.transform('EPSG:4326', crs, p['lon'][g].tolist(), p['lat'][g].tolist())
     r, c = (np.asarray(v) for v in rasterio.transform.rowcol(transform, xs, ys))
     ok = (r >= 0) & (r < dtm.shape[0]) & (c >= 0) & (c < dtm.shape[1])
-    d = dtm[r[ok], c[ok]] - (p['h'][g][ok] - undulation)
-    d = d[np.isfinite(d)]
+    r, c = r[ok], c[ok]
+    d = dtm[r, c] - (p['h'][g][ok] - undulation)
+    keep = np.isfinite(d)
+    if buildings is not None:
+        roof = keep & roof_photons(buildings[r, c], -d)
+        keep &= ~roof
+        info['roof_photons_removed'] = int(roof.sum())
+    d = d[keep]
     if len(d) < LASER_MIN_PHOTONS:
         return None, dict(info, none=f'{len(d)} usable ICESat-2 ground photons (need {LASER_MIN_PHOTONS})')
     off = float(np.median(d))
+    npass = int(len(np.unique(np.asarray(p['track'])[g][ok][keep].astype(np.int64) // 100)))
+    if npass < min_passes:
+        return None, dict(info, none=f'ground photons from {npass} ICESat-2 pass (need {min_passes}): one line across '
+                          f'the scene; its offset ({off:+.1f} m) is not applied', single_pass_offset_m=off)
     days = np.sort(p['t'][g]).astype('datetime64[s]').astype(str)
     return off, dict(info, offset_m=off, spread_nmad_m=float(1.4826 * np.median(np.abs(d - off))),
-                     passes=int(len(np.unique(p['track'][g]))), first=days[0][:10], last=days[-1][:10])
+                     passes=npass, beams=int(len(np.unique(p['track'][g]))), first=days[0][:10], last=days[-1][:10])
 
 
-def laser_correct(image_path, dtm, undulation):
+def laser_correct(image_path, dtm, undulation, h=None, lc=None):
     """Shift the terrain so it agrees (median) with NASA ICESat-2 laser ground photons in the scene: 30 m DEMs are often
-    off by a few metres, ICESat-2 by decimetres. Returns (terrain, info); unchanged without enough photons or internet."""
+    off by a few metres, ICESat-2 by decimetres. Returns (terrain, info); unchanged without enough photons or internet.
+    h, lc = model height and land cover, to drop roof photons (roof_mask, roof_photons)."""
     try:
         with rasterio.open(image_path) as img:
             crs, tr = img.crs, img.transform
-            p = icesat2_photons(transform_bounds(crs, 'EPSG:4326', *img.bounds))
+            b = transform_bounds(crs, 'EPSG:4326', *img.bounds)
+            p = icesat2_photons(b)
     except Exception as e:  # offline, service down, client not installed
         return dtm, {'none': f'ICESat-2 photons unavailable ({type(e).__name__})'}
-    off, info = laser_offset(dtm, tr, crs, p, undulation)
+    # ponytail: degrees -> metres at the scene centre; Web Mercator units taken as metres (buffer up to ~15% small in India)
+    px_m = abs(tr.a) * (111320 * math.cos(math.radians((b[1] + b[3]) / 2)) if crs.is_geographic else 1)
+    roofs = None if h is None or lc is None else roof_mask(h, lc, px_m)
+    off, info = laser_offset(dtm, tr, crs, p, undulation, min_passes=LASER_MIN_PASSES, buildings=roofs)
     return (dtm if off is None else dtm - off), info
 
 
@@ -268,6 +314,25 @@ if __name__ == '__main__':
           'cls': np.r_[np.ones(60), np.full(20, 2)], 't': np.zeros(80, np.int64), 'track': np.ones(80)}
     off, _ = laser_offset(np.full((64, 64), 12.0), tr, 'EPSG:4326', ph, -3.0)
     assert abs(off - 2.0) < 1e-9, off
+    assert laser_offset(np.full((64, 64), 12.0), tr, 'EPSG:4326', ph, -3.0, min_passes=2)[0] is None   # one pass only
+    off2, _ = laser_offset(np.full((64, 64), 12.0), tr, 'EPSG:4326', dict(ph, track=np.r_[np.ones(30), np.full(50, 200)]), -3.0, 2)
+    assert abs(off2 - 2.0) < 1e-9, off2
     assert laser_offset(np.full((64, 64), 12.0), tr, 'EPSG:4326', dict(ph, cls=np.full(80, 2)), -3.0)[0] is None
+    # N5: 40 "ground" photons on a roof 15 m up among 60 real ones (Chandigarh: 48 of 155) are dropped and the offset is
+    # the true +2 m. ponytail: the median rule needs roofs to be a minority of a scene's ground photons; if a scene ever
+    # has more roof than ground photons, compare against the DEM instead of the photon median.
+    gl = np.linspace(1e-4, 40e-4, 60)
+    roof_ph = {'lon': np.r_[np.full(40, 76.0 + 50.5e-4), 76.0 + gl], 'lat': np.r_[np.full(40, 31.0 - 50.5e-4), 31.0 - gl],
+               'h': np.r_[np.full(40, 22.0), np.full(60, 7.0)], 'cls': np.ones(100), 't': np.zeros(100, np.int64), 'track': np.ones(100)}
+    hh, lcc = np.zeros((64, 64), np.float32), np.zeros((64, 64), np.uint8)
+    hh[48:54, 48:54], lcc[48:54, 48:54] = 15, BUILDING
+    roofs = roof_mask(hh, lcc, px_m=1.0, buffer_m=1.0)
+    assert roofs[50, 50] and roofs[47, 50] and not roofs[45, 50]
+    off3, inf3 = laser_offset(np.full((64, 64), 12.0), tr, 'EPSG:4326', roof_ph, -3.0, buildings=roofs)
+    assert abs(off3 - 2.0) < 1e-9 and inf3['roof_photons_removed'] == 40, (off3, inf3)
+    # street-level photons on a 'building' pixel (dates, registration) are real ground and stay
+    street = dict(roof_ph, h=np.full(100, 7.0))
+    off4, inf4 = laser_offset(np.full((64, 64), 12.0), tr, 'EPSG:4326', street, -3.0, buildings=roofs)
+    assert abs(off4 - 2.0) < 1e-9 and inf4['roof_photons_removed'] == 0, (off4, inf4)
     assert glo30_tile(30.97, 76.47) == 'Copernicus_DSM_COG_10_N30_00_E076_00_DEM'
     assert glo30_tile(-0.5, -1.2) == 'Copernicus_DSM_COG_10_S01_00_W002_00_DEM'

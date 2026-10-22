@@ -26,7 +26,23 @@ from utils.criterion import SmoothL1Loss, CriterionCrossEntropy
 from utils.mix_op import get_class_masks, generate_cutmix_masks, one_mix #import ClassMix and CutMix
 
 
-from models.dpt import DPT_DINOv2
+from models.dpt import DPT_DINOv2, DPT_MambaVision
+
+
+def build_model(args, head_configs):
+    """DINOv2 (vits / vitb / vitl) as in the paper, or a MambaVision Hugging Face id (e.g. nvidia/MambaVision-T-1K)."""
+    if args.encoder in ('vits', 'vitb', 'vitl'):
+        return DPT_DINOv2(encoder=args.encoder, head_configs=head_configs, pretrained=args.pretrained)
+    assert not args.feat_loss, '--feat_loss keeps the encoder close to frozen DINOv2 layers: not defined for MambaVision'
+    assert args.crop_size % 32 == 0, 'MambaVision needs --crop_size divisible by 32 (e.g. 384 or 512)'
+    return DPT_MambaVision(args.encoder, head_configs)
+
+
+def checkpoint(model, args):
+    """DINOv2 runs keep the paper's bare state dict; MambaVision runs save what infer_height.load_model needs to rebuild it."""
+    if args.encoder in ('vits', 'vitb', 'vitl'):
+        return model.state_dict()
+    return {'encoder': args.encoder, 'patch_size': 512, 'state_dict': model.state_dict()}
 
 from torch.utils.tensorboard import SummaryWriter
 from albumentations import ColorJitter, GaussianBlur, Compose, RandomCrop, HorizontalFlip, VerticalFlip, RandomRotate90, Normalize, OneOf, CenterCrop
@@ -198,7 +214,7 @@ def main():
     else:
         head_configs = regression_config
 
-    model = DPT_DINOv2(encoder=args.encoder, head_configs=head_configs, pretrained=args.pretrained)
+    model = build_model(args, head_configs)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
@@ -416,7 +432,7 @@ def main():
             total_loss += total_fl_loss      
         
         if i_iter == args.start_iters:
-            ema_model = DPT_DINOv2(encoder=args.encoder, head_configs=head_configs, pretrained=args.pretrained)
+            ema_model = build_model(args, head_configs)
             ema_model.to(device)
             ema_model.eval()  # start with the EMA model in eval mode
         else:
@@ -600,7 +616,7 @@ def main():
                 old_he_path = best_model_paths['HE']
                 new_he_path = osp.join(SNAPSHOT_DIR, f"best_HE_model_{i_iter}.pth")
                 best_model_paths['HE'] = new_he_path
-                torch.save(model.state_dict(), new_he_path)
+                torch.save(checkpoint(model, args), new_he_path)
                 if old_he_path is not None and os.path.exists(old_he_path):
                     os.remove(old_he_path)
 
@@ -611,7 +627,7 @@ def main():
                 old_ss_path = best_model_paths['SS']
                 new_ss_path = osp.join(SNAPSHOT_DIR, f"best_SS_model_{i_iter}.pth")
                 best_model_paths['SS'] = new_ss_path
-                torch.save(model.state_dict(), new_ss_path)
+                torch.save(checkpoint(model, args), new_ss_path)
                 if old_ss_path is not None and os.path.exists(old_ss_path):
                     os.remove(old_ss_path)
 
@@ -620,7 +636,7 @@ def main():
             # Save regular checkpoint if not only saving best models
             if not args.only_save_best:
                 regular_checkpoint_path = osp.join(SNAPSHOT_DIR, f"{i_iter}.pth")
-                torch.save(model.state_dict(), regular_checkpoint_path)
+                torch.save(checkpoint(model, args), regular_checkpoint_path)
                 logger.info(f"Saved regular model checkpoint at iteration {i_iter}")
 
 if __name__ == '__main__':

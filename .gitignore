@@ -16,3 +16,8 @@ SynRS3D/demo/*/
 SynRS3D/demo/benchmark/*
 !SynRS3D/demo/benchmark/*.md
 !SynRS3D/demo/benchmark/*_results.json
+
+# frontend dependencies (npm install recreates them)
+SynRS3D/frontend/node_modules/
+SynRS3D/frontend/tsconfig.tsbuildinfo
+depthwizard_code.zip

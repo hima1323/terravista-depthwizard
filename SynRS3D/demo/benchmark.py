@@ -28,7 +28,9 @@ from utils.metrics import AverageMeter, Result
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA = os.path.join(ROOT, 'data', 'DFC19')
-OUT = os.path.join(ROOT, 'demo', 'benchmark')
+# a student checkpoint (DW_WEIGHTS) gets its own folder, so its predictions never mix with RS3DAda's cached ones
+OUT = os.path.join(ROOT, 'demo', 'benchmark', *(['by_weights', os.path.splitext(os.path.basename(os.environ['DW_WEIGHTS']))[0]]
+                                               if os.environ.get('DW_WEIGHTS') else []))
 CLASSES = {2: 'ground', 5: 'trees', 6: 'buildings', 9: 'water', 17: 'bridge'}  # DFC19 LiDAR class codes
 BANDS = [(0, 3), (3, 10), (10, 20), (20, 1e9)]
 MEAN = np.array([123.675, 116.28, 103.53], np.float32)
@@ -96,7 +98,7 @@ def main():
         cache = os.path.join(OUT, 'pred', n + '.npz')
         if not os.path.exists(cache) or 'std' not in np.load(cache):  # older caches lack the spread
             if model is None:
-                model, device, dtype = infer_height.load_model(os.path.join(ROOT, 'pretrain', 'RS3DAda_vitl_DPT_height.pth'), fp16=True)
+                model, device, dtype = infer_height.load_model(infer_height.WEIGHTS, fp16=True)
             single, tta, std = predict_tile(model, device, dtype, read('opt', n)[:3].transpose(1, 2, 0))
             np.savez_compressed(cache, single=single.astype(np.float16), tta=tta.astype(np.float16),
                                 std=std.astype(np.float16))

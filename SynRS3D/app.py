@@ -22,8 +22,11 @@ from utils import geo_func
 ROOT = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = os.path.join(ROOT, 'demo', 'samples')
 RESULTS = os.path.join(ROOT, 'demo', 'results')
-WEB = os.path.join(ROOT, 'web', 'index.html')
+WEB = os.path.join(ROOT, 'web', 'index.html')   # classic viewer, at /classic
+APP = os.path.join(ROOT, 'web', 'app')          # React UI built from frontend/ (npm run build), at / and /app/
 VENDOR = os.path.join(ROOT, 'web', 'vendor')
+APP_TYPES = {'.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.woff2': 'font/woff2',
+             '.woff': 'font/woff', '.svg': 'image/svg+xml', '.png': 'image/png', '.json': 'application/json'}
 EXTS = ('.tif', '.tiff', '.png', '.jpg', '.jpeg')
 GRID = 512            # max side of the height grid sent to the browser
 MAX_UPLOAD = 50 << 20
@@ -31,11 +34,12 @@ BUILDING = infer_height.LANDCOVER.index('buildings')
 FLOOR_M = 3.0         # assumed storey height for floor estimates
 SUFFIXES = ('', '_height', '_unc', '_uncertainty', '_landcover', '_bid', '_buildings', '_corr',
             '_height_corrected', '_dtm', '_dsm', '_lc', '_valerr', '_validation', '_dsm_gcp')  # per-scene result files
-TERRAIN_VERSION = 2  # bump to recompute terrain for every scene (2: ICESat-2 laser correction)
+TERRAIN_VERSION = 4  # bump to recompute terrain for every scene (2: ICESat-2 laser correction; 3: no laser shift from a single ICESat-2 pass, terrain.LASER_MIN_PASSES; 4: no levelling on photons over the model's buildings, terrain.roof_mask)
 # Height correction learned on DFC2019 LiDAR (demo/height_correction.py); only present if it passed every test split
 CHOSEN = os.path.join(ROOT, 'demo', 'benchmark', 'height_correction_chosen.json')
 CORR = json.load(open(CHOSEN)) if os.path.exists(CHOSEN) else None
 CORR_FP = hashlib.md5(json.dumps(CORR, sort_keys=True).encode()).hexdigest()[:8] if CORR else None
+CONFORMAL = infer_height.load_conformal()  # calibrated 90% interval for building blocks (demo/uncertainty_calibration.py)
 
 status = {}           # name -> {'state': queued|running|done|error, 'progress': 0..1, 'error': str}
 jobs = queue.Queue()
@@ -87,12 +91,31 @@ def extract_buildings(h, u, lc, gsd, rgb):
         height = float(np.median(hk))
         if height < 2:
             continue
+        unc = round(float(np.median(uf[pix])), 2)
         out.append({'id': len(out) + 1, 'area_m2': round(len(pix) * gsd * gsd, 1),
                     'height_m': round(height, 2), 'height_p90': round(float(np.percentile(hk, 90)), 2),
-                    'unc_m': round(float(np.median(uf[pix])), 2), 'floors': max(1, round(height / FLOOR_M)),
+                    'unc_m': unc, 'ci90': block_ci(round(height, 2), unc), 'floors': max(1, round(height / FLOOR_M)),
                     'cx': round(float((pix % W).mean()) / W, 4), 'cy': round(float((pix // W).mean()) / H, 4)})
         ids[pix] = len(out)
     return ids.reshape(H, W), out
+
+
+def block_ci(height, unc):
+    ci = infer_height.building_interval(height, unc, CONFORMAL)
+    return [round(ci[0], 1), round(ci[1], 1)] if ci else None
+
+
+def ensure_intervals(name):
+    """Add / refresh the calibrated 90% interval of each building block in saved results (no model run needed)."""
+    bf = os.path.join(RESULTS, name + '_buildings.json')
+    if not os.path.exists(bf):
+        return
+    blocks = json.load(open(bf))
+    new = [block_ci(b['height_m'], b['unc_m']) for b in blocks]
+    if any(b.get('ci90') != c for b, c in zip(blocks, new)):
+        for b, c in zip(blocks, new):
+            b['ci90'] = c
+        json.dump(blocks, open(bf, 'w'))
 
 
 def ensure_corrected(name, path):
@@ -137,7 +160,7 @@ def ensure_terrain(name, path):
         dtm, info = None, {'error': f'terrain unavailable: {e}'}
     info['version'] = TERRAIN_VERSION
     if dtm is not None:  # level-check against NASA ICESat-2 laser ground photons (shift, where there are enough)
-        dtm, info['laser'] = terrain.laser_correct(path, dtm, info.get('geoid_undulation_m'))
+        dtm, info['laser'] = terrain.laser_correct(path, dtm, info.get('geoid_undulation_m'), h, lc)
         tags = dict(VERTICAL_DATUM=terrain.DATUM, UNITS='metre', TERRAIN_SOURCE=info['source'])
         terrain.save_with_tags(path, os.path.join(RESULTS, name + '_dtm.tif'), dtm,
                                infer_height.save_tiff_with_geo_info, CONTENT='bare-ground terrain (DTM)', **tags)
@@ -190,7 +213,7 @@ def worker():
     while True:
         name = jobs.get()
         if model is None:
-            model, device, dtype = infer_height.load_model(os.path.join(ROOT, 'pretrain', 'RS3DAda_vitl_DPT_height.pth'), fp16=True)
+            model, device, dtype = infer_height.load_model(infer_height.WEIGHTS, fp16=True)
             print(f'model ready on {device}', flush=True)
         path = scene_files().get(name)
         st = status[name]
@@ -235,6 +258,7 @@ def enqueue_missing():
         ensure_photo(name, path)
         meta = os.path.join(RESULTS, name + '.json')
         if os.path.exists(meta) and 'buildings' in json.load(open(meta)):  # older results lack newer outputs
+            ensure_intervals(name)
             ensure_corrected(name, path)
             ensure_terrain(name, path)
             ensure_extras(name, path)
@@ -255,8 +279,15 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self):
-        if self.path == '/':
+        path = urllib.parse.urlsplit(self.path).path
+        built = os.path.isfile(os.path.join(APP, 'index.html'))
+        if path == '/classic' or (path == '/' and not built):
             return self.send(200, open(WEB, 'rb').read(), 'text/html; charset=utf-8')
+        if path in ('/', '/app', '/app/'):
+            return self.send(200, open(os.path.join(APP, 'index.html'), 'rb').read(), APP_TYPES['.html'])
+        m = re.fullmatch(r'/app/([\w./-]+)', path)
+        if m and '..' not in m[1] and os.path.isfile(os.path.join(APP, m[1])):
+            return self.send(200, open(os.path.join(APP, m[1]), 'rb').read(), APP_TYPES.get(os.path.splitext(m[1])[1], 'application/octet-stream'))
         if self.path == '/api/scenes':
             out = []
             for name in scene_files():

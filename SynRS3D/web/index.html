@@ -138,10 +138,10 @@
     <div class="controls" id="controls">
       <div class="legend" id="floodlegend" data-mode="disaster" hidden><span><i class="sw" style="background:#2f7fe0"></i>Water</span><span><i class="sw" style="background:#e5484d"></i>Submerged</span><span><i class="sw" style="background:#f5a524"></i>Partly flooded</span></div>
       <div class="legend" id="gradlegend"><span id="llo">0 m</span><canvas id="legend" width="140" height="1"></canvas><span id="lmax">–</span></div>
-      <label class="c2d" data-mode="explore">Layer <select id="layer"><option value="height">Height</option><option value="unc">Uncertainty (±)</option><option value="slope" title="Terrain slope from the 30 m terrain model; classes as in BIS IS 14496 (Part 2) landslide hazard zonation">Slope (landslide)</option></select></label>
+      <label class="c2d" data-mode="explore">Layer <select id="layer"><option value="height">Height</option><option value="unc" title="Spread of 4 flipped predictions: ranks likely errors on flat ground and edges; not a calibrated error bar">Consistency score (flip spread)</option><option value="slope" title="Terrain slope from the 30 m terrain model; classes as in BIS IS 14496 (Part 2) landslide hazard zonation">Slope (landslide)</option></select></label>
       <label class="c2d" data-mode="explore validate">Overlay <input id="alpha" type="range" min="0" max="1" step="0.01" value="0.65"></label>
       <label class="c3d" hidden>Height ×<input id="exag" type="range" min="1" max="5" step="0.5" value="2"><span id="exagv">2</span></label>
-      <label class="c3d" data-mode="explore" hidden>Surface <select id="tex3d"><option value="photo">Photo</option><option value="heat">Height colours</option><option value="unc">Uncertainty</option><option value="slope">Slope (landslide)</option></select></label>
+      <label class="c3d" data-mode="explore" hidden>Surface <select id="tex3d"><option value="photo">Photo</option><option value="heat">Height colours</option><option value="unc">Consistency score</option><option value="slope">Slope (landslide)</option></select></label>
       <label class="c3d" hidden><input id="spin" type="checkbox"> Auto-orbit</label>
       <label class="c3d" hidden>Camera <select id="cam"><option value="orbit">Orbit</option><option value="fly">Fly (W A S D)</option><option value="street">Street level</option></select></label>
       <span class="c3d" data-mode="explore disaster" hidden><button id="pathbtn" title="Click points on the 3D scene to plan a route">✎ Draw path</button>
@@ -154,7 +154,7 @@
       <button id="sitebtn" data-mode="disaster" title="Find flat, open, dry places for a helicopter to land or a relief camp">🚁 Relief sites</button>
       <label data-mode="explore validate" title="GeoTIFFs open in QGIS / ArcGIS; the 3D model (true metres) in Blender or any glTF viewer">Download <select id="dl"><option value="">…</option><option value="glb">3D model (.glb)</option>
         <option value="_dsm.tif">DSM, m a.s.l. (.tif)</option><option value="_dtm.tif">Terrain DTM (.tif)</option>
-        <option value="_height.tif">Height above ground (.tif)</option><option value="_uncertainty.tif">Uncertainty ± (.tif)</option>
+        <option value="_height.tif">Height above ground (.tif)</option><option value="_uncertainty.tif">Consistency score, flip spread (.tif)</option>
         <option value="_dsm_gcp.tif">DSM calibrated with control points (.tif)</option>
         <option value="_buildings.json">Building blocks (.json)</option></select></label>
       <label class="cflood" data-mode="disaster" hidden>Water level <input id="depth" type="range" min="0" max="15" step="any" value="3"><span id="depthv">3.0 m</span></label>
@@ -404,7 +404,7 @@ function renderStats() {
   const m = data.meta, c = corrOn() ? m.corrected : m;
   $('stats').innerHTML = [
     ['Tallest', `${(c.max * (data.hscale ?? 1)).toFixed(1)} m`], ['99th pct', `${(c.p99 * (data.hscale ?? 1)).toFixed(1)} m`],
-    ['Built-up (>3 m)', `${m.built_pct.toFixed(0)}%`], ['Avg uncertainty', `± ${m.unc_mean.toFixed(2)} m`], ['Building blocks', m.buildings],
+    ['Built-up (>3 m)', `${m.built_pct.toFixed(0)}%`], ['Avg consistency score', `${m.unc_mean.toFixed(2)} m`], ['Building blocks', m.buildings],
     ...(data.dtm ? [['Ground', `${data.gmin.toFixed(0)}–${data.gmax.toFixed(0)} m a.s.l.`]] : []),
     ['GSD', `${m.gsd.toFixed(2)} m${m.gsd_assumed ? ' (assumed)' : ''}`]
   ].map(([k, v]) => `<span class="chip">${k} <b>${v}</b></span>`).join('');
@@ -414,10 +414,10 @@ function renderStats() {
                 : 'Model estimate of height above ground. ')
     + (cal ? `Calibrated with ${cal.n} control point${cal.n > 1 ? 's' : ''}: level ${cal.a >= 0 ? '+' : ''}${cal.a.toFixed(2)} m`
          + (cal.s !== 1 ? `, heights ×${cal.s.toFixed(2)}` : '') + (cal.terms.includes('bx') ? ', tilt corrected' : '') + '. ' : '')
-    + '± = spread of 4 flipped predictions (model self-consistency), not a calibrated error bar. '
+    + 'Consistency score = spread of 4 flipped predictions, not an error bar; building blocks show a 90% interval calibrated on GAMUS LiDAR (US cities): about ±6 m, and it misses about half of the blocks that are really 10-20 m tall and most above 20 m. '
     + (data.dtmRaw ? `Absolute heights in m above mean sea level (EGM2008); terrain: ${terrainLabel()}, cleaned with the model's land cover`
          + (laserShift() != null ? `, levelled ${laserShift().toFixed(1)} m to match ${m.terrain.laser.ground_photons} NASA ICESat-2 laser ground points.`
-                                 : '; no ICESat-2 laser points in this scene.')
+                                 : (m.terrain.laser && m.terrain.laser.none ? `; not levelled: ${m.terrain.laser.none}.` : '; no ICESat-2 laser points in this scene.'))
        : cal ? 'Absolute heights in m from the control points (the ground is taken as flat or tilted).'
        : m.terrain && m.terrain.error ? 'Terrain could not be loaded (offline?), so heights are relative to local ground.'
        : 'No georeferencing, so heights are relative to local ground (add control points to make them absolute).');
@@ -439,10 +439,10 @@ function blockDepth(b, L) { return blockReached(b, L) ? Math.max(0, L - blockGro
 function blockState(b, L) { const g = blockGround(b); return !blockReached(b, L) ? 'dry' : L > g + b.height_m ? 'sub' : L > g ? 'part' : 'dry'; }
 function pointText(u, v, sep) {
   const h = Math.max(0, heightAt(u, v)), un = uncAt(u, v), extra = floodText(u, v, sep) + valText(u, v, sep);
-  if (!data.dtm) return `${h.toFixed(1)} ± ${un.toFixed(1)} m above ground` + extra;
+  if (!data.dtm) return `${h.toFixed(1)} m above ground (consistency score ${un.toFixed(1)} m)` + extra;
   const g = groundAt(u, v);
   const sl = sampleAt(data.slope, u, v);
-  return `${(g + h).toFixed(1)} m a.s.l.${sep}ground ${g.toFixed(1)} m + height ${h.toFixed(1)} ± ${un.toFixed(1)} m`
+  return `${(g + h).toFixed(1)} m a.s.l.${sep}ground ${g.toFixed(1)} m + height ${h.toFixed(1)} m (consistency score ${un.toFixed(1)} m)`
     + `${sep}terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})` + extra;
 }
 function buildingAt(u, v) {   // nearest grid cell → building record or null
@@ -452,7 +452,9 @@ function buildingAt(u, v) {   // nearest grid cell → building record or null
   return id > 0 ? data.buildings[id - 1] : null;
 }
 function buildingText(b, sep) {
-  let t = `Block ${b.height_m.toFixed(1)} ± ${b.unc_m.toFixed(1)} m tall · ${Math.round(b.area_m2)} m² · ~${b.floors} floor${b.floors > 1 ? 's' : ''}`;
+  const k = data.hscale ?? 1, ci = b.ci90 && !corrOn() ? b.ci90 : null;  // interval is calibrated for the raw model height
+  let t = `Block ${b.height_m.toFixed(1)} m tall` + (ci ? ` · 90% interval (calibrated on GAMUS, US cities) ${(ci[0] * k).toFixed(1)}–${(ci[1] * k).toFixed(1)} m (often too low for buildings over 10 m)`
+    : ` (consistency score ${b.unc_m.toFixed(1)} m)`) + ` · ${Math.round(b.area_m2)} m² · ~${b.floors} floor${b.floors > 1 ? 's' : ''}`;
   if (data.dtm) t += `${sep}roof ${(blockGround(b) + b.height_m).toFixed(1)} m a.s.l.`;
   if ($('flood').checked) {
     const L = waterLevel(), st = blockState(b, L);
@@ -490,7 +492,7 @@ function showLayer() {
   }
   const src = $('flood').checked ? data.floodCv : { unc: data.uncCv, slope: data.slopeCv }[l] || data.heat;
   hc.width = src.width; hc.height = src.height; hc.getContext('2d').drawImage(src, 0, 0);
-  if (l === 'unc') drawLegend(inferno, '± 0 m', `± ${data.umax.toFixed(1)} m`);
+  if (l === 'unc') drawLegend(inferno, 'Consistency score 0 m', `${data.umax.toFixed(1)} m`);
   else if (l === 'slope') drawLegend(slopeRamp, '0°', '45°+ slope');
   else drawLegend(turbo, 'Height above ground 0 m', `${data.vmax.toFixed(0)} m`);
 }
@@ -940,7 +942,7 @@ function renderFlood() {
       ${nSrc ? '' : '<div class="msg warn">Click “Place water sources”, then click the map where water comes in (a river, a canal, a breached embankment).</div>'}` : ''}
     <small>${nAll} building blocks from the model's land-cover head (attached buildings count as one), ~${m.floor_m} m per floor. ${model} `
     + (data.dtm ? `Terrain: ${terrainLabel()} (30 m, about ±2–4 m)${laserShift() != null ? ', levelled to ICESat-2 laser points' : ''}.`
-                : 'No terrain for this image: flat ground and one uniform water depth.') + ' Heights carry ± model uncertainty. Hover or click a point to see the water level at which it floods.</small>';
+                : 'No terrain for this image: flat ground and one uniform water depth.') + ' Heights carry model error (see the 90% interval on building blocks). Hover or click a point to see the water level at which it floods.</small>';
   drawOverlay();
 }
 function updateFlood() {
@@ -1748,6 +1750,17 @@ function kpis(m) {
     + `${k(m.within_2m_pct == null ? '–' : m.within_2m_pct.toFixed(0) + '%', 'within ±2 m', 'Share of values within 2 m of the reference')}</div>`
     + `<div class="msg">${m.n.toLocaleString('en-IN')} values compared.</div>`;
 }
+function heldOutHtml(ho) {
+  if (!ho) return '';
+  if (ho.error) return `<div class="msg warn">Held-out check failed: ${ho.error}</div>`;
+  if (ho.note) return `<div class="msg">Held-out check: ${ho.note}</div>`;
+  const f = (m, l) => m ? `<tr><td>${l}</td><td>${m.mae.toFixed(2)} m</td><td>${sgn(m.bias)} m</td><td>${m.n.toLocaleString('en-IN')}</td></tr>` : '';
+  return `<h4>Held-out passes (not used for levelling)</h4><table><tr><th></th><th>MAE</th><th>bias</th><th>n</th></tr>`
+    + f(ho.terrain_vs_ground_footprint, 'Terrain vs ground') + f(ho.surface_vs_all_footprint, 'Surface vs all photons')
+    + `</table><small>Terrain levelled on ${ho.passes_levelling} pass${ho.passes_levelling === 1 ? '' : 'es'}`
+    + (ho.laser_shift_m == null ? ' (no shift applied)' : ` (shift ${sgn(ho.laser_shift_m)} m)`)
+    + `, checked on ${ho.passes_validation} other pass${ho.passes_validation === 1 ? '' : 'es'} (${ho.validation_photons} photons), median over each ~11 m footprint. This is the non-circular number, but in dense towns ICESat-2 often classes roof photons as ground (in Chandigarh every held-out "ground" photon is on an OSM roof), so a large negative terrain bias there can mean roofs, not bad terrain.</small>`;
+}
 function renderValidation() {
   if (!data || mode !== 'validate') return;
   const keys = Object.keys(VKEYS).filter(k => data.val[k]);
@@ -1764,6 +1777,8 @@ function renderValidation() {
     else h = `<h4>Surface (our DSM) vs all ${r.photons} laser photons</h4>${kpis(r.surface_vs_all)}`
       + `<h4>Terrain vs ${r.ground_photons} ground photons</h4>`
       + (r.terrain_vs_ground ? `<div class="msg">Before the app's laser levelling: MAE ${r.terrain_vs_ground.mae.toFixed(2)} m, median ${sgn(r.terrain_vs_ground.median)} m, NMAD ${r.terrain_vs_ground.nmad.toFixed(2)} m, r ${r.terrain_vs_ground.r == null ? '–' : r.terrain_vs_ground.r.toFixed(2)}.</div>` : '<div class="msg">Too few ground photons.</div>')
+      + (r.laser_note ? `<div class="msg warn">${r.laser_note}</div>` : '')
+      + heldOutHtml(r.held_out)
       + '<canvas class="chart" id="vscat"></canvas>'
       + statTable('Landscape', r.landscape) + statTable('Terrain', r.slope) + statTable('Height', r.height)
       + `<small>NASA ICESat-2 (ATL03 photons, ATL08 classes) via SlideRule, ${r.passes} pass${r.passes > 1 ? 'es' : ''} ${r.dates[0]} – ${r.dates[1]}; heights converted to m above sea level (EGM2008). `

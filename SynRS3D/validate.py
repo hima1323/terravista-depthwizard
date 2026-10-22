@@ -6,7 +6,8 @@ Reference data the viewer can check against (SIH26175: "validate estimated heigh
     without georeferencing the two must cover the same area and are matched pixel to pixel (resized).
   * surveyed points: a CSV with lon,lat,z (WGS84) or col,row,z (image pixels) of known surface heights;
   * NASA ICESat-2 laser photons inside the scene (terrain.icesat2_photons): ground photons vs our terrain,
-    all photons vs our surface model.
+    all photons vs our surface model. Held-out version: passes split into levelling / validation (split_passes), the
+    terrain levelled on the first and checked on the second only, per pixel and over the ~11 m footprint.
 Metrics: MAE, RMSE, bias, NMAD, Pearson correlation r, share within 1 / 2 m; overall and split by landscape type
 (land cover: urban / forested / sparse-open / water; terrain slope: flat / rolling / hilly) and by height band.
 
@@ -78,11 +79,11 @@ def slope_deg(dtm, transform):
 
 
 class Scene:
-    """The saved full-resolution products of one processed scene (demo/results)."""
+    """The saved full-resolution products of one processed scene (demo/results, or another folder laid out the same)."""
 
-    def __init__(self, name, image_path):
+    def __init__(self, name, image_path, results=RESULTS):
         self.name, self.image_path = name, image_path
-        r = lambda sfx: os.path.join(RESULTS, name + sfx)
+        r = lambda sfx: os.path.join(results, name + sfx)
         with rasterio.open(r('_height.tif')) as src:
             self.h = src.read(1).astype(np.float32)
             self.crs, self.transform = src.crs, src.transform
@@ -262,8 +263,70 @@ def compare_points(scene, pts, datum='egm2008'):
             'scatter': {'ref': ref.round(2).tolist(), 'ours': ours.round(2).tolist()}}
 
 
+FOOTPRINT_M = 6.0   # ICESat-2 laser footprint radius (~11 m across)
+
+
+def split_passes(track, t, ground=None):
+    """Levelling / validation split of ICESat-2 photons, so no pass both levels the terrain and checks it. A pass = one
+    reference ground track in one cycle (track // 100: rgt*1000 + cycle, all 6 beams). Passes sorted by time alternate
+    levelling, validation, levelling, ...; given the ground-photon mask, the phase (starting with levelling or with
+    validation) that gives the levelling passes more ground photons is used (never looks at errors). With a single pass
+    every photon is levelling. Returns boolean masks (levelling, validation)."""
+    pid = np.asarray(track).astype(np.int64) // 100
+    t = np.asarray(t, np.float64)
+    order = sorted(np.unique(pid), key=lambda p: np.median(t[pid == p]))
+    lev = [np.isin(pid, order[k::2]) for k in (0, 1) if len(order) > k]
+    if ground is not None and len(lev) == 2 and (lev[1] & ground).sum() > (lev[0] & ground).sum():
+        return lev[1], ~lev[1]
+    return lev[0], ~lev[0]
+
+
+def footprint(scene, grid, lon, lat, stat='median', radius_m=FOOTPRINT_M):
+    """grid (on the scene's pixel grid) over a laser footprint disc at lon/lat: 'median' for ground, a percentile (e.g. 98)
+    for the top surface, 'pixel' = the containing pixel. Work done by demo/eval_v2.footprint_sample."""
+    from demo.eval_v2 import footprint_sample
+    # eval_v2 takes projected CRS units as metres; Web Mercator units are 1/cos(lat) ground metres, so rescale by the gsd
+    k = 1.0 if scene.crs.is_geographic else abs(scene.transform.a) / scene.gsd
+    return footprint_sample(grid, scene.transform, lon, lat, radius_m * k, stat, scene.crs)
+
+
+def held_out(scene, d, r, c, h, off, N, min_passes=None, on_roof=None):
+    """The non-circular laser check. d = photons inside the scene (terrain.icesat2_photons arrays), r/c = their pixels,
+    h = their heights (EGM2008), off = the app's levelling offset (all passes). The terrain before levelling is
+    levelled again on the levelling passes only (terrain.laser_offset) and checked on the validation passes, per pixel
+    and over the ~11 m footprint (median). min_passes: as the app (terrain.LASER_MIN_PASSES) unless given.
+    on_roof = per-photon mask of ground-class photons that are roofs (terrain.roof_photons): they neither level nor
+    check the terrain. roofs_vs_photons = our surface vs them on the validation passes; not shown in the app yet: in
+    Porto Alegre centre it reads +32 m, likely leaning towers whose roofs are drawn off their footprints."""
+    import terrain
+    min_passes = terrain.LASER_MIN_PASSES if min_passes is None else min_passes
+    on_roof = np.zeros(len(r), bool) if on_roof is None else on_roof
+    g = (np.asarray(d['cls']) == 1) & ~on_roof
+    lev, val = split_passes(d['track'], d['t'], g)
+    pid = np.asarray(d['track']).astype(np.int64) // 100
+    out = {'passes_levelling': int(len(np.unique(pid[lev]))), 'passes_validation': int(len(np.unique(pid[val]))),
+           'validation_photons': int(val.sum())}
+    if not val.any():
+        return dict(out, note='one ICESat-2 pass only: no held-out check; terrain_vs_ground (before levelling) is independent')
+    before = scene.dtm + (off or 0)
+    off_l, info = terrain.laser_offset(before, scene.transform, scene.crs, {k: np.asarray(v)[lev & ~on_roof] for k, v in d.items()}, N, min_passes)
+    info['roof_photons_removed'] = int((lev & on_roof).sum())
+    dtm = before - (off_l or 0)
+    out.update(laser_shift_m=None if off_l is None else -off_l, levelling=info,
+               roof_photons_removed=int((val & on_roof).sum()))
+    if not (val & g).any() and out['roof_photons_removed']:
+        out['roof_note'] = (f"All {out['roof_photons_removed']} held-out ground photons fell on buildings (ICESat-2 classed the roofs as "
+                            'ground), so there is no held-out terrain check here.')
+    dsm = dtm + np.clip(scene.h, 0, None)
+    for key, grid, sel in (('terrain_vs_ground', dtm, val & g), ('surface_vs_all', dsm, val), ('roofs_vs_photons', dsm, val & on_roof)):
+        out[key] = metrics(grid[r[sel], c[sel]], h[sel])
+        out[key + '_footprint'] = metrics(footprint(scene, grid, d['lon'][sel], d['lat'][sel]), h[sel])
+    return out
+
+
 def compare_icesat2(scene):
-    """Our terrain and surface vs NASA ICESat-2 photons inside the scene, by photon class and landscape."""
+    """Our terrain and surface vs NASA ICESat-2 photons inside the scene, by photon class and landscape.
+    surface_vs_all is circular (the terrain was levelled on these same photons); 'held_out' has the non-circular check."""
     import terrain
     if not scene.crs or scene.dtm is None:
         raise ValueError('ICESat-2 needs a georeferenced scene with terrain')
@@ -286,16 +349,26 @@ def compare_icesat2(scene):
         return {'photons': 0, 'note': 'No ICESat-2 photons inside the image itself.'}
     off = (t.get('laser') or {}).get('offset_m')
     dtm_before = scene.dtm[r, c] + (off or 0)               # independent check: terrain before the laser levelling
+    on_roof = np.zeros(len(h), bool)                        # ground photons that are roofs (N5, terrain.roof_photons)
+    gi = cls == 1
+    on_roof[gi] = terrain.roof_photons(terrain.roof_mask(scene.h, scene.lc, scene.gsd)[r[gi], c[gi]], h[gi] - dtm_before[gi])
     dsm = scene.dsm[r, c]
-    g = cls == 1
+    g = gi & ~on_roof
     lc = scene.lc[r, c]
     slope = scene.slope[r, c] if scene.slope is not None else None
-    res = {'photons': int(len(h)), 'ground_photons': int(g.sum()), 'passes': int(len(np.unique(d['track'][inside]))),
+    res = {'photons': int(len(h)), 'ground_photons': int(g.sum()), 'passes': int(len(np.unique(d['track'][inside].astype(np.int64) // 100))),
            'dates': [str(np.datetime64(int(d['t'][inside].min()), 's'))[:10], str(np.datetime64(int(d['t'][inside].max()), 's'))[:10]],
-           'laser_shift_m': None if off is None else -off,
+           'laser_shift_m': None if off is None else -off, 'roof_photons_removed': int(on_roof.sum()),
            'terrain_vs_ground': metrics(dtm_before[g], h[g]),
            'surface_vs_all': metrics(dsm, h)}
+    if (t.get('laser') or {}).get('single_pass_offset_m') is not None:   # app refused a one-pass shift: these numbers are unlevelled
+        res['laser_note'] = (f"Terrain not levelled: {t['laser']['none']}. The numbers above are for the unlevelled terrain, so they are "
+                             'independent of the laser but can be far off on this one line (a local DEM error along it is not a scene-wide offset).')
     res.update(breakdowns(dsm, h, lc, slope, np.clip(scene.h[r, c], 0, None)))
+    try:   # additive: a failure here must not break the existing response
+        res['held_out'] = held_out(scene, {k: np.asarray(v)[inside] for k, v in d.items()}, r, c, h, off, N, on_roof=on_roof)
+    except Exception as e:
+        res['held_out'] = {'error': f'{type(e).__name__}: {e}'}
     keep = np.random.default_rng(0).choice(len(h), min(2500, len(h)), replace=False)
     res['photons_xy'] = {'u': (c[keep] / scene.shape[1]).round(4).tolist(), 'v': (r[keep] / scene.shape[0]).round(4).tolist(),
                          'h': h[keep].round(2).tolist(), 'ours': dsm[keep].round(2).tolist(), 'cls': cls[keep].astype(int).tolist()}
@@ -386,4 +459,47 @@ if __name__ == '__main__':
     assert p1['terms'] == ['a'] and abs(p1['a'] - 3) < 0.05
     assert read_points('lon,lat,z\n76.1,30.2,350\n') == [{'lon': 76.1, 'lat': 30.2, 'z': 350.0}]
     assert read_points('col,row,elev\n5,6,7\n') == [{'col': 5.0, 'row': 6.0, 'z': 7.0}]
+    # pass split + held-out laser check: two passes, ground at 10 m (levelling pass) and 9 m (validation pass) a.s.l.,
+    # terrain 12 m. Held-out: levelled to 10 m, checked against 9 m -> +1 m. Circular (both): 9.5 m -> only +-0.5 m.
+    from rasterio.crs import CRS
+    lev, val = split_passes(np.r_[np.full(3, 100201), np.full(3, 100101), np.full(2, 500301)], np.r_[np.full(3, 5.0), np.zeros(3), np.full(2, 9.0)])
+    assert lev.tolist() == [False] * 3 + [True] * 3 + [True] * 2 and split_passes(np.full(4, 100101), np.zeros(4))[1].sum() == 0
+    lev, val = split_passes(np.r_[np.full(3, 100201), np.full(3, 100101), np.full(2, 500301)], np.r_[np.full(3, 5.0), np.zeros(3), np.full(2, 9.0)],
+                            np.r_[np.ones(3, bool), np.zeros(5, bool)])   # the middle pass has all the ground photons
+    assert lev.tolist() == [True] * 3 + [False] * 5
+    k = 60
+    lon, lat = 76.0 + np.tile(np.linspace(5e-4, 9e-3, k), 2), 31.0 - np.tile(np.linspace(5e-4, 9e-3, k), 2)
+    d = {'lon': lon, 'lat': lat, 'h': np.r_[np.full(k, 7.0), np.full(k, 6.0)], 'cls': np.ones(2 * k),
+         't': np.r_[np.zeros(k), np.full(k, 1e6)], 'track': np.r_[np.full(k, 100101), np.full(k, 100201)]}
+    class Geo:
+        crs, transform, gsd = CRS.from_epsg(4326), rasterio.Affine(1e-4, 0, 76.0, 0, -1e-4, 31.0), 10.0
+        dtm, h = np.full((100, 100), 12.0, np.float32), np.zeros((100, 100), np.float32)
+    rr, cc = (np.asarray(v) for v in rasterio.transform.rowcol(Geo.transform, lon, lat))
+    ho = held_out(Geo(), d, rr, cc, d['h'] + 3.0, None, -3.0)   # app default: one levelling pass -> no shift, 12 m vs 9 m
+    assert ho['laser_shift_m'] is None and abs(ho['terrain_vs_ground']['bias'] - 3) < 1e-6, ho
+    ho = held_out(Geo(), d, rr, cc, d['h'] + 3.0, None, -3.0, min_passes=1)
+    assert ho['passes_levelling'] == 1 and ho['passes_validation'] == 1 and abs(ho['laser_shift_m'] + 2) < 1e-6, ho
+    for key in ('terrain_vs_ground', 'surface_vs_all', 'terrain_vs_ground_footprint', 'surface_vs_all_footprint'):
+        assert ho[key]['n'] == k and abs(ho[key]['bias'] - 1) < 1e-6, (key, ho[key])
+    # N5, the Chandigarh case: every validation-pass "ground" photon is on a roof 6 m up (15 m a.s.l.). Without the roof
+    # mask the terrain check reads 10 vs 15 m (-5, the 15.28 m defect in small); with it there is no held-out terrain
+    # check, a note says why, and the roof photons check our surface instead: levelled 10 m + 6 m roof = 16 vs 15 m (+1)
+    dr = dict(d, h=np.r_[np.full(k, 7.0), np.full(k, 12.0)], lat=np.r_[lat[:k], lat[k:] - 5e-4])   # 2nd pass 5 rows down
+    r2, c2 = (np.asarray(v) for v in rasterio.transform.rowcol(Geo.transform, dr['lon'], dr['lat']))
+    Geo.h = np.zeros((100, 100), np.float32)
+    Geo.h[r2[k:], c2[k:]] = 6.0
+    assert held_out(Geo(), dr, r2, c2, dr['h'] + 3.0, None, -3.0, min_passes=1)['terrain_vs_ground']['bias'] < -1
+    ho = held_out(Geo(), dr, r2, c2, dr['h'] + 3.0, None, -3.0, min_passes=1, on_roof=np.r_[np.zeros(k, bool), np.ones(k, bool)])
+    assert ho['terrain_vs_ground'] is None and ho['roof_photons_removed'] == k and 'roof_note' in ho, ho
+    assert abs(ho['roofs_vs_photons']['bias'] - 1) < 1e-6 and abs(ho['laser_shift_m'] + 2) < 1e-6, ho
+    Geo.h = np.zeros((100, 100), np.float32)
+    # footprint on a Web Mercator grid at 60 deg N: 2 CRS units per 1 m ground pixel; a 6 m disc must span +-6 pixels
+    lat0 = 60.0
+    class Merc:
+        crs, gsd = CRS.from_epsg(3857), 1.0
+        transform = rasterio.Affine(2.0, 0, 0.0, 0, -2.0, 0.0)
+    from rasterio.warp import transform as wt
+    lo, la = wt('EPSG:3857', 'EPSG:4326', [2.0 * 50.5], [-2.0 * 50.5])
+    grid = np.tile(np.arange(100.0), (100, 1))
+    assert footprint(Merc(), grid, lo, la, 'pixel')[0] == 50 and footprint(Merc(), grid, lo, la, 100)[0] == 56
     print('validate.py self-check ok')

@@ -93,7 +93,7 @@ def main():
         cache = os.path.join(PRED, n + '.npz')
         if not os.path.exists(cache):
             if model is None:
-                model, device, dtype = infer_height.load_model(os.path.join(B.ROOT, 'pretrain', 'RS3DAda_vitl_DPT_height.pth'), fp16=True)
+                model, device, dtype = infer_height.load_model(infer_height.WEIGHTS, fp16=True)
             single, tta, std = B.predict_tile(model, device, dtype, read('images', n))
             np.savez_compressed(cache, single=single.astype(np.float16), tta=tta.astype(np.float16), std=std.astype(np.float16))
             print(f'[{i}/{len(names)}] {n}  ({(time.time() - t0) / 60:.1f} min elapsed)', flush=True)

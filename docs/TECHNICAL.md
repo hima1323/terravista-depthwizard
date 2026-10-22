@@ -11,12 +11,14 @@ The problem statement asks for three things:
 ```
 SynRS3D/
   app.py            local web server (Python standard library): upload, processing queue, results, validation API
-  infer_height.py   the height model: tiled inference, 4-flip test-time augmentation, uncertainty, land cover
+  infer_height.py   the height model: tiled inference, 4-flip test-time augmentation, consistency score, land cover,
+                    building intervals (calibration/conformal.json)
   terrain.py        bare-ground terrain (DTM) under GeoTIFFs: DEM fetch, building/canopy removal, ICESat-2 levelling
   validate.py       comparison with reference rasters / points / ICESat-2; ground-control-point calibration
   models/           DPT_DINOv2 network (RS3DAda); DINOv2 code loaded from pretrain/dinov2 (offline) or GitHub
   web/index.html    the whole viewer (three.js, bundled in web/vendor so it runs offline)
-  demo/             benchmarks (GAMUS, DFC2019, ICESat-2, landscapes), scene download helpers, flood test
+  calibration/      conformal.json: the 90% building-interval table (from demo/uncertainty_calibration.py)
+  demo/             benchmarks (v2 reports in demo/benchmark/v2/), scene download helpers, flood test
   pretrain/         model weights + DINOv2 code (installed by install.ps1, not in git)
 Install.bat / install.ps1   one-time setup        DepthWizard.bat   start server + open the app window
 ```
@@ -33,25 +35,47 @@ data sources are fetched over the internet, once, and then cached:
    distance (GSD) comes from the coordinate system: projected, Web Mercator (latitude-corrected) or geographic. Without
    one, 0.5 m is assumed.
 2. **Height model** (`infer_height.predict`). **RS3DAda** (Song et al., NeurIPS 2024, MIT licence) is a DINOv2 ViT-L/14
-   encoder with DPT decoders. One head regresses **height above ground** (nDSM, metres); a second head predicts **8
+   encoder with DPT decoders. We use the released weights unchanged: no fine-tuning. One head regresses **height
+   above ground** (nDSM, metres); a second head predicts **8
    land-cover classes**.
    - **Tiling:** 518 px tiles, 50 % overlap, blended with a Gaussian weight so tile seams don't show.
    - **Test-time augmentation (TTA):** 4 flips; the prediction is their mean.
-   - **Uncertainty:** the per-pixel spread of the 4 flips. It ranks the error with Spearman ρ = 0.56 on GAMUS. It is a
-     self-consistency measure, not a calibrated error bar.
+   - **Consistency score (flip spread):** the per-pixel spread of the 4 flips. Its Spearman ρ with the error is 0.44
+     per GAMUS tile (0.58 pooled), but about 0 where LiDAR is above 3 m (−0.03) and on trees (0.03). It flags errors on
+     flat ground and edges, and it is not an error bar.
+   - **Input resolution:** the image is used at its own GSD. A 0.30–0.70 m sweep on 15 GAMUS tiles found no setting
+     that is better in all three cities ([gsd_sweep.md](../SynRS3D/demo/benchmark/v2/gsd_sweep.md)). On Overhead
+     Geopose, a coarser input clearly hurts.
+   - **No height recalibration:** an isotonic correction learnt on two GAMUS cities made the third, Philadelphia,
+     worse (MAE 1.86 → 2.87 m), so it is not shipped ([recal_gamus.md](../SynRS3D/demo/benchmark/v2/recal_gamus.md)).
    - **Precision:** fp16 on GPU, fp32 on CPU.
 3. **Building blocks** (`app.extract_buildings`): building pixels at least 2 m tall, split by a watershed.
-   - **Per block:** median height, 90th percentile, uncertainty, area and floors (3 m per floor).
+   - **Per block:** median height, 90th percentile, consistency score, area and floors (3 m per floor, not
+     validated).
+   - **90% interval** (`infer_height.building_interval`, `ci90`). It is split-conformal, calibrated on GAMUS LiDAR in
+     three US cities ([uncertainty_calibration.md](../SynRS3D/demo/benchmark/v2/uncertainty_calibration.md)).
+     - **Width:** in practice about ±6 m, clipped at 0.
+     - **Held-out coverage:** 83–97% of blocks per city, which misses the ±3 pp target.
+     - **Tall blocks:** only 49–67% of real 10–20 m blocks in DC / NYC, and 14–30% above 20 m.
+     - **Indian ICESat-2 roofs:** 71%.
+     - The viewer says the interval is "often too low for buildings over 10 m".
 4. **Terrain** (`terrain.build_dtm`, GeoTIFF only).
-   - **Source:** a DEM placed in `demo/terrain/` (e.g. CartoDEM or SRTM, shifted from EGM96 to EGM2008), otherwise
-     Copernicus GLO-30.
+   - **Source:** a DEM placed in `demo/terrain/` (e.g. CartoDEM, SRTM or FABDEM; EGM96 is shifted to EGM2008),
+     otherwise Copernicus GLO-30. GLO-30 cleaned stays the default, because no base won every held-out test. FABDEM
+     is better in hills but is non-commercial ([dtm_v2.md](../SynRS3D/demo/benchmark/v2/dtm_v2.md)).
    - **Cleaning:** 30 m DEMs are *surface* models that include roofs and canopy. Each cell is corrected by the
      model's own mean height there, weighted by how much of the cell is open ground. Gaps are filled harmonically.
    - **Laser levelling:** `terrain.laser_correct` shifts the terrain by the median offset to **NASA ICESat-2** ATL03
-     ground photons (classified by ATL08), when the scene has at least 50 of them.
+     ground photons (classified by ATL08). It needs at least 50 of them, **from at least 2 passes**
+     (`LASER_MIN_PASSES`; `TERRAIN_VERSION` 3).
+     - **Why 2 passes:** one pass is one line across the scene. In Silent Valley that line runs along a valley floor
+       that the 30 m DEMs fill in. Its +46.6 m median is right on that line and wrong on the slopes.
+     - **What it does and doesn't fix:** on held-out passes, levelling removes the bias (+2.58 → −0.27 m) but not the
+       MAE (4.02 m levelled vs 3.86 m unlevelled, 5 scenes).
+     - **Not shipped:** adding GEDI ground points to the levelling gave no gain.
 5. **Absolute DSM:** DSM = DTM + max(0, nDSM), in metres above mean sea level (EGM2008), written as a GeoTIFF with the
    input's coordinate system.
-6. **Browser grids:** height, uncertainty, building ids, terrain and land cover are downsampled to at most 512 × 512
+6. **Browser grids:** height, consistency score, building ids, terrain and land cover are downsampled to at most 512 × 512
    float32 grids (`*.f32`) for the viewer.
 
 **Outputs per scene** (`SynRS3D/demo/results/`):
@@ -61,8 +85,8 @@ data sources are fetched over the internet, once, and then cached:
 | `<scene>_height.tif` | relative DSM / nDSM, float32 m (georeferenced if the input was) |
 | `<scene>_dsm.tif`, `_dtm.tif` | absolute surface / bare ground, m above sea level (EGM2008), GeoTIFF only |
 | `<scene>_dsm_gcp.tif` | DSM calibrated with ground control points (after a GCP fit) |
-| `<scene>_uncertainty.tif`, `_landcover.tif` | ± spread of the 4 flips; land-cover class per pixel |
-| `<scene>_buildings.json`, `<scene>.json` | building blocks; scene metadata (GSD, statistics, terrain info, GCP fit) |
+| `<scene>_uncertainty.tif`, `_landcover.tif` | consistency score (spread of the 4 flips, m); land-cover class per pixel |
+| `<scene>_buildings.json`, `<scene>.json` | building blocks with `ci90`; scene metadata (GSD, statistics, terrain info incl. laser passes or why levelling was refused, GCP fit) |
 | `<scene>_validation.json`, `_valerr.f32` | last validation per type; error grid for the viewer |
 
 **Command line** (no viewer):
@@ -87,8 +111,16 @@ data sources are fetched over the internet, once, and then cached:
 - **Photons:** all ICESat-2 photons inside the scene from all passes since 2018, high confidence only, with ATL08
   ground / canopy / top-of-canopy classes.
 - **Surface check:** our DSM against all photons.
-- **Terrain check:** our terrain *before* the laser levelling against the ground photons, so this check is
-  independent of the levelling.
+- **Terrain check:** our terrain *before* the laser levelling against the ground photons. The surface check uses the
+  levelled DSM, so it is circular.
+- **Held-out passes** (`validate.held_out`): the passes alternate between levelling and validation
+  (`split_passes`, which never looks at errors). The terrain is levelled on the first set with the app's rule
+  (2 or more passes) and checked on the second, at the ~11 m footprint. The viewer shows this as a separate table.
+- **Single-pass scenes:** when the app refused to level from one pass, the result carries a `laser_note`, and the
+  numbers describe the unlevelled terrain.
+- **Known defect:** ICESat-2 ground photons that fall on roofs are not removed from the in-app sets. In Chandigarh
+  every held-out "ground" photon is a roof (terrain MAE 15.2 m, `v2/integrate_e2e.json`). The offline benchmark
+  removes them with OpenStreetMap footprints.
 
 **Metrics.**
 - n, MAE, RMSE, bias (mean of ours − reference), median, NMAD = 1.4826 · median |e − median|, **Pearson r**, and the
@@ -161,16 +193,41 @@ The results are written into the page title, so a headless browser can check the
 | POST | `/api/icesat2?name=` | compare with ICESat-2 photons |
 | POST | `/api/gcp?name=` | body `{"points": [{"u", "v", "z"}]}` fits and applies GCPs; `{"clear": true}` removes them |
 
-## 7. Accuracy: how it is measured
+## 7. Accuracy: how it is measured (protocol v2)
 
-| Script | Measures |
-|---|---|
-| `demo/gamus_benchmark.py [tiles_per_city]` | GAMUS test tiles (Washington DC, New York, Philadelphia) vs LiDAR nDSM: MAE / RMSE with the repo's official metric, plus pixel-pooled MAE / RMSE / bias / **r** by landscape and height band |
-| `demo/landscape_benchmark.py` | Indian scenes of each landscape type (urban, sparse, hilly, forested), each centred on ICESat-2 laser tracks and processed by the running app |
-| `demo/benchmark.py` | DFC2019 (Jacksonville, Omaha) vs LiDAR; needs the DFC2019 data in `data/DFC19` |
-| `demo/icesat2_check.py` | all georeferenced demo scenes vs ICESat-2 |
+**Shared metrics** (`demo/eval_v2.py`):
+- e = ours − reference: MAE, RMSE, bias, NMAD, Pearson r on height above ground, and the share within ±1 m and ±2 m;
+- "High" means the reference is above 3 m;
+- height bins on the reference: 0–3, 3–10, 10–20 and > 20 m;
+- each value is the mean over tiles or scenes with a 95% bootstrap CI over tiles or scenes (2000 resamples,
+  `default_rng(0)`), and the pooled value next to it;
+- every result has a baseline at the same points.
 
-Results go to `SynRS3D/demo/benchmark/*.md`. The current numbers are in the [README](../README.md#accuracy).
+| Script | Measures | Report |
+|---|---|---|
+| `demo/gamus_v2.py` | 150 frozen GAMUS test tiles (DC, NYC, PHL; aerial 0.33 m) vs LiDAR nDSM: per city, landscape, class, height bin and building, vs the nDSM = 0 baseline | [gamus_v2.md](../SynRS3D/demo/benchmark/v2/gamus_v2.md) |
+| `demo/geopose_benchmark.py` | Overhead Geopose ATL / ARG satellite tiles (SynRS3D Target Domain 2): reproduction of the published RS3DAda MAE, plus an ablation of the DepthWizard path | [geopose_v2.md](../SynRS3D/demo/benchmark/v2/geopose_v2.md) |
+| `demo/india_eval_v2.py` | 8 Indian scenes vs ICESat-2 (held-out passes) and GEDI L2A: terrain, nDSM and DSM error budget vs GLO-30 / FABDEM / nDSM = 0 | [india_v2.md](../SynRS3D/demo/benchmark/v2/india_v2.md) |
+| `demo/dtm_compare.py` | DTM bases and levelling methods on held-out points; single-pass guard; Silent Valley | [dtm_v2.md](../SynRS3D/demo/benchmark/v2/dtm_v2.md) |
+| `demo/uncertainty_calibration.py` | split-conformal intervals, leave-one-city-out on GAMUS; writes `calibration/conformal.json` | [uncertainty_calibration.md](../SynRS3D/demo/benchmark/v2/uncertainty_calibration.md) |
+| `demo/recalibration.py`, `demo/gsd_sweep.py` | isotonic tall-object recalibration (not shipped); input-GSD sweep (no change) | [recal_gamus.md](../SynRS3D/demo/benchmark/v2/recal_gamus.md), [gsd_sweep.md](../SynRS3D/demo/benchmark/v2/gsd_sweep.md) |
+| `demo/flood_test.py` | Porto Alegre May 2024 flood scenario vs the IPH/UFRGS extent (CSI) | [flood_test.md](../SynRS3D/demo/benchmark/flood_test.md) |
+| `demo/benchmark.py` | DFC2019 (JAX, OMA) vs LiDAR. RS3DAda adapted on these images, so this is **not zero-shot** | `demo/benchmark/results.md` |
+
+**Older reports** (`gamus_results.md`, `landscape_results.md`, `icesat2_check.md`) are kept but superseded. The
+landscape and ICESat-2 reports levelled and checked on the same photons.
+
+The headline numbers are in the [README](../README.md#accuracy), and every claim is in [CLAIMS.md](CLAIMS.md).
+
+**Tall objects are too low on every test set:**
+
+| Test set | 10–20 m | > 20 m |
+|---|---|---|
+| GAMUS | −7.6 m per tile (−8.8 pooled) | −16.3 m |
+| Overhead Geopose ATL / ARG | −8.1 / −5.6 m | −16.8 / −15.3 m |
+| Indian ICESat-2 segments | – | −18.3 m |
+
+The ATL / ARG reproduction rules out DepthWizard's tiling as the cause.
 
 ## Manual installation
 
@@ -188,10 +245,25 @@ python app.py                                                      # then open h
 ## Known limitations
 
 - **Tall structures and trees are under-estimated.**
-  - GAMUS: −9.8 m bias for 10–20 m objects and −8.5 m for trees. Many GAMUS trees are leafless in the imagery.
-  - Indian scenes vs ICESat-2: the surface is mostly too low in towns and forests.
-- **Terrain is 30 m.** It is about ±2–4 m before ICESat-2 levelling, and much better where laser data exists.
-  ICESat-2 tracks are kilometres apart.
-- **Imagery and reference dates differ.** Buildings change and trees grow, which adds apparent error.
-- **Disaster tools give scenarios.** They have no flow dynamics or drainage network, and the 30 m terrain limits
-  depth accuracy.
+  - **Buildings:** the bias is −7.6 m per GAMUS tile for 10–20 m objects (−8.8 pooled) and grows with height, the
+    same on satellite tiles (ATL / ARG).
+  - **GAMUS trees:** −5.9 m bias (−9.5 pooled). GAMUS DC and NYC are leaf-off, so these numbers say nothing about
+    leaf-on canopy.
+  - **Indian forest:** in Silent Valley the median predicted height is 4.6 m where GEDI measures 27.5 m.
+- **The building interval is not reliable for tall buildings.**
+  - It misses about half the real 10–20 m blocks in DC and NYC, and most blocks above 20 m.
+  - It was calibrated on US aerial imagery only, and covers 71% on Indian roofs.
+- **Terrain is 30 m.**
+  - In forest every DEM is about 20 m off. In hills FABDEM beats our cleaned GLO-30.
+  - Laser levelling removes the bias but not the scatter, and needs 2 or more passes.
+  - ICESat-2 tracks are kilometres apart, so many scenes have no levelling.
+- **At laser footprints, our absolute DSM is not more accurate than the raw 30 m Copernicus DSM** (ICESat-2, 8
+  scenes). It is more accurate against GEDI tops. The gain is detail, not absolute accuracy.
+- **The in-app held-out laser check counts roof photons as ground** in dense towns (Chandigarh).
+- **Imagery and reference dates differ.**
+  - Most laser passes are years older or younger than the image.
+  - One Esri image update moved the Chandigarh surface MAE by 2.5 m.
+- **Not tested on Cartosat or CartoDEM.** Both are login-gated; see [DATA_REQUEST_cartosat.md](DATA_REQUEST_cartosat.md).
+- **Disaster tools give scenarios.**
+  - They have no flow dynamics or drainage network, and the 30 m terrain limits depth accuracy.
+  - The flood CSI test (0.79) is a small-window scenario check from before the single-pass guard.
