@@ -136,7 +136,7 @@ def main():
 
     loader = torch.utils.data.DataLoader(Crops(train, crop, True), args.batch, shuffle=True, num_workers=args.workers,
                                          drop_last=True, pin_memory=True, persistent_workers=args.workers > 0)
-    val_loader = torch.utils.data.DataLoader(Crops(val, crop, False), args.batch, num_workers=args.workers)
+    val_loader = torch.utils.data.DataLoader(Crops(val, crop, False), args.batch, num_workers=0)   # extra workers per val exhaust the Windows paging file
     log = open(args.out + '.log.jsonl', 'a')
 
     def save(final=False):
@@ -183,12 +183,12 @@ def main():
                 rec = dict(step=step, loss=loss.item(), **parts, lr=opt.param_groups[1]['lr'], min=(time.time() - t0) / 60)
                 print(json.dumps(rec), flush=True)
                 log.write(json.dumps(rec) + '\n'), log.flush()
+            if step % args.save_every == 0:
+                save()
             if step % args.val_every == 0 or step == args.steps:
                 v = validate()
                 print(json.dumps({'step': step, 'val_mae_vs_teacher_m': v}), flush=True)
                 log.write(json.dumps({'step': step, 'val_mae_vs_teacher_m': v}) + '\n'), log.flush()
-            if step % args.save_every == 0:
-                save()
     save(final=True)
     print(f'saved {args.out} ({step} steps, {(time.time() - t0) / 3600:.1f} h)', flush=True)
 
