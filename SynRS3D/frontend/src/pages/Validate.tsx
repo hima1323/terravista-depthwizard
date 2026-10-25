@@ -13,15 +13,15 @@ function Kpis({ m }: { m: any }) {
   const w2 = m.within_2m_pct;
   return (<>
     <div className="stat-row">
-      <Stat l="MAE" v={m.mae.toFixed(2)} unit="m" bar="#fff" />
-      <Stat l="RMSE" v={m.rmse.toFixed(2)} unit="m" bar="#fff" />
+      <Stat l="MAE" v={m.mae.toFixed(2)} unit="m" bar="var(--text)" />
+      <Stat l="RMSE" v={m.rmse.toFixed(2)} unit="m" bar="var(--text)" />
     </div>
     <div className="stat-row">
       {w2 != null && <Ring pct={w2} size={96} label={`${w2.toFixed(0)} percent of values within plus or minus 2 metres`}>
         <span className="big sm">{w2.toFixed(0)}<sup>%</sup></span></Ring>}
       <div className="kpis" style={{ flex: 1 }}>
         <div className="kpi" title="Pearson correlation"><b>{m.r == null ? '–' : m.r.toFixed(2)}</b><span>correlation r</span></div>
-        <div className="kpi" title="Mean of ours − reference"><b style={{ color: m.bias < 0 ? '#93c5fd' : '#f4a493' }}>{sgn(m.bias)} m</b>
+        <div className="kpi" title="Mean of ours − reference"><b style={{ color: m.bias < 0 ? '#1f74c9' : '#c4473a' }}>{sgn(m.bias)} m</b>
           <span>bias · ours {m.bias < 0 ? 'lower' : 'higher'}</span></div>
         <div className="kpi" title="1.4826 × median absolute deviation"><b>{(m.nmad ?? 0).toFixed(2)} m</b><span>NMAD</span></div>
       </div>

@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { engine, useEngine } from '../engine/useEngine';
+import { metaOf } from '../nav';
 
 // The map behind every page: the 3D terrain or the 2D photo + height layer + tool overlay.
-export default function Stage() {
+// `hero`: the landing's backdrop, the 3D scene only (the engine flies the camera), no pins, tips or input.
+export default function Stage({ hero = false }: { hero?: boolean }) {
   const view = useEngine(s => s.view), status = useEngine(s => s.status), aspect = useEngine(s => s.aspect);
   const alpha = useEngine(s => s.alpha), pick = useEngine(s => s.pick), waitText = useEngine(s => s.waitText);
   const hover = useEngine(s => s.hover), pinLines = useEngine(s => s.pinLines), hasScenes = useEngine(s => s.scenes.length > 0);
@@ -10,13 +12,16 @@ export default function Stage() {
   const pin = useCallback((el: HTMLDivElement | null) => engine.attachPin(el), []);
   const photo = useRef<HTMLImageElement>(null), heat = useRef<HTMLCanvasElement>(null), ovl = useRef<HTMLCanvasElement>(null);
   useEffect(() => { engine.attach2D(photo.current, heat.current, ovl.current); }, [view, status]);
+  const page = useEngine(s => s.page);
+  useEffect(() => engine.setTint(metaOf(page).rgb), [page]);
 
   const uv = (e: React.MouseEvent) => {
     const r = e.currentTarget.getBoundingClientRect();
     return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, e.clientX - r.left, e.clientY - r.top] as const;
   };
+  if (hero) return <div className="stage hero" aria-hidden="true"><div className="v3d" ref={v3d} hidden={status !== 'ready'} /></div>;
   return (
-    <div className="stage">
+    <div className={`stage v-${view}`}>
       <div className="v3d" ref={v3d} hidden={view !== '3d' || status !== 'ready'}>
         {pinLines && (
           <div className="pin glass" ref={pin} role="status">

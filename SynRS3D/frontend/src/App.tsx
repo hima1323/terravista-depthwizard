@@ -23,13 +23,13 @@ function Hint() {
 export default function App() {
   const loc = useLocation(), page = useEngine(s => s.page);
   useEffect(() => { engine.setPage(pageOfPath(loc.pathname)); }, [loc.pathname]);
+  if (pageOfPath(loc.pathname) === 'home') return <Home />;   // the landing page stands alone, without the workspace shell
   return (
     <div className="app" data-page={page}>
       <Stage />
       <Rail />
       <TopBar />
       <Routes>
-        <Route path="/" element={<Home />} />
         <Route path="/scenes" element={<Scenes />} />
         <Route path="/explore" element={<Explore />} />
         <Route path="/validate" element={<Validate />} />
@@ -37,7 +37,6 @@ export default function App() {
         <Route path="/respond" element={<Respond />} />
         <Route path="/relief" element={<Relief />} />
         <Route path="/assess" element={<Assess />} />
-        <Route path="*" element={<Home />} />
       </Routes>
       <Toolbar />
       <Hint />
