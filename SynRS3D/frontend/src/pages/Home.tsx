@@ -2,11 +2,12 @@ import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import LiquidGlass from 'liquid-glass-react';
-import { Mountain, ArrowUpRight, ArrowDownRight, UploadCloud } from 'lucide-react';
+import { ArrowUpRight, ArrowDownRight, UploadCloud } from 'lucide-react';
 import { engine, useEngine } from '../engine/useEngine';
 import { PAGES } from '../nav';
 import HeroScene, { type HeroTerrain } from '../components/HeroScene';
-import Doodles from '../components/Doodles';
+import Doodles, { FooterSky } from '../components/Doodles';
+import Logo from '../components/Logo';
 import BgDoodles from '../components/BgDoodles';
 
 // Landing page: full screen, no app shell. A fixed, baked scene flies by in 3D inside the hero card (HeroScene), with a
@@ -124,13 +125,12 @@ export default function Home() {
     <div className="landing-page" ref={page} onScroll={onScroll}>
       {/* sticky: stays at the top while scrolling, turns light once past the hero; the active tab follows the section in view */}
       <header className={`ln-nav${stuck ? ' stuck' : ''}`}>
-        <Link to="/" className="ln-logo" aria-label="DepthWizard home" onClick={e => { e.preventDefault(); jump('top'); }}><Mountain size={28} strokeWidth={2} /></Link>
+        <Link to="/" className="ln-logo" aria-label="DepthWizard home" onClick={e => { e.preventDefault(); jump('top'); }}><Logo size={34} /></Link>
         <nav className="ln-tabs" aria-label="Landing">
           {TABS.map(([id, label]) => (
             <a key={id} href={`#${id}`} aria-current={active === id ? 'location' : undefined} onClick={e => { e.preventDefault(); jump(id); }}>{label}</a>
           ))}
         </nav>
-        <button className="cta light" onClick={() => go(nav, '/scenes')}>Open workspace<i><ArrowUpRight size={15} /></i></button>
       </header>
       <section id="top" className="ln-hero" aria-label="DepthWizard">
         <div className="ln-sky" aria-hidden="true"><i className="sun" /><i className="cl c1" /><i className="cl c2" /><i className="cl c3" /></div>
@@ -221,6 +221,7 @@ export default function Home() {
       </div>
 
       <footer id="team" className="ln-foot">
+        <FooterSky />
         <div className="foot-top">
           <div className="foot-team">
             <span className="sec-label">Built by</span>

@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { Mountain } from 'lucide-react';
+import Logo from './Logo';
 import { PAGES } from '../nav';
 
 export default function Rail() {
@@ -14,7 +14,7 @@ export default function Rail() {
   return (
     <nav className="rail glass" aria-label="Pages">
       <NavLink to="/" className="brand" aria-label="DepthWizard home">
-        <span className="logo"><Mountain size={20} color="#fff" strokeWidth={2.2} /></span>
+        <span className="logo"><Logo size={24} /></span>
         <b>Depth<br />Wizard</b>
       </NavLink>
       {PAGES.filter(p => p.group === 'workspace').map(item)}
