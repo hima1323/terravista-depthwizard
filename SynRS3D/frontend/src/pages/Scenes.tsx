@@ -4,6 +4,9 @@ import { UploadCloud, Info, ArrowUpRight } from 'lucide-react';
 import { engine, useEngine } from '../engine/useEngine';
 import { PAGES } from '../nav';
 import { nice } from '../engine/algos';
+import BgDoodles, { type Spot } from '../components/BgDoodles';
+
+const LIB: Spot[] = [['58%', '1%', -6, 96], ['90%', '30%', 8, 100], ['8.6%', '44%', -10, 70], ['91%', '62%', 6, 96], ['44%', '93%', -4, 100], ['8.6%', '86%', 10, 70]];
 
 const BADGE: Record<string, string> = { done: '#3fd08f', queued: '#c3ccd2', error: '#ff8a7a' };
 
@@ -19,6 +22,7 @@ export default function Scenes() {
   return (
     <div className="home">
       <section className="lib scenes-page">
+        <BgDoodles className="in-lib" place={LIB} />
         <div className="sec-title">
           <div><span className="phase"><i />Library</span><h1 className="page-h">Scenes <em>{scenes.length}</em></h1></div>
           <span className="status-pill">{running} processing · {queued} queued</span>

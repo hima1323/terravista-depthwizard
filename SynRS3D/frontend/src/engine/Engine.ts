@@ -2,6 +2,7 @@
 // ported function for function. The maths is unchanged; inputs come from `s` (UI state) instead of DOM controls and
 // results go back into `s` as plain data for React to render. React subscribes with useEngine().
 import * as THREE from 'three';
+import { makeFloor, fitFloor, floorUniforms, Skirt, blockBase } from './block';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { GLTFExporter } from 'three/examples/jsm/exporters/GLTFExporter.js';
 import {
@@ -84,27 +85,8 @@ export class Engine {
   controls: OrbitControls;
   mesh: THREE.Mesh<THREE.PlaneGeometry, THREE.MeshLambertMaterial> | null = null;
   water: THREE.Mesh;
-  // instrument floor under the terrain: grid + range rings in the page accent, fading into the CSS sky behind the canvas
-  ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2), new THREE.ShaderMaterial({
-    transparent: true, depthWrite: false,
-    uniforms: { tint: { value: new THREE.Color(0x1e6fb8) }, cell: { value: 50 }, reach: { value: 2000 }, strength: { value: 0.6 }, foot: { value: new THREE.Vector2(1, 1) } },
-    vertexShader: 'varying vec2 vXZ; void main() { vec4 w = modelMatrix * vec4(position, 1.0); vXZ = w.xz; gl_Position = projectionMatrix * viewMatrix * w; }',
-    fragmentShader: `uniform vec3 tint; uniform vec2 foot; uniform float cell, reach, strength; varying vec2 vXZ;
-      float lines(vec2 p) { vec2 g = abs(fract(p - 0.5) - 0.5) / fwidth(p); return 1.0 - min(min(g.x, g.y), 1.0); }
-      void main() {
-        float r = length(vXZ), ring = abs(fract(r / (cell * 4.0) - 0.5) - 0.5) / fwidth(r / (cell * 4.0));
-        float a = lines(vXZ / cell) * 0.22 + lines(vXZ / (cell * 5.0)) * 0.34 + (1.0 - min(ring, 1.0)) * 0.16;
-        float la = strength * a * (1.0 - smoothstep(reach * 0.15, reach, r));
-        vec2 q = abs(vXZ) - foot; float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);   // distance to the scene's footprint
-        float sh = 0.32 * (1.0 - smoothstep(0.0, max(foot.x, foot.y) * 0.6, d));               // soft contact shadow under the block
-        gl_FragColor = vec4(mix(tint, vec3(0.06, 0.13, 0.19), sh / max(sh + la, 1e-4)), max(la, sh));
-      }`,
-  }));
-  // the scene as a solid block: soil-coloured sides from the surface edge down to a base, so it reads as a model, not a sheet
-  // with thin contour strata every `strata` metres, like a layered topographic model
-  skirt = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide, emissive: 0x241c14 }));
-  private strata = { value: 5 };
-  private ring = new Uint32Array(0);   // grid indices around the scene's edge, in order
+  ground = makeFloor();     // grid floor + contact shadow, and the block's soil sides (block.ts)
+  skirt = new Skirt();
   marks = new THREE.Group();
   route3 = new THREE.Group();
   marker: THREE.Mesh | null = null; markerPos: THREE.Vector3 | null = null; pinUV: [number, number] | null = null;
@@ -125,14 +107,7 @@ export class Engine {
     this.water = new THREE.Mesh(new THREE.BufferGeometry(),
       new THREE.MeshStandardMaterial({ color: 0x2f7fe0, transparent: true, opacity: 0.55, roughness: 0.2, metalness: 0.1, depthWrite: false }));
     this.water.visible = false; this.water.renderOrder = 1; this.water.frustumCulled = false;
-    this.ground.renderOrder = -1; this.ground.frustumCulled = false; this.ground.raycast = () => {}; this.skirt.raycast = () => {};
-    this.skirt.material.onBeforeCompile = sh => {
-      sh.uniforms.band = this.strata;
-      sh.vertexShader = 'varying float vY;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvY = position.y;');
-      sh.fragmentShader = 'uniform float band;\nvarying float vY;\n' + sh.fragmentShader.replace('#include <color_fragment>',
-        '#include <color_fragment>\nfloat dl = abs(fract(vY / band + 0.5) - 0.5) * band / fwidth(vY);\ndiffuseColor.rgb *= mix(0.78, 1.0, smoothstep(0.5, 1.5, dl));');
-    };
-    this.scene3.add(this.ground, this.skirt, this.water, this.marks, this.route3);
+    this.scene3.add(this.ground, this.skirt.mesh, this.water, this.marks, this.route3);
     const dom = this.renderer.domElement;
     dom.addEventListener('pointerdown', e => {
       this.down = [e.clientX, e.clientY];
@@ -165,7 +140,7 @@ export class Engine {
     if (this.data) { if (photo) photo.src = this.data.photo.src; this.showLayer(); this.drawOverlay(); }
   }
   attachPin(el: HTMLElement | null) { this.el.pin = el ?? undefined; }
-  setTint(rgb: string) { (this.ground.material as THREE.ShaderMaterial).uniforms.tint.value.setRGB(...rgb.split(',').map(v => +v / 255) as [number, number, number], THREE.SRGBColorSpace); }
+  setTint(rgb: string) { floorUniforms(this.ground).tint.value.setRGB(...rgb.split(',').map(v => +v / 255) as [number, number, number], THREE.SRGBColorSpace); }
 
   // ---------- scene list ----------
   async poll() {
@@ -236,7 +211,6 @@ export class Engine {
   }
   // demo links, once per page load: #/respond?scene=x&view=2d&flood=4&src=edges&timeline=1&tarr=1&t=12&route=1&sites=1&cam=street
   private linkDone = false;
-  visited = false;   // set once any workspace page opens: from then on the landing shows the user's scene, not the showcase
   private applyLinkParams() {
     if (this.linkDone) return;
     this.linkDone = true;
@@ -446,20 +420,9 @@ export class Engine {
     this.scene3.add(this.mesh);
     this.water.geometry.dispose();
     this.water.geometry = new THREE.PlaneGeometry(W, H, m.grid_w - 1, m.grid_h - 1).rotateX(-Math.PI / 2);
-    const span = Math.max(W, H), gu = (this.ground.material as THREE.ShaderMaterial).uniforms;
-    this.ground.scale.set(span * 12, 1, span * 12);   // its height follows the block's base (applyExag)
-    gu.cell.value = [10, 25, 50, 100, 250].find(c => c >= span / 12) ?? 500; gu.foot.value.set(W / 2, H / 2);
-    const ring: number[] = [];   // PlaneGeometry vertex (x, y) is index y * gw + x
-    for (let x = 0; x < gw; x++) ring.push(x);
-    for (let y = 1; y < gh; y++) ring.push(y * gw + gw - 1);
-    for (let x = gw - 2; x >= 0; x--) ring.push((gh - 1) * gw + x);
-    for (let y = gh - 2; y > 0; y--) ring.push(y * gw);
-    const n = ring.length, sk = new THREE.BufferGeometry(), col = new Float32Array(n * 6), idx: number[] = [];
-    for (let k = 0; k < n; k++) { col.set([0.36, 0.27, 0.19, 0.8, 0.71, 0.57], k * 6); const j = (k + 1) % n; idx.push(2 * k, 2 * k + 1, 2 * j, 2 * j, 2 * k + 1, 2 * j + 1); }
-    sk.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 6), 3));
-    sk.setAttribute('color', new THREE.BufferAttribute(col, 3)); sk.setIndex(idx);
-    this.skirt.geometry.dispose(); this.skirt.geometry = sk; this.ring = Uint32Array.from(ring);
-    this.resetNav(); this.applyExag(); this.overview(); this.clearPin(); this.atmosphere();
+    fitFloor(this.ground, W, H); this.skirt.build(m.grid_w, m.grid_h);
+    const fu = floorUniforms(this.ground); fu.strength.value = 0.6; fu.reach.value = Math.max(W, H) * 5;
+    this.resetNav(); this.applyExag(); this.overview(); this.clearPin();
   }
   setExag(exag: number) { this.set({ exag }); this.applyExag(); }
   applyExag() {
@@ -467,14 +430,9 @@ export class Engine {
     const d = this.data, k = this.s.exag, pos = this.mesh.geometry.attributes.position as THREE.BufferAttribute;
     for (let i = 0; i < pos.count; i++) pos.setY(i, ((d.dtm ? d.dtm[i] - d.gmin : 0) + Math.max(0, d.grid[i])) * k);
     pos.needsUpdate = true;
-    const base = -Math.max(this.sceneS() * 0.03, (d.gmax - d.gmin) * k * 0.12), sp = this.skirt.geometry.attributes.position as THREE.BufferAttribute;
-    for (let j = 0; j < this.ring.length; j++) {
-      const i = this.ring[j];
-      sp.setXYZ(2 * j, pos.getX(i), pos.getY(i), pos.getZ(i)); sp.setXYZ(2 * j + 1, pos.getX(i), base, pos.getZ(i));
-    }
-    sp.needsUpdate = true; this.skirt.geometry.computeVertexNormals(); this.skirt.geometry.computeBoundingSphere();
+    const relief = (d.gmax - d.gmin) * k, base = blockBase(this.sceneS(), relief);
+    this.skirt.fit(pos, base, Math.max(2, relief / 12));
     this.ground.position.y = base - 0.05;   // the block stands on the floor
-    this.strata.value = Math.max(2, (d.gmax - d.gmin) * k / 12);
     this.mesh.geometry.computeVertexNormals();
     const n = this.mesh.geometry.attributes.normal, steep = new Float32Array(n.count);
     for (let i = 0; i < n.count; i++) steep[i] = d.nearBuilding[i] ? 1 - Math.abs(n.getY(i)) : 0;
@@ -698,15 +656,13 @@ export class Engine {
     const w = el.clientWidth, h = el.clientHeight;
     if (!w || !h) return;
     // keep the scene centred in the part of the window the glass panels leave free
-    // (on the landing the scene sits right of the headline instead)
-    const shift = w <= 860 || this.s.page === 'scenes' ? 0 : this.s.page === 'home' ? -Math.round(w * 0.15) : Math.round((Math.min(392, w * 0.3) - 88) / 2);
+    const shift = w > 860 && this.s.page !== 'home' && this.s.page !== 'scenes' ? Math.round((Math.min(392, w * 0.3) - 88) / 2) : 0;
     if (this.renderer.domElement.width !== Math.floor(w * this.renderer.getPixelRatio()) || this.camera.view?.offsetX !== shift) {
       this.renderer.setSize(w, h); this.camera.aspect = w / h;
       this.camera.setViewOffset(w, h, shift, 0, w, h);
       this.camera.updateProjectionMatrix();
     }
     if (this.nav.play) this.stepPath(dt);
-    else if (this.s.page === 'home') { if (this.data) this.cinema(); }
     else if (this.controls.enabled) this.controls.update(); else if (this.data) this.walk(dt);
     this.renderer.render(this.scene3, this.camera);
     if (this.nav.rec) this.captionFrame();
@@ -714,21 +670,6 @@ export class Engine {
       const p = this.markerPos.clone().project(this.camera);
       this.el.pin.style.left = `${(p.x + 1) / 2 * w}px`; this.el.pin.style.top = `${(1 - p.y) / 2 * h}px`;
     }
-  }
-  // landing hero: a slow, low drone orbit (sky and horizon in frame) with a gentle push-in and out; a fixed angle under reduced motion
-  private still = matchMedia('(prefers-reduced-motion: reduce)');
-  private cinema() {
-    const S = this.sceneS(), relief = (this.data.gmax - this.data.gmin) * this.s.exag, t = this.still.matches ? 8 : performance.now() / 1000;
-    const a = 0.6 + t * 0.045, r = S * (1.6 - 0.08 * Math.sin(t * 0.09));
-    this.camera.position.set(Math.sin(a) * r, S * 0.26 + relief * 0.9, Math.cos(a) * r);
-    this.camera.lookAt(0, relief * 0.4, 0);
-  }
-  // landing: haze that melts the far edge into the sky (CSS horizon colour) and a faint floor that fades out early;
-  // workspace: a clear view and a stronger floor that reaches further
-  private atmosphere() {
-    const home = this.s.page === 'home', S = this.data ? this.sceneS() : 0, gu = (this.ground.material as THREE.ShaderMaterial).uniforms;
-    this.scene3.fog = home && S ? new THREE.Fog(0xe2d6c6, S * 1.4, S * 3.6) : null;
-    gu.strength.value = home ? 0.3 : 0.6; gu.reach.value = S * (home ? 2.6 : 5);
   }
   setView(view: UI['view']) { this.set({ view }); if (view === '2d') { this.showLayer(); this.drawOverlay(); } }
 
@@ -1469,9 +1410,6 @@ export class Engine {
     const prev = this.s.page;
     if (page === prev) return;
     this.set({ page });
-    if (page !== 'home') this.visited = true;
-    this.atmosphere();
-    if (prev === 'home' && this.data) this.overview();   // hand the camera back from the landing's drone shot
     if (this.s.pick) this.setPick(null);
     if (isDisaster(prev) && !isDisaster(page)) {   // the disaster tools run only on their own pages
       this.set({ routeOpen: false, sitesOpen: false, sites: null });
