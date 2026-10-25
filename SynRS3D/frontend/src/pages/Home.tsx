@@ -1,15 +1,16 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { Link, useNavigate } from 'react-router-dom';
 import LiquidGlass from 'liquid-glass-react';
-import { Mountain, Target, ArrowUpRight, ArrowDownRight, UploadCloud } from 'lucide-react';
+import { Mountain, ArrowUpRight, ArrowDownRight, UploadCloud } from 'lucide-react';
 import { engine, useEngine } from '../engine/useEngine';
 import { PAGES } from '../nav';
-import { nice } from '../engine/algos';
-import Stage from '../components/Stage';
+import HeroScene, { type HeroTerrain } from '../components/HeroScene';
+import Doodles from '../components/Doodles';
+import BgDoodles from '../components/BgDoodles';
 
-// Landing page: full screen, no app shell. A real reconstructed scene flies by in 3D inside the hero card (Engine.cinema);
-// choosing or uploading a scene opens the workspace at /scenes.
+// Landing page: full screen, no app shell. A fixed, baked scene flies by in 3D inside the hero card (HeroScene), with a
+// hand-drawn annotation layer; choosing or uploading a scene opens the workspace at /scenes.
 
 // Accuracy figures from README.md (docs/CLAIMS.md): measured on this code, released RS3DAda weights, zero-shot
 const ACC: [string, string, string][] = [
@@ -22,8 +23,6 @@ const STEPS: [string, string][] = [
   ['Absolute surface model', 'GeoTIFFs sit on a 30 m terrain model with roofs and trees removed, levelled to NASA ICESat-2 ground points and, if you have them, your control points.'],
   ['Fly through and check', 'The photo is draped on the surface in 3D. Validate it against LiDAR, survey points or ICESat-2: MAE, RMSE, correlation.'],
 ];
-// terrain reads best from the air, so the hero prefers a hill town until the user has opened a scene of their own
-const SHOWCASE = ['shimla_hill_town', 'iit_ropar', 'guwahati_riverside'];
 
 // The page morphs into the workspace where the browser supports view transitions
 function go(nav: (to: string) => void, to: string) {
@@ -44,36 +43,105 @@ function Liquid({ children, cls, radius }: { children: React.ReactNode; cls: str
   );
 }
 
+const fmt = (m: number) => Math.round(m).toLocaleString('en-IN');
+const TABS: [string, string][] = [['top', 'Home'], ['how', 'How it works'], ['cycle', 'Disaster cycle'], ['accuracy', 'Accuracy'], ['team', 'Team']];
+
+// Hero sketch: two pencil satellites drifting in the sky, each snapping the terrain (dashed capture cone + viewfinder)
+function Satellites() {
+  const sat = 'M14 20 h22 v14 h-22 z M-6 22 h16 v10 h-16 z M40 22 h16 v10 h-16 z M10 27 h4 M36 27 h4 M25 20 v-8 M21 12 h8 M25 34 v5 M20 39 h10 l-2 5 h-6 z';
+  const cone = 'M25 46 L120 150 M25 46 L52 168';
+  const finder = 'M64 150 v-8 h8 M112 158 h8 v-8 M66 178 h-8 v-8 M120 168 v8 h-8';
+  return (
+    <div className="ln-sats" aria-hidden="true">
+      <div className="sat s1">
+        <svg viewBox="-10 0 140 190"><path d={sat} /><path d={cone} strokeDasharray="3 7" /><path d={finder} /></svg>
+        <span>click!</span>
+      </div>
+      <div className="sat s2">
+        <svg viewBox="-10 0 140 190"><path d={sat} /><path d={cone} strokeDasharray="3 7" /><path d={finder} /></svg>
+        <span>say cheese! ✦</span>
+      </div>
+    </div>
+  );
+}
+
+// Card: the summit and a pencil cross-section through the scene that is flying behind
+function ProfileCard({ t }: { t: HeroTerrain }) {
+  const lo = Math.min(...t.profile), hi = Math.max(...t.profile), n = t.profile.length;
+  const pts = t.profile.map((v, i) => `${(i / (n - 1) * 156 + 2).toFixed(1)},${(52 - (v - lo) / (hi - lo) * 44).toFixed(1)}`).join(' L');
+  return (
+    <div className="lg-in stat-in">
+      <small>Summit</small>
+      <b className="num">{fmt(t.peak_m)} m</b>
+      <span>above sea level</span>
+      <svg viewBox="0 0 160 62" role="img" aria-label={`Elevation profile across the scene, ${fmt(lo)} to ${fmt(hi)} m`}>
+        <defs><pattern id="hatch" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="5" stroke="currentColor" strokeWidth="1" opacity=".28" /></pattern></defs>
+        <path d={`M${pts} L158,60 L2,60 Z`} fill="url(#hatch)" />
+        <path d={`M${pts}`} fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+      <span className="cap"><i>A</i>{t.profile_len_m} m section<i>B</i></span>
+    </div>
+  );
+}
+// Card: mean error on an architect's ruler, LiDAR and NASA laser marked on the same 0–10 m scale
+function RulerCard() {
+  const x = (m: number) => 4 + m / 10 * 152;
+  return (
+    <div className="lg-in stat-in">
+      <small>Mean error</small>
+      <b className="num">3.90 m</b>
+      <span>vs airborne LiDAR</span>
+      <svg viewBox="0 0 160 62" role="img" aria-label="Mean absolute error on a 0 to 10 metre scale: 3.90 m against airborne LiDAR, 4.85 m against the NASA ICESat-2 laser">
+        <line x1="4" x2="156" y1="34" y2="34" stroke="currentColor" strokeWidth="1.2" />
+        {Array.from({ length: 21 }, (_, k) => <line key={k} x1={x(k / 2)} x2={x(k / 2)} y1="34" y2={k % 10 === 0 ? 24 : k % 2 === 0 ? 28 : 31} stroke="currentColor" strokeWidth="1" />)}
+        <text x={x(0)} y="48" fontSize="9" fill="currentColor" textAnchor="middle">0</text>
+        <text x={x(10)} y="48" fontSize="9" fill="currentColor" textAnchor="middle">10 m</text>
+        <path d={`M${x(3.9)},22 l-5,-8 h10 z`} fill="#a8876a" />
+        <path d={`M${x(4.85)},36 l-5,8 h10 z`} fill="currentColor" opacity=".55" />
+        <text x={x(3.9) - 9} y="10" fontSize="9" fill="currentColor" textAnchor="end">LiDAR</text>
+        <text x={x(4.85) + 8} y="58" fontSize="9" fill="currentColor">NASA laser 4.85</text>
+      </svg>
+    </div>
+  );
+}
+
 export default function Home() {
-  const nav = useNavigate(), file = useRef<HTMLInputElement>(null), [open, setOpen] = useState(1);
-  const scenes = useEngine(s => s.scenes), current = useEngine(s => s.current), ready = useEngine(s => s.status === 'ready');
-  const done = scenes.filter(s => s.state === 'done').map(s => s.name);
+  const nav = useNavigate(), file = useRef<HTMLInputElement>(null), peak = useRef<HTMLDivElement>(null), [open, setOpen] = useState(1);
+  const [hero, setHero] = useState<HeroTerrain | null>(null), [stuck, setStuck] = useState(false), [active, setActive] = useState('top');
+  const page = useRef<HTMLDivElement>(null);
+  // hash links would be read as routes by the HashRouter, so the tabs scroll the page themselves
+  const jump = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const onScroll = () => {
+    const el = page.current!, line = innerHeight * 0.4;
+    setStuck(el.scrollTop > innerHeight * 0.75);
+    setActive(TABS.reduce((a, [id]) => (document.getElementById(id)?.getBoundingClientRect().top ?? 1e9) < line ? id : a, 'top'));
+  };
+  const done = useEngine(s => s.scenes).filter(s => s.state === 'done').map(s => s.name);
   const img = (k: number) => done.length ? `/results/${done[k % done.length]}.jpg` : '';
-  useEffect(() => { if (engine.getState().view !== '3d') engine.setView('3d'); }, []);
-  useEffect(() => {
-    if (engine.visited) return;
-    const pick = SHOWCASE.find(n => done.includes(n)) ?? done[0];
-    if (pick && engine.getState().current !== pick) engine.select(pick);
-  }, [done.join()]);
   const upload = (f?: File) => { if (f) { engine.upload(f); go(nav, '/scenes'); } };
   const pic = (k: number) => done.length ? <img className="ln-inline" src={img(k)} alt="" /> : null;
   return (
-    <div className="landing-page">
-      <section className="ln-hero" aria-label="DepthWizard">
+    <div className="landing-page" ref={page} onScroll={onScroll}>
+      {/* sticky: stays at the top while scrolling, turns light once past the hero; the active tab follows the section in view */}
+      <header className={`ln-nav${stuck ? ' stuck' : ''}`}>
+        <Link to="/" className="ln-logo" aria-label="DepthWizard home" onClick={e => { e.preventDefault(); jump('top'); }}><Mountain size={28} strokeWidth={2} /></Link>
+        <nav className="ln-tabs" aria-label="Landing">
+          {TABS.map(([id, label]) => (
+            <a key={id} href={`#${id}`} aria-current={active === id ? 'location' : undefined} onClick={e => { e.preventDefault(); jump(id); }}>{label}</a>
+          ))}
+        </nav>
+        <button className="cta light" onClick={() => go(nav, '/scenes')}>Open workspace<i><ArrowUpRight size={15} /></i></button>
+      </header>
+      <section id="top" className="ln-hero" aria-label="DepthWizard">
         <div className="ln-sky" aria-hidden="true"><i className="sun" /><i className="cl c1" /><i className="cl c2" /><i className="cl c3" /></div>
-        <Stage hero />
+        <HeroScene peak={peak} onReady={setHero} />
         <div className="ln-scrim" aria-hidden="true" />
 
-        <header className="ln-nav">
-          <Link to="/" className="ln-logo" aria-label="DepthWizard home"><Mountain size={28} strokeWidth={2} /></Link>
-          <nav className="ln-tabs" aria-label="Landing">
-            <a href="#top" aria-current="page">Home</a><a href="#how">How it works</a><a href="#cycle">Disaster cycle</a><a href="#accuracy">Accuracy</a><a href="#team">Team</a>
-          </nav>
-          <button className="cta light" onClick={() => go(nav, '/scenes')}>Open workspace<i><ArrowUpRight size={15} /></i></button>
-        </header>
+        <Satellites />
 
-        <h1 className="ln-word">Elevation</h1>
-        <div className="ln-sub">
+        {/* one column: the subtitle and buttons end exactly where the word ends */}
+        <div className="ln-title">
+          <h1 className="ln-word">Elevation</h1>
           <p>One satellite image.<br />Heights you can fly<br />through and check.</p>
           <div className="ln-cta">
             <Liquid cls="pill-up" radius={999}>
@@ -82,23 +150,28 @@ export default function Home() {
             <button className="ln-white" onClick={() => go(nav, '/scenes')}>Explore the workspace</button>
             <input ref={file} type="file" hidden accept=".png,.jpg,.jpeg,.tif,.tiff" onChange={e => upload(e.target.files?.[0])} />
           </div>
+          <div className="ln-note" aria-hidden="true">
+            <span>one photo in,<br />every height out</span>
+            <svg viewBox="0 0 120 70"><path d="M4 14 C 38 2, 82 6, 108 48" /><path d="M95 44 L108 49 L109 35" /></svg>
+          </div>
         </div>
 
-        <div className="ln-stats" aria-label="Measured accuracy">
-          <Liquid cls="stat-a" radius={30}>
-            <div className="lg-in stat-in"><div><b className="num">4.85 m</b><span>MAE vs NASA ICESat-2 laser, 8 Indian scenes</span></div><i><Target size={18} /></i></div>
-          </Liquid>
-          <Liquid cls="stat-b" radius={30}>
-            <div className="lg-in stat-in"><div><b className="num">3.90 m</b><span>MAE vs airborne LiDAR, 150 tiles in 3 US cities</span></div><i><Mountain size={18} /></i></div>
-          </Liquid>
-        </div>
-        {ready && current && <p className="ln-live"><i />Live 3D · {nice(current)}, reconstructed by DepthWizard</p>}
+        {hero && <div className="ln-peak" ref={peak} aria-hidden="true"><b>summit · {fmt(hero.peak_m)} m</b><span className="lead" /><i className="dot" /></div>}
+
+        {hero && (
+          <div className="ln-stats" role="group" aria-label="Facts about the scene and the model">
+            <Liquid cls="stat" radius={30}><ProfileCard t={hero} /></Liquid>
+            <Liquid cls="stat" radius={30}><RulerCard /></Liquid>
+          </div>
+        )}
       </section>
 
+      <div className="ln-body">
+      <BgDoodles />
       <section className="ln-about" aria-label="About">
         <h2>About <em>us</em></h2>
         <div>
-          <p>TerraVista, IIT Ropar builds DepthWizard for ISRO's SIH26175. <span>From one optical image it estimates the height of every pixel,
+          <p>Himanshu and Shlok built DepthWizard for disaster teams. <span>From one optical image it estimates the height of every pixel,
             levels it to NASA laser points, and turns it into tools for every phase of a disaster, offline on this machine.</span></p>
           <a href="#how" className="cta">See how it works<i><ArrowUpRight size={15} /></i></a>
         </div>
@@ -145,13 +218,25 @@ export default function Home() {
           are scenarios, not forecasts.</p>
       </section>
 
+      </div>
+
       <footer id="team" className="ln-foot">
-        <div className="cols">
-          <span>Runs on this machine · works offline</span>
-          <div><b>Team</b>TerraVista, IIT Ropar<br />Smart India Hackathon 2026 · SIH26175 · ISRO</div>
-          <div><b>Workspace</b>Scenes · Explore · Validate<br />Prepare · Respond · Relief · Assess</div>
+        <div className="foot-top">
+          <div className="foot-team">
+            <span className="sec-label">Built by</span>
+            <h2>Himanshu <em>&amp;</em> Shlok</h2>
+            <button className="cta" onClick={() => go(nav, '/scenes')}>Open the workspace<i><ArrowUpRight size={15} /></i></button>
+          </div>
+          <Doodles />
         </div>
-        <span className="mark" aria-hidden="true">DepthWizard</span>
+        <div className="foot-links">
+          <nav aria-label="Workspace">{PAGES.filter(p => p.page !== 'home').map(p => <Link key={p.page} to={p.path}>{p.label}</Link>)}</nav>
+          <span>Runs on this machine · works offline</span>
+        </div>
+        {/* stretched to exactly the card's width at any size (its natural width at this size is ~1,000 units, so ≤2% stretch) */}
+        <svg className="mark" viewBox="0 0 1000 214" aria-hidden="true">
+          <text x="0" y="164" fontSize="194" textLength="1000" lengthAdjust="spacingAndGlyphs">DepthWizard</text>
+        </svg>
       </footer>
     </div>
   );

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { engine, useEngine } from '../engine/useEngine';
 import { metaOf } from '../nav';
+import BgDoodles, { type Spot } from './BgDoodles';
+
+const STAGE: Spot[] = [['13%', '22%', -8, 110], ['58%', '20%', 6, 96], ['12%', '70%', 10, 100], ['60%', '74%', -6, 104],
+  ['36%', '16%', -4, 84], ['30%', '84%', 8, 90], ['46%', '82%', -10, 80]];
 
 // The map behind every page: the 3D terrain or the 2D photo + height layer + tool overlay.
-// `hero`: the landing's backdrop, the 3D scene only (the engine flies the camera), no pins, tips or input.
-export default function Stage({ hero = false }: { hero?: boolean }) {
+export default function Stage() {
   const view = useEngine(s => s.view), status = useEngine(s => s.status), aspect = useEngine(s => s.aspect);
   const alpha = useEngine(s => s.alpha), pick = useEngine(s => s.pick), waitText = useEngine(s => s.waitText);
   const hover = useEngine(s => s.hover), pinLines = useEngine(s => s.pinLines), hasScenes = useEngine(s => s.scenes.length > 0);
@@ -19,9 +22,9 @@ export default function Stage({ hero = false }: { hero?: boolean }) {
     const r = e.currentTarget.getBoundingClientRect();
     return [(e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height, e.clientX - r.left, e.clientY - r.top] as const;
   };
-  if (hero) return <div className="stage hero" aria-hidden="true"><div className="v3d" ref={v3d} hidden={status !== 'ready'} /></div>;
   return (
     <div className={`stage v-${view}`}>
+      <BgDoodles className="on-stage" place={STAGE} />
       <div className="v3d" ref={v3d} hidden={view !== '3d' || status !== 'ready'}>
         {pinLines && (
           <div className="pin glass" ref={pin} role="status">
