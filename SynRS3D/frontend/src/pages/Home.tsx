@@ -232,7 +232,6 @@ export default function Home() {
         </div>
         <div className="foot-links">
           <nav aria-label="Workspace">{PAGES.filter(p => p.page !== 'home').map(p => <Link key={p.page} to={p.path}>{p.label}</Link>)}</nav>
-          <span>Runs on this machine · works offline</span>
         </div>
         {/* stretched to exactly the card's width at any size (its natural width at this size is ~1,000 units, so ≤2% stretch) */}
         <svg className="mark" viewBox="0 0 1000 214" aria-hidden="true">
