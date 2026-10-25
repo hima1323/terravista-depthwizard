@@ -1,8 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
-import '@fontsource-variable/montserrat';
-import '@fontsource-variable/oswald';
+import '@fontsource-variable/manrope';
 import './styles.css';
 import App from './App';
 

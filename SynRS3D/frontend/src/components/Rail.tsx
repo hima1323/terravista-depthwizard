@@ -14,7 +14,7 @@ export default function Rail() {
   return (
     <nav className="rail glass" aria-label="Pages">
       <NavLink to="/" className="brand" aria-label="DepthWizard home">
-        <span className="logo"><Mountain size={20} color="#071018" strokeWidth={2.2} /></span>
+        <span className="logo"><Mountain size={20} color="#fff" strokeWidth={2.2} /></span>
         <b>Depth<br />Wizard</b>
       </NavLink>
       {PAGES.filter(p => p.group === 'workspace').map(item)}

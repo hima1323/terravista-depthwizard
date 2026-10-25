@@ -126,4 +126,4 @@ export function edt(blocked: ArrayLike<number>, W: number, H: number, dx: number
 }
 
 export const sgn = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(2);
-export const nice = (s: string) => s.replaceAll('_', ' ');
+export const nice = (s: string) => s.replaceAll('_', ' ').replace(/\b\w/g, c => c.toUpperCase()).replace(/\bIit\b/g, 'IIT');

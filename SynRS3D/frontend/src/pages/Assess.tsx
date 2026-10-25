@@ -21,7 +21,7 @@ export default function Assess() {
             <Stat l="Blocks submerged" v={f.sub} bar="#e5484d" size="md" />
             <Stat l="Blocks partly flooded" v={f.part} bar="#f5a524" size="md" />
             <Stat l="Floor area under water" v={Math.round(f.floorArea).toLocaleString('en-IN')} unit="m²" bar="#2f7fe0" size="md" />
-            <Stat l="Ground wet" v={f.wetHa.toFixed(1)} unit={`ha · ${f.wetPct.toFixed(0)}%`} bar="#fff" size="md" />
+            <Stat l="Ground wet" v={f.wetHa.toFixed(1)} unit={`ha · ${f.wetPct.toFixed(0)}%`} bar="var(--text)" size="md" />
           </div>
           <div className="kpis">
             <Kpi v={`${f.maxDepth.toFixed(1)} m`} l="deepest water" />
