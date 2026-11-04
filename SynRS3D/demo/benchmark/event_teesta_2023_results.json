@@ -1,0 +1,38 @@
+{
+ "event": "Teesta glacial-lake outburst flood (South Lhonak lake), Sikkim, 4 Oct 2023",
+ "sentinel2_before": "S2B_45RXL_20221120_0_L2A",
+ "sentinel2_after": "S2B_45RXL_20231115_0_L2A",
+ "maxar_pre_event": "10300100CE8D0400-visual.tif",
+ "scene_area": {
+  "area_km2": 2.56,
+  "clear_pct": 98.2,
+  "flood_affected_km2": 0.328,
+  "valley_floor_checked_km2": 2.087,
+  "water_before_km2": 0.054,
+  "water_after_km2": 0.053,
+  "file": "demo/reference/teesta_observed_2023.tif"
+ },
+ "valley_12km": {
+  "area_km2": 144.0,
+  "clear_pct": 88.4,
+  "flood_affected_km2": 1.281,
+  "valley_floor_checked_km2": 52.853,
+  "water_before_km2": 1.006,
+  "water_after_km2": 0.977
+ },
+ "lake_before": {
+  "lake_km2": 1.358,
+  "lake_nir_median": 0.046,
+  "clear_pct": 77.9
+ },
+ "lake_after": {
+  "lake_km2": 1.28,
+  "lake_nir_median": 0.067,
+  "clear_pct": 79.8
+ },
+ "lake_change": {
+  "km2": -0.078,
+  "pct": -5.7
+ },
+ "seconds": 22
+}

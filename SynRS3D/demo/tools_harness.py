@@ -142,6 +142,41 @@ def photons():
             'track': np.ones(n, np.int64)}
 terrain.icesat2_photons = lambda bounds: photons()
 
+
+def gedi():
+    """GEDI-style shots every 12 m: ground on the terrain, rh98 = 18 m over trees, the true height over buildings."""
+    from rasterio.warp import transform
+    cs, rs = np.meshgrid(np.arange(30, S - 30, 24.0), np.arange(30, S - 30, 24.0))
+    cs, rs = cs.ravel(), rs.ravel()
+    rh = np.zeros(len(cs))
+    for k, (c, r) in enumerate(zip(cs.astype(int), rs.astype(int))):
+        if any(r0 <= r < r0 + tr_ and c0 <= c < c0 + tc for r0, c0, tr_, tc in TREES):
+            rh[k] = TREE_TRUE
+        for r0, c0, sr, sc, H in BUILDINGS:
+            if r0 <= r < r0 + sr and c0 <= c < c0 + sc:
+                rh[k] = H
+    lon, lat = transform(CRS, 'EPSG:4326', (X0 + cs * GSD).tolist(), (Y0 - rs * GSD).tolist())
+    return {'lon': np.array(lon), 'lat': np.array(lat), 'elev_lm': DTM[rs.astype(int), cs.astype(int)] + N_GEOID, 'rh98': rh,
+            't': np.full(len(cs), 1.6e9, np.int64)}
+terrain.gedi_shots = lambda bounds: gedi()
+
+
+def write_canopy_tile(path):
+    """A local stand-in for Meta's canopy tiles (Web Mercator, uint8 m): 18 m over the trees, 0 elsewhere."""
+    from rasterio.warp import reproject, calculate_default_transform, Resampling
+    a = np.zeros((S, S), np.float32)
+    for r0, c0, tr_, tc in TREES:
+        a[r0:r0 + tr_, c0:c0 + tc] = TREE_TRUE
+    src_t = rasterio.transform.from_origin(X0 - 400, Y0 + 400, GSD, GSD)   # padded so every scene lies inside
+    big = np.zeros((S + 1600, S + 1600), np.float32); big[800:800 + S, 800:800 + S] = a
+    left, top = src_t.c, src_t.f
+    t, w, h = calculate_default_transform(CRS, 'EPSG:3857', big.shape[1], big.shape[0],
+                                          left, top - big.shape[0] * GSD, left + big.shape[1] * GSD, top)
+    out = np.zeros((h, w), np.float32)
+    reproject(big, out, src_transform=src_t, src_crs=CRS, dst_transform=t, dst_crs='EPSG:3857', resampling=Resampling.nearest)
+    with rasterio.open(path, 'w', driver='GTiff', width=w, height=h, count=1, dtype='uint8', crs='EPSG:3857', transform=t) as d:
+        d.write(out.round().astype(np.uint8), 1)
+
 if __name__ == '__main__':
     if not os.path.exists(os.path.join(app.RESULTS, 'obsdb_test.tif')):
         make('town_before')
@@ -165,6 +200,9 @@ if __name__ == '__main__':
         dst.write(np.where(DTM < DTM.min() + 2.5, -22, -8).astype(np.float32) + rng.normal(0, 1.5, (S, S)).astype(np.float32), 1)
     with rasterio.open(os.path.join(app.RESULTS, 'dem_test.tif'), 'w', **prof) as dst:
         dst.write(DTM, 1)
+    write_canopy_tile(os.path.join(work, 'canopy_tile.tif'))
+    import canopy
+    canopy.canopy_on_grid.__defaults__ = (os.path.join(work, 'canopy_tile.tif'),)   # local tile instead of AWS
     app.enqueue_missing()
     from http.server import ThreadingHTTPServer
     print(f'harness on http://127.0.0.1:{port}', flush=True)

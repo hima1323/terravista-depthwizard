@@ -169,13 +169,18 @@ control points**. Untick "Use the calibrated heights" to compare with and withou
 | Tool | What it does | Example |
 |---|---|---|
 | **🌗 Shadow heights** | Height = shadow length × tan(sun elevation). Enter the sun elevation and azimuth from the image metadata, or the acquisition time in UTC and press **Compute**. **📏 Measure a shadow**: click where a building meets its shadow, then the far end. **🤖 Measure all buildings** does it for every building with a clear shadow. The card shows shadow height ÷ model height. | Test scene (model at 0.75 × true): median ×1.33 over 8 buildings → **Use ×1.33 for all buildings**. |
-| **🌲 Fix tall objects** | Scales building and tree heights (the model's main weakness). **Fit from ICESat-2** uses NASA laser top-of-canopy heights over the model's trees. Applies to every view, the tools and validation, and adds the download *Height with tall-object fixes*. **Reset** removes it. | Test scene: trees ×1.5, canopy error 6.0 → 0.01 m at 44 laser photons. |
+| **🌲 Fix tall objects** | Corrects building and tree heights (the model's main weakness). Trees: **Fit from ICESat-2** or **Fit from GEDI** (NASA lasers) gives a factor, or **Meta canopy map** gives every tree pixel the height from Meta's global 1 m canopy map (Tolan et al. 2024, built from 2018–2020 imagery). Applies to every view, the tools and validation, and adds the download *Height with tall-object fixes*. **Reset** removes it. | Test scene: trees ×1.5, canopy error 6.0 → 0.01 m at 44 laser photons. |
 | **± Calibrated error** | After a check in **Compare with reference**, turns the ± spread into a calibrated error bar (68 / 90 / 95 %). The *check* column tests it on half of the values it did not use. | Hover then reads like `12.4 m ± 3.1 m (90 %)`: 9 in 10 true heights lie within the band. |
 | **⛰ Terrain source** | Upload your own DEM (ISRO CartoDEM from Bhuvan, SRTM…) to replace Copernicus GLO-30. Choose EGM96 for CartoDEM / SRTM. It must cover the whole scene. **Back to the default** undoes it. | `cartodem_shimla.tif`, EGM96. |
 
 **GNSS & field points** (card under the control points): import a CSV (`lat, lon, alt`) or GPX file, or **Load
 field-app points**. Pick the height type: raw GNSS / phone GPS heights are *ellipsoidal*, and DepthWizard converts
 them to sea level. Then **Fit & apply** as in 4.2.
+
+**Check with GEDI** (in Compare with reference) compares with NASA GEDI laser shots (~25 m footprints): model trees
+vs the canopy top (rh98), the canopy map vs the same shots, our surface vs the GEDI top and our terrain vs the GEDI
+ground. It is independent of the ICESat-2 levelling. Example on the test scene: model trees 6 m too low, canopy map
+exact, suggested fix ×1.5.
 
 ### 4.4 Field app (phone)
 
@@ -211,6 +216,22 @@ the ground.
 - **Terrain error:** in our Indian laser tests (2 scenes per landscape) it was about 2 m on sparse and urban land,
   about 8 m in hills, and about 20 m under dense forest.
 - **Building and tree heights:** they carry the model error. Tall buildings and trees come out too low.
+
+## 5b. A real event: the Teesta flood, Sikkim, October 2023
+
+`python demo/event_teesta_2023.py` builds everything from public data on AWS (no login), in about a minute:
+- the scene **teesta_lachen_2022**: a pre-event Maxar image (March 2022, 0.5 m) of the Lachen Chu valley north of
+  Chungthang;
+- the observed flood map **demo/reference/teesta_observed_2023.tif**: ground the flood scoured or buried, from
+  Sentinel-2 one year apart (Nov 2022 vs Nov 2023);
+- a report, `SynRS3D/demo/benchmark/event_teesta_2023.md`. Measured: 1.28 km² flood-affected along 12 km of the
+  valley, 0.33 km² inside the scene.
+
+In the app: open the scene (heights are estimated once), then **Respond → Observed flood** → load the map: it shows
+the buildings the real flood reached and the CSI of your flood scenario. Then **Validate → Fix tall objects → Meta
+canopy map** for the forested slopes, and **Assess → Situation report**.
+
+![Teesta valley, Sentinel-2 Nov 2022 / Nov 2023 and the flood-affected ground](img/teesta_2023_flood_map.jpg)
 
 ## 6. Shortcuts
 

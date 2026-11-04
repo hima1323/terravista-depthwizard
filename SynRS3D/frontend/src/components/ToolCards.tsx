@@ -223,26 +223,39 @@ export function ShadowCard() {
 }
 
 export function FixCard() {
-  const s = useTools(x => x), hasTerrain = useEngine(x => x.hasTerrain), cur = useEngine(x => x.current), c = cur && engine.data?.meta?.class_scale;
+  const s = useTools(x => x), hasTerrain = useEngine(x => x.hasTerrain), cur = useEngine(x => x.current), c = cur && engine.data?.meta?.class_scale, canopyInfo = cur && engine.data?.meta?.canopy;
   return (
-    <ToolCard id="fix" icon={TreePine} title="Fix tall objects" blurb="Scale building and tree heights, which the model tends to under-estimate: from shadows, from NASA ICESat-2 canopy heights, or by hand.">
-      <div className="fields">
-        <Num label="Buildings ×" value={s.fixB} min={0.5} max={3} step={0.05} onChange={v => tools.set({ fixB: v })} />
+    <ToolCard id="fix" icon={TreePine} title="Fix tall objects" blurb="Correct building and tree heights, which the model tends to under-estimate: from shadows, NASA laser data (ICESat-2, GEDI), Meta's canopy map, or by hand.">
+      <Num label="Buildings ×" value={s.fixB} min={0.5} max={3} step={0.05} onChange={v => tools.set({ fixB: v })} />
+      <label className="field"><span>Tree heights from</span>
+        <Seg full value={s.fixTrees} onChange={v => v === 'canopy' && !canopyInfo ? tools.loadCanopy() : tools.set({ fixTrees: v })}
+          options={[['scale', 'Model × factor'], ['canopy', 'Meta canopy map']]} /></label>
+      {s.fixTrees === 'scale' ? (<>
         <Num label="Trees ×" value={s.fixT} min={0.5} max={3} step={0.05} onChange={v => tools.set({ fixT: v })} />
-      </div>
+        <div className="btns">
+          <button className="btn sm" disabled={s.fixBusy || !hasTerrain} onClick={() => tools.fitTrees('icesat2')} title="Top-of-canopy laser photons over the model's tree pixels (needs internet and a GeoTIFF scene)"><TreePine size={13} />Fit from ICESat-2</button>
+          <button className="btn sm" disabled={s.fixBusy || !hasTerrain} onClick={() => tools.fitTrees('gedi')} title="GEDI rh98 (canopy top) on footprints the model calls trees (needs internet and a GeoTIFF scene)"><TreePine size={13} />Fit from GEDI</button>
+        </div>
+      </>) : canopyInfo && (
+        <div className="rows">
+          <Row k="Canopy map vs model on tree pixels" v={canopyInfo.canopy_median_m != null ? `${canopyInfo.canopy_median_m} m vs ${canopyInfo.model_median_m} m` : 'too few to compare'} />
+          <Row k="Covered by the map" v={`${canopyInfo.coverage_pct}%`} />
+        </div>)}
       <div className="btns">
         <button className="btn sm primary" disabled={s.fixBusy} onClick={() => tools.applyFix()}>Apply</button>
-        <button className="btn sm" disabled={s.fixBusy || !hasTerrain} onClick={() => tools.fitTrees()} title="Top-of-canopy laser photons over the model's tree pixels (needs internet and a GeoTIFF scene)"><TreePine size={13} />Fit trees from ICESat-2</button>
         <button className="btn sm" disabled={s.fixBusy || !c} onClick={() => tools.applyFix(undefined, true)}>Reset</button>
       </div>
       {c && <Toggle label="Use the fixed heights everywhere" checked={s.fixOn} onChange={v => tools.setFixOn(v)} />}
       <div className="rows">
-        <Row k="Active" v={c ? `buildings ×${(+c.buildings).toFixed(2)} · trees ×${(+c.trees).toFixed(2)}` : 'none (model heights)'} />
-        {s.fixFit && <Row k={`ICESat-2: ${s.fixFit.n} canopy photons`} v={`${s.fixFit.canopy_median_m} m vs model ${s.fixFit.model_median_m} m`} />}
-        {s.fixFit && <Row k="Tree error at the photons" v={`${s.fixFit.mae_before} → ${s.fixFit.mae_after} m`} />}
+        <Row k="Active" v={c ? `buildings ×${(+c.buildings).toFixed(2)} · trees ${c.trees_source === 'canopy' ? 'from the canopy map' : `×${(+c.trees).toFixed(2)}`}` : 'none (model heights)'} />
+        {s.fixFit && s.fixFit.label === 'ICESat-2' && <Row k={`ICESat-2: ${s.fixFit.n} canopy photons`} v={`${s.fixFit.canopy_median_m} m vs model ${s.fixFit.model_median_m} m`} />}
+        {s.fixFit && s.fixFit.label === 'ICESat-2' && <Row k="Tree error at the photons" v={`${s.fixFit.mae_before} → ${s.fixFit.mae_after} m`} />}
+        {s.fixFit && s.fixFit.label === 'GEDI' && <Row k={`GEDI: ${s.fixFit.n} tree footprints`} v={`model ${s.fixFit.trees_model ? `${s.fixFit.trees_model.bias >= 0 ? '+' : ''}${s.fixFit.trees_model.bias.toFixed(1)} m off` : '–'}`} />}
+        {s.fixFit && s.fixFit.label === 'GEDI' && s.fixFit.trees_canopy_map && <Row k="Canopy map at the same footprints" v={`${s.fixFit.trees_canopy_map.bias >= 0 ? '+' : ''}${s.fixFit.trees_canopy_map.bias.toFixed(1)} m off`} />}
       </div>
       <Msg m={s.fixMsg} />
-      <p className="fine">Applied to every view, the tools, validation and the “Height with tall-object fixes” download. Re-run a check above to see the effect.</p>
+      <p className="fine">Applied to every view, the tools, validation and the “Height with tall-object fixes” download. Re-run a check above to see the effect.
+        The canopy map (Meta, Tolan et al. 2024, CC BY 4.0) is built from 2018–2020 imagery: trees felled or grown since then differ.</p>
     </ToolCard>
   );
 }
@@ -428,6 +441,7 @@ export function ObservedFloodCard() {
           <Row k="Observed water" v={`${O.res.water_pct.toFixed(0)}% of the covered area`} />
           <Row k="Read as" v={O.res.kind === 'db' ? `radar, water < ${O.res.threshold_db.toFixed(1)} dB` : 'a water mask'} />
           {O.fit && <Row k="Best fitting water level" v={`+${O.fit.rise.toFixed(1)} m · CSI ${O.fit.csi.toFixed(2)}`} />}
+          <Row k="Buildings the observed flood reached" v={`${O.hitB} · ≈ ${fmtN(Math.round(O.hitPpl))} residents`} />
         </div>
         {flood && O.m ? (<>
           <div className="kpis">

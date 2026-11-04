@@ -55,6 +55,15 @@ How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 | Prepare · Respond · Relief · Assess | landslide risk · people at risk · flowing water (2D shallow water) · observed flood (Sentinel-1) · evacuation plan · before/after damage |
 | All | 🔍 tool finder (Ctrl K) · 📄 printable situation report (Assess) |
 
+**A real Indian event:** the Teesta glacial-lake outburst flood, Sikkim, 4 Oct 2023
+(`python demo/event_teesta_2023.py`, public AWS data only). From Sentinel-2 a year apart it measures 1.28 km² of
+flood-scoured or buried ground along 12 km of the Lachen Chu valley, and writes an observed flood map that the app's
+Observed flood tool checks scenarios against, on a pre-event Maxar scene of the valley. Report:
+[event_teesta_2023.md](SynRS3D/demo/benchmark/event_teesta_2023.md).
+
+**Trees:** Meta's global canopy height map can replace the model's tree heights, and NASA GEDI laser shots check
+trees, surface and terrain (Validate page).
+
 ## Accuracy
 
 All numbers were measured on this code with the released RS3DAda weights. Nothing was trained or tuned on these test

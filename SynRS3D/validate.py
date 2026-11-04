@@ -94,7 +94,8 @@ class Scene:
         self.meta = json.load(open(r('.json')))
         # tall-object fixes (per-class height scale for buildings / trees), when the user applied them
         cs = self.meta.get('class_scale')
-        self.h = self.h_raw if not cs else tools.scaled_heights(self.h_raw, self.lc, tools.meta_class_scale(self.meta))
+        self.h = self.h_raw if not cs else tools.scaled_heights(self.h_raw, self.lc, tools.meta_class_scale(self.meta),
+                                                                 tools.load_canopy(name) if cs.get('trees_source') == 'canopy' else None)
         self.dtm = rasterio.open(r('_dtm.tif')).read(1).astype(np.float32) if os.path.exists(r('_dtm.tif')) else None
         self.dsm = None if self.dtm is None else self.dtm + np.clip(self.h, 0, None)
         self._unc, self._unc_f = None, r('_uncertainty.tif')
@@ -391,6 +392,58 @@ def compare_icesat2(scene):
     res['photons_xy'] = {'u': (c[keep] / scene.shape[1]).round(4).tolist(), 'v': (r[keep] / scene.shape[0]).round(4).tolist(),
                          'h': h[keep].round(2).tolist(), 'ours': dsm[keep].round(2).tolist(), 'cls': cls[keep].astype(int).tolist()}
     res['scatter'] = {'ref': h[keep].round(2).tolist(), 'ours': dsm[keep].round(2).tolist()}
+    return res
+
+
+GEDI_RADIUS_M = 12.5   # GEDI footprint radius (~25 m across)
+
+
+def compare_gedi(scene, shots=None):
+    """Our ground, surface and tree heights vs NASA GEDI L2A shots in the scene, footprint against footprint:
+    ground = GEDI lowest mode vs our terrain (median over the footprint); top = ground + rh98 vs our DSM (98th
+    percentile); trees = rh98 vs our height above ground (98th percentile) on footprints that are mostly the model's
+    tree class, and vs the canopy map when one is loaded. Independent of the ICESat-2 levelling."""
+    import terrain
+    if not scene.crs or scene.dtm is None:
+        raise ValueError('GEDI needs a georeferenced scene with terrain')
+    N = scene.meta.get('terrain', {}).get('geoid_undulation_m')
+    if N is None:
+        raise ValueError('geoid height unknown for this scene (terrain was built offline)')
+    if shots is None:
+        with rasterio.open(scene.image_path) as img:
+            shots = terrain.gedi_shots(transform_bounds(img.crs, 'EPSG:4326', *img.bounds))
+    lon, lat = np.asarray(shots['lon'], np.float64), np.asarray(shots['lat'], np.float64)
+    if not len(lon):
+        return {'shots': 0, 'note': 'No good-quality GEDI shot in this scene (GEDI covers 51.6° S – 51.6° N in strips).'}
+    xs, ys = warp_transform('EPSG:4326', scene.crs, lon.tolist(), lat.tolist())
+    r, c = (np.asarray(v) for v in rasterio.transform.rowcol(scene.transform, xs, ys))
+    pad = int(np.ceil(GEDI_RADIUS_M / scene.gsd))
+    inside = (r >= pad) & (r < scene.shape[0] - pad) & (c >= pad) & (c < scene.shape[1] - pad)
+    if not inside.any():
+        return {'shots': 0, 'note': 'No GEDI footprint lies fully inside the image.'}
+    lon, lat = lon[inside], lat[inside]
+    ground = np.asarray(shots['elev_lm'], np.float64)[inside] - N
+    rh = np.asarray(shots['rh98'], np.float64)[inside]
+    fp = lambda grid, stat: np.array(footprint(scene, grid, lon, lat, stat, GEDI_RADIUS_M), np.float64)
+    our_ground, our_top = fp(scene.dtm, 'median'), fp(scene.dsm, 98)
+    ndsm = np.clip(scene.h, 0, None)
+    our_h = fp(ndsm, 98)
+    tree_share = fp((scene.lc == 4).astype(np.float32), 'mean')   # share of the footprint the model calls trees
+    trees = (tree_share >= 0.5) & (rh >= 2)
+    res = {'shots': int(len(rh)), 'tree_shots': int(trees.sum()),
+           'dates': [str(np.datetime64(int(np.min(shots['t'][inside])), 's'))[:10], str(np.datetime64(int(np.max(shots['t'][inside])), 's'))[:10]],
+           'ground': metrics(our_ground, ground), 'top': metrics(our_top, ground + rh),
+           'trees_model': metrics(our_h[trees], rh[trees]), 'trees_canopy_map': None}
+    cf = os.path.join(RESULTS, scene.name + '_canopy.tif')
+    if os.path.exists(cf):
+        cm = rasterio.open(cf).read(1).astype(np.float32)
+        res['trees_canopy_map'] = metrics(fp(cm, 98)[trees], rh[trees])
+    raw_h = fp(np.clip(scene.h_raw, 0, None), 98) if scene.h is not scene.h_raw else our_h   # fit against the model's own heights
+    ok = trees & (raw_h >= 2)
+    res['tree_fit'] = ({'k': round(float(np.clip(np.median(rh[ok] / raw_h[ok]), 0.5, 3.0)), 3), 'n': int(ok.sum())} if ok.sum() >= 30 else None)
+    res['scatter'] = {'ref': np.round(ground + rh, 2).tolist()[:2500], 'ours': np.round(our_top, 2).tolist()[:2500]}
+    res['shots_xy'] = {'u': (c[inside] / scene.shape[1]).round(4).tolist(), 'v': (r[inside] / scene.shape[0]).round(4).tolist(),
+                       'h': np.round(ground + rh, 2).tolist(), 'ours': np.round(our_top, 2).tolist()}
     return res
 
 

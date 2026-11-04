@@ -24,7 +24,7 @@ export interface ToolsUI {
   wmsPreset: 'osm' | 'custom'; wmsUrl: string; wmsLayers: string; wmsOp: number; wmsOn: boolean; wmsMsg: string;
   mosSel: string[]; mosName: string; mosGrid: number; mosMsg: string;
   shEl: number; shAz: number; shTime: string; shadow: any; shMsg: string; shBusy: boolean;
-  fixB: number; fixT: number; fixFit: any; fixMsg: string; fixOn: boolean; fixBusy: boolean;
+  fixB: number; fixT: number; fixFit: any; fixMsg: string; fixOn: boolean; fixBusy: boolean; fixTrees: 'scale' | 'canopy';
   errSrc: string; errLev: string; errMsg: string;
   demMsg: string; demDatum: 'egm96' | 'egm2008';
   gnssDatum: 'ellipsoid' | 'egm96' | 'egm2008'; gnssMsg: string;
@@ -45,7 +45,7 @@ const INITIAL: ToolsUI = {
   wmsPreset: 'osm', wmsUrl: '', wmsLayers: 'OSM-WMS', wmsOp: 0.6, wmsOn: false, wmsMsg: '',
   mosSel: [], mosName: 'mosaic', mosGrid: 1024, mosMsg: '',
   shEl: 45, shAz: 135, shTime: '', shadow: null, shMsg: '', shBusy: false,
-  fixB: 1, fixT: 1, fixFit: null, fixMsg: '', fixOn: true, fixBusy: false,
+  fixB: 1, fixT: 1, fixFit: null, fixMsg: '', fixOn: true, fixBusy: false, fixTrees: 'scale',
   errSrc: '', errLev: '0.90', errMsg: '',
   demMsg: '', demDatum: 'egm96',
   gnssDatum: 'ellipsoid', gnssMsg: '',
@@ -58,7 +58,7 @@ const INITIAL: ToolsUI = {
   palette: false, rev: 0,
 };
 export const WMS_OSM = 'https://ows.terrestris.de/osm/service';
-export const VKEYS: Record<string, string> = { raster: 'Reference raster', points: 'Surveyed points', icesat2: 'ICESat-2 laser' };
+export const VKEYS: Record<string, string> = { raster: 'Reference raster', points: 'Surveyed points', icesat2: 'ICESat-2 laser', gedi: 'GEDI laser' };
 const clampI = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 const median = (a: ArrayLike<number>) => { if (!a.length) return NaN; const s = Float64Array.from(a).sort(); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 export const fmtN = (v: number, d = 0) => (+v).toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d });
@@ -95,7 +95,7 @@ export class Tools {
     this.T = { los: { obs: [] }, vol: { pts: [] }, shadow: { meas: [], a: null, auto: null }, flow: { src: [], sim: null }, wms: null };
     const c = this.d.meta.class_scale;
     this.set({ los: null, vol: null, volN: 0, drone: null, solar: null, wmsOn: false, wmsMsg: '', shadow: null, shMsg: '', fixFit: null, fixMsg: '',
-      fixB: c ? +c.buildings : 1, fixT: c ? +c.trees : 1, errMsg: '', demMsg: '', gnssMsg: '', evac: null, dmg: null, dmgMsg: '', slide: null,
+      fixB: c ? +c.buildings : 1, fixT: c ? +c.trees : 1, fixTrees: c && c.trees_source === 'canopy' ? 'canopy' : 'scale', errMsg: '', demMsg: '', gnssMsg: '', evac: null, dmg: null, dmgMsg: '', slide: null,
       obs: null, obsMsg: '', flow: null, flK: 0, flMax: 0, flSrcN: 0, mosMsg: '', mosSel: [this.d.name] });
     for (const id of Object.keys(this.s.open) as ToolId[]) if (this.s.open[id]) this.onOpen(id);
     this.people();
@@ -123,9 +123,9 @@ export class Tools {
     if (this.s.evac) this.set({ evac: null });
   }
   pathChanged() { if (this.isOpen('drone')) this.computeDrone(); }
-  classScale(): { buildings: number; trees: number } | null {
+  classScale(): { buildings: number; trees: number; canopy: Float32Array | null } | null {
     const c = this.d && this.d.meta.class_scale;
-    return c && this.d.lc && this.s.fixOn ? { buildings: +c.buildings || 1, trees: +c.trees || 1 } : null;
+    return c && this.d.lc && this.s.fixOn ? { buildings: +c.buildings || 1, trees: +c.trees || 1, canopy: c.trees_source === 'canopy' ? this.d.canopy : null } : null;
   }
   conformal() { return this.d && this.d.meta.conformal; }
   /** the ± part of a read-out: a calibrated error bar once one is chosen for this scene, else the consistency score */
@@ -169,7 +169,7 @@ export class Tools {
     if (id === 'evac') { if (!this.e.s.sitesOpen) this.e.setSitesOpen(true); }
     if (id === 'dmg') { const others = this.e.s.scenes.filter((x: any) => x.state === 'done' && x.name !== this.d.name);
       if (!others.some((x: any) => x.name === s.dmgBefore)) this.set({ dmgBefore: (others.find((x: any) => /before|pre/i.test(x.name)) || others[0] || { name: '' }).name }); }
-    if (id === 'fix') { const c = this.d.meta.class_scale; this.set({ fixB: c ? +c.buildings : 1, fixT: c ? +c.trees : 1 }); }
+    if (id === 'fix') { const c = this.d.meta.class_scale; this.set({ fixB: c ? +c.buildings : 1, fixT: c ? +c.trees : 1, fixTrees: c && c.trees_source === 'canopy' ? 'canopy' : 'scale' }); }
     if (id === 'err') this.renderErr();
   }
   private onClose(id: ToolId) {
@@ -654,25 +654,38 @@ ${D.wps.map((w: any, k: number) => `<Placemark><name>WP${k + 1}</name><descripti
 
   // ----- tall-object fixes (per-class height scale, stored on the server)
   async applyFix(source?: any, reset = false) {
-    const name = this.d.name, body = reset ? { clear: true } : { buildings: this.s.fixB || 1, trees: this.s.fixT || 1, source: { ...(this.T.fixSource || {}), ...(source || {}) } };
+    const name = this.d.name, body = reset ? { clear: true } : { buildings: this.s.fixB || 1, trees: this.s.fixT || 1, trees_source: this.s.fixTrees,
+      source: { ...(this.T.fixSource || {}), ...(source || {}) } };
     this.set({ fixBusy: true, fixMsg: 'Applying…' });
     const r = await fetch(`/api/heightfix?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify(body) }), j = await r.json();
     if (this.d.name !== name) return;
     this.set({ fixBusy: false });
     if (!r.ok) return this.set({ fixMsg: `⚠ ${j.error}` });
-    if (j.cleared) { delete this.d.meta.class_scale; this.set({ fixB: 1, fixT: 1, fixFit: null }); this.T.fixSource = {}; } else { this.d.meta.class_scale = j; this.T.fixSource = (body as any).source; }
+    if (j.cleared) { delete this.d.meta.class_scale; this.set({ fixB: 1, fixT: 1, fixFit: null, fixTrees: 'scale' }); this.T.fixSource = {}; } else { this.d.meta.class_scale = j; this.T.fixSource = (body as any).source; }
     this.set({ fixOn: true, fixMsg: '' });
     this.e.rebuildScene();
   }
-  async fitTrees() {
-    const name = this.d.name;
-    this.set({ fixBusy: true, fixMsg: 'Fetching ICESat-2 canopy photons (first time can take ~30 s)…' });
-    const r = await fetch(`/api/heightfix?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify({ fit: 'trees' }) }), j = await r.json();
+  async fitTrees(source: 'icesat2' | 'gedi' = 'icesat2') {
+    const name = this.d.name, label = source === 'gedi' ? 'GEDI' : 'ICESat-2';
+    this.set({ fixBusy: true, fixMsg: `Fetching ${label} laser data (first time can take ~30 s)…` });
+    const r = await fetch(`/api/heightfix?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify({ fit: 'trees', source }) }), j = await r.json();
     if (this.d.name !== name) return;
     this.set({ fixBusy: false });
     if (!r.ok) return this.set({ fixMsg: `⚠ ${j.error}` });
-    this.T.fixSource = { ...(this.T.fixSource || {}), trees_from: `ICESat-2, ${j.n} canopy photons` };
-    this.set({ fixFit: j, fixT: j.k, fixMsg: `Press Apply to use trees ×${j.k}.` });
+    this.T.fixSource = { ...(this.T.fixSource || {}), trees_from: `${label}, ${j.n} ${source === 'gedi' ? 'tree footprints' : 'canopy photons'}` };
+    this.set({ fixFit: { ...j, label }, fixT: j.k, fixTrees: 'scale', fixMsg: `Press Apply to use trees ×${j.k}.` });
+  }
+  async loadCanopy() {   // Meta's global canopy height map for this scene; then trees can take its heights
+    const name = this.d.name;
+    this.set({ fixBusy: true, fixMsg: 'Fetching the canopy map (a few seconds; needs internet the first time)…' });
+    try {
+      const r = await fetch(`/api/canopy?name=${encodeURIComponent(name)}`, { method: 'POST' }), j = await r.json();
+      if (!r.ok) throw new Error(j.error);
+      const g = new Float32Array(await (await fetch(`/results/${name}_canopy.f32?t=${Date.now()}`)).arrayBuffer());
+      if (this.d.name !== name) return;
+      this.d.meta.canopy = j; this.d.canopy = g;
+      this.set({ fixBusy: false, fixTrees: 'canopy', fixMsg: j.note ? `⚠ ${j.note}` : `Press Apply to give trees the canopy map's heights.` });
+    } catch (err: any) { this.set({ fixBusy: false, fixMsg: `⚠ ${err.message}` }); }
   }
   setFixOn(fixOn: boolean) { this.set({ fixOn }); this.e.rebuildScene(); }
 
@@ -729,6 +742,7 @@ ${D.wps.map((w: any, k: number) => `<Placemark><name>WP${k + 1}</name><descripti
       out.groups.push({ title: 'Flood (now)', rows: [['Water inside', sum(b => e.blockState(b, L) !== 'dry')], ['Fully submerged', sum(b => e.blockState(b, L) === 'sub')]] });
       if (d.tl) out.groups[out.groups.length - 1].rows.push([`Wet within ${d.tl.days} days (timeline)`, sum(b => d.tl.bArr[b.id] < 65535)]); }
     if (this.isOpen('flow') && this.T.flow.sim) { const wet = this.flowWetBlocks(); out.groups.push({ title: 'Flowing water', rows: [[`Wet by ${this.flowClock(this.s.flK)}`, sum(b => wet.has(b.id))]] }); }
+    if (this.T.obs && this.T.obs.hitIds) out.groups.push({ title: 'Observed flood (satellite)', rows: [['Buildings the flood reached', sum(b => this.T.obs.hitIds.has(b.id))]] });
     if (this.T.slide) out.groups.push({ title: 'Landslide risk', rows: [['Very high', sum(b => this.T.slide.bcls[b.id] === 3)], ['High', sum(b => this.T.slide.bcls[b.id] === 2)]] });
     if (this.T.dmg) { const r = (c: string) => { let n = 0, p = 0; for (const b of this.T.dmg.res.buildings) if (this.T.dmg.cls.get(b.id) === c) { n++; p += this.residents(b); } return { n, p }; };
       out.groups.push({ title: 'Damage (before → after)', rows: [['In collapsed buildings', r('collapsed')], ['In damaged buildings', r('damaged')]] }); }
@@ -910,7 +924,13 @@ ${D.wps.map((w: any, k: number) => `<Placemark><name>WP${k + 1}</name><descripti
       if (c) img.data.set(c, i * 4);
     }
     ctx.putImageData(img, 0, 0);
-    this.set({ obs: { res: O.res, m: on ? this.obsMetrics(L) : null, cell: this.gridInfo().dx * this.gridInfo().dy, fit: O.fit || null } });
+    // buildings the observed flood reached: any cell of the block or just outside it under observed water / debris
+    const cells = this.blockCells(), rims = this.blockRims(), wet = (i: number) => O.grid[i] > 0.5;
+    const hitB = this.d.buildings.filter((b: any) => cells[b.id].some(wet) || rims[b.id].some(wet));
+    O.hitIds = new Set(hitB.map((b: any) => b.id));
+    this.set({ obs: { res: O.res, m: on ? this.obsMetrics(L) : null, cell: this.gridInfo().dx * this.gridInfo().dy, fit: O.fit || null,
+      hitB: hitB.length, hitPpl: hitB.reduce((a: number, b: any) => a + this.residents(b), 0) } });
+    this.people();
     this.redraw();
   }
   async loadObs(body: BodyInit, fname: string) {
@@ -1117,6 +1137,7 @@ ${D.wps.map((w: any, k: number) => `<Placemark><name>WP${k + 1}</name><descripti
     const S = this.s.slide;
     if (S && !S.none) sec.push(['Landslide risk (screening)', rows([...SLIDE_CLS.map(([, n], j) => [n, `${Math.round(100 * S.count[j] / S.total)}% of the land · ${S.nb[j]} buildings`] as [string, any]), ['Rain in 24 h', `${S.rain} mm (×${S.f})`]])]);
     const O = this.s.obs;
+    if (O && O.hitB != null) sec.push(['Observed flood: buildings reached', rows([['Buildings', O.hitB], ['Residents (estimate)', fmtN(Math.round(O.hitPpl))]])]);
     if (O && O.m) sec.push(['Observed flood vs scenario', rows([['CSI', O.m.csi.toFixed(2)], ['Real water found', `${Math.round(100 * O.m.pod)}%`], ['False alarms', `${Math.round(100 * O.m.far)}%`], ['Best fitting level', O.fit ? `+${O.fit.rise.toFixed(1)} m` : null]])]);
     const Fl = this.s.flow;
     if (Fl && Fl.cellM) sec.push(['Flowing water', rows([['Time', Fl.clock], ['Under water', fmtHa(Fl.wetM2)], ['Deepest', `${Fl.maxd.toFixed(1)} m`], ['Buildings wet', `${Fl.wetB} (≈ ${fmtN(Math.round(Fl.ppl))} people)`]])]);

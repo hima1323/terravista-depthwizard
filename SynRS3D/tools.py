@@ -393,14 +393,38 @@ def conformal(err, unc, u0=U0, levels=LEVELS, seed=0):
 # ---------------------------------------------------------------- tall-object fixes (per-class height scale)
 def meta_class_scale(meta):
     cs = meta.get('class_scale') or {}
-    return {'buildings': float(cs.get('buildings', 1.0)), 'trees': float(cs.get('trees', 1.0))}
+    return {'buildings': float(cs.get('buildings', 1.0)), 'trees': float(cs.get('trees', 1.0)), 'trees_source': cs.get('trees_source', 'scale')}
 
 
-def scaled_heights(h, lc, scales):
+def canopy_for_scene(name, image_path, save, gw, gh):
+    """Fetch the canopy map for a scene: <name>_canopy.tif (image grid) and <name>_canopy.f32 (browser grid), plus how the
+    model's tree heights compare with it."""
+    import canopy as cp
+    cm, info = cp.canopy_on_grid(image_path)
+    save(image_path, r(name, '_canopy.tif'), cm)
+    g = cv2.resize(np.nan_to_num(cm, nan=-1).astype(np.float32), (gw, gh), interpolation=cv2.INTER_AREA)
+    ok = cv2.resize(np.isfinite(cm).astype(np.float32), (gw, gh), interpolation=cv2.INTER_AREA) > 0.5
+    np.where(ok, np.clip(g, 0, None), np.nan).astype('<f4').tofile(r(name, '_canopy.f32'))
+    h = rasterio.open(r(name, '_height.tif')).read(1)
+    lc = rasterio.open(r(name, '_landcover.tif')).read(1).astype(np.uint8)
+    return dict(info, **cp.tree_stats(cm, h, lc))
+
+
+def scaled_heights(h, lc, scales, canopy=None):
+    """Per-class height scale; with a canopy map (same grid), tree pixels take the map's height where it has data."""
     k = np.ones(h.shape, np.float32)
     k[lc == BUILDING] = scales.get('buildings', 1.0)
     k[lc == TREES] = scales.get('trees', 1.0)
-    return (np.clip(h, 0, None) * k).astype(np.float32)
+    out = (np.clip(h, 0, None) * k).astype(np.float32)
+    if canopy is not None:
+        use = (lc == TREES) & np.isfinite(canopy)
+        out[use] = canopy[use]
+    return out
+
+
+def load_canopy(name):
+    f = r(name, '_canopy.tif')
+    return rasterio.open(f).read(1).astype(np.float32) if os.path.exists(f) else None
 
 
 def fit_tree_scale(scene, photons=None):
@@ -436,11 +460,15 @@ def fit_tree_scale(scene, photons=None):
             'mae_before': round(float(np.abs(ours[ok] - ref[ok]).mean()), 2), 'mae_after': round(float(np.abs(k * ours[ok] - ref[ok]).mean()), 2)}
 
 
-def apply_class_scale(name, image_path, scales, save):
-    """Write <name>_height_fixed.tif (and _dsm_fixed.tif with terrain); save = infer_height.save_tiff_with_geo_info."""
+def apply_class_scale(name, image_path, scales, save, canopy=False):
+    """Write <name>_height_fixed.tif (and _dsm_fixed.tif with terrain); save = infer_height.save_tiff_with_geo_info.
+    canopy=True: tree pixels take the canopy map's heights (<name>_canopy.tif) instead of the tree scale."""
     h = rasterio.open(r(name, '_height.tif')).read(1)
     lc = rasterio.open(r(name, '_landcover.tif')).read(1).astype(np.uint8)
-    hf = scaled_heights(h, lc, scales)
+    cm = load_canopy(name) if canopy else None
+    if canopy and cm is None:
+        raise ValueError('load the canopy map first')
+    hf = scaled_heights(h, lc, scales, cm)
     save(image_path, r(name, '_height_fixed.tif'), hf)
     if os.path.exists(r(name, '_dtm.tif')):
         save(image_path, r(name, '_dsm_fixed.tif'), rasterio.open(r(name, '_dtm.tif')).read(1) + hf)

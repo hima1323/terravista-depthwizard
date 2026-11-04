@@ -15,6 +15,7 @@ SynRS3D/
                     building intervals (calibration/conformal.json)
   terrain.py        bare-ground terrain (DTM) under GeoTIFFs: DEM fetch, building/canopy removal, ICESat-2 levelling
   validate.py       comparison with reference rasters / points / ICESat-2; ground-control-point calibration
+  canopy.py         Meta's global 1 m canopy height map: tiles (zoom-9 quadkeys, AWS Open Data) mosaicked onto a scene
   tools.py          before/after change, observed flood masks, mosaics, GeoJSON / CityJSON export, calibrated error
                     bars (conformal), tall-object height fixes, WMS overlays, GNSS / field points
   models/           DPT_DINOv2 network (RS3DAda); DINOv2 code loaded from pretrain/dinov2 (offline) or GitHub
@@ -200,6 +201,8 @@ server-side ones on the saved full-resolution results. After editing the fronten
 | Drone plan | browser | Path resampled every *n* m; altitude = highest surface within the look-around radius + clearance. KML (absolute, or relative to ground without terrain), QGroundControl plan (take-off, waypoints, return; altitudes relative to take-off), CSV. |
 | Rooftop solar | browser | Sun positions hourly on the 21st of each month; per roof, up to 6 sample cells ray-marched toward the sun over the surface model; shade = weighted (sin elevation) share blocked. kWh = roof × usable × GHI × efficiency × PR × (1 − 0.85 · shade). |
 | Shadow heights | browser | Manual: length along the shadow direction × tan(elevation). Automatic: from each block's shadow-side edge, walk the photo (≤ 2048 px) in the shadow direction across pixels darker than min(Otsu, 0.6 × median); runs that hit another building or the image edge are dropped; per block the median of ≥ 3 runs. |
+| Canopy map | server (`canopy.canopy_on_grid`, `tools.canopy_for_scene`) | Meta / Tolan et al. 2024 canopy heights (uint8 m, Web Mercator, ~1.2 m), the zoom-9 tiles covering the scene read over HTTP, bilinear onto the image grid. With "trees from the canopy map", tree pixels take the map's height (`scaled_heights(..., canopy)`); everything else keeps its scale. |
+| GEDI | server (`terrain.gedi_shots`, `validate.compare_gedi`) | GEDI L2A via SlideRule `gedi02ap` (quality flag 1, not degraded), cached per bounds. Footprint (12.5 m radius) against footprint: ground = median DTM vs elev_lowestmode; top = 98th pct DSM vs ground + rh98; trees = 98th pct nDSM vs rh98 on footprints ≥ 50% model trees (and the canopy map, if loaded). Tree fit = median(rh98 / raw model), ≥ 30 footprints. |
 | Tall-object fixes | server (`tools.fit_tree_scale`, `apply_class_scale`) | Per land-cover class height scale (buildings, trees). Tree scale = median(canopy / model) over ICESat-2 ATL08 top-of-canopy photons on tree pixels, canopy = photon height − our laser-levelled terrain. Stored as `class_scale` in the scene metadata; `validate.Scene` applies it. |
 | Calibrated error | server (`tools.conformal`) | Split conformal on every validation: score = \|error\| / (spread + 0.25 m); k = the ⌈(n+1)·level⌉/n quantile; coverage is checked by fitting k on one random half and testing on the other. |
 | Terrain source | server | Upload saved to `demo/terrain/<scene>__<file>.tif` and preferred by `terrain.build_dtm(prefer=…)`; terrain, DSM and building ground levels are rebuilt. |
@@ -213,6 +216,12 @@ server-side ones on the saved full-resolution results. After editing the fronten
 | WMS overlay | server (`tools.wms_overlay`) | WMS 1.1.1 GetMap in EPSG:4326 for the scene bounds, warped onto the photo grid, saved as `<scene>_wms.png`. |
 | Exports | server (`tools.geojson`, `cityjson`) | Block outlines traced on the grid (OpenCV contours), with the fixes and GCP calibration applied. GeoJSON in WGS84; CityJSON 1.1 LOD1 solids in the scene's projected CRS (UTM for lon/lat scenes). |
 | Report | browser | The map, the 3D view and every open card as static HTML (charts as images), printable to PDF. |
+
+**Real event** (`demo/event_teesta_2023.py`): Teesta GLOF, 4 Oct 2023. Scene = Maxar Open Data pre-event image
+(10300100CE8D0400, 2022-03-07) at 0.5 m. Observed map = Sentinel-2 L2A S2B_45RXL_20221120 vs S2B_45RXL_20231115 on a
+10 m grid: clear in both (SCL not cloud, shadow, dark area or snow), within 600 m of the channel, slope < 25° (GLO-30),
+and NDVI dropped > 0.25 to < 0.3 or MNDWI turned positive. Lake = the MNDWI > 0.3 water body at South Lhonak's
+centre. Results in `demo/benchmark/event_teesta_2023.md` / `_results.json`; `--selftest` checks the mask logic.
 
 **Image loading** (`utils/geo_func.load_multiband`): bands chosen from the upload form's order, the file's colour
 interpretation or band names, else B, G, R for 4+ bands; non-8-bit data stretched per band between the 2nd and 98th

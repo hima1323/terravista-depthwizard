@@ -36,7 +36,7 @@ BUILDING = infer_height.LANDCOVER.index('buildings')
 FLOOR_M = 3.0         # assumed storey height for floor estimates
 SUFFIXES = ('', '_height', '_unc', '_uncertainty', '_landcover', '_bid', '_buildings', '_corr',
             '_height_corrected', '_dtm', '_dsm', '_lc', '_valerr', '_validation', '_dsm_gcp', '_dh', '_bidb', '_change',
-            '_obsflood', '_wms', '_height_fixed', '_dsm_fixed', '_field')  # per-scene result files
+            '_obsflood', '_wms', '_height_fixed', '_dsm_fixed', '_field', '_canopy')  # per-scene result files
 TERRAIN_VERSION = 4  # bump to recompute terrain for every scene (2: ICESat-2 laser correction; 3: no laser shift from a single ICESat-2 pass, terrain.LASER_MIN_PASSES; 4: no levelling on photons over the model's buildings, terrain.roof_mask)
 # Height correction learned on DFC2019 LiDAR (demo/height_correction.py); only present if it passed every test split
 CHOSEN = os.path.join(ROOT, 'demo', 'benchmark', 'height_correction_chosen.json')
@@ -347,7 +347,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send(404, {'error': 'not found'})
 
     def do_POST(self):
-        if self.path.startswith('/api/validate') or self.path.startswith('/api/icesat2') or self.path.startswith('/api/gcp'):
+        if self.path.startswith(('/api/validate', '/api/icesat2', '/api/gcp', '/api/gedi')):
             return self.validation_api()
         if not self.path.startswith('/api/upload'):
             return self.tools_api()
@@ -417,6 +417,9 @@ class Handler(BaseHTTPRequestHandler):
             if self.path.startswith('/api/icesat2'):
                 res = validate.compare_icesat2(scene)
                 key = 'icesat2'
+            elif self.path.startswith('/api/gedi'):
+                res = validate.compare_gedi(scene)
+                key = 'gedi'
             else:
                 kind, datum = q.get('kind', 'dsm'), q.get('datum', 'egm2008')
                 fname = re.sub(r'[^\w.-]+', '_', q.get('file', 'reference'))[:80]
@@ -500,6 +503,11 @@ class Handler(BaseHTTPRequestHandler):
             meta = json.load(open(meta_f))
             fname = re.sub(r'[^\w.-]+', '_', q.get('file', 'upload'))[:80]
             req = json.loads(body or b'{}') if route in ('/api/heightfix', '/api/conformal', '/api/wms', '/api/field') else None
+            if route == '/api/canopy':   # Meta's global canopy height map for this scene (trees)
+                res = tools.canopy_for_scene(name, path, infer_height.save_tiff_with_geo_info, meta['grid_w'], meta['grid_h'])
+                meta['canopy'] = res
+                json.dump(meta, open(meta_f, 'w'))
+                return self.send(200, res)
             if route == '/api/change':
                 before = q.get('before', '')
                 if before == name or status.get(before, {}).get('state') != 'done':
@@ -519,9 +527,15 @@ class Handler(BaseHTTPRequestHandler):
                 return self.send(200, res)
             if route == '/api/heightfix':
                 if req.get('fit') == 'trees':
+                    if req.get('source') == 'gedi':   # GEDI rh98 vs the model on tree footprints
+                        g = validate.compare_gedi(validate.Scene(name, path))
+                        if not g.get('tree_fit'):
+                            raise ValueError(g.get('note') or f"{g.get('tree_shots', 0)} usable GEDI tree footprints (need 30)")
+                        return self.send(200, dict(g['tree_fit'], source='gedi', trees_model=g['trees_model'], trees_canopy_map=g['trees_canopy_map']))
                     return self.send(200, tools.fit_tree_scale(validate.Scene(name, path)))
-                sc = {'buildings': float(req.get('buildings', 1)), 'trees': float(req.get('trees', 1))}
-                if req.get('clear') or all(abs(v - 1) < 1e-6 for v in sc.values()):
+                canopy_trees = req.get('trees_source') == 'canopy'
+                sc = {'buildings': float(req.get('buildings', 1)), 'trees': 1.0 if canopy_trees else float(req.get('trees', 1))}
+                if req.get('clear') or (not canopy_trees and all(abs(v - 1) < 1e-6 for v in sc.values())):
                     meta.pop('class_scale', None)
                     for sfx in ('_height_fixed.tif', '_dsm_fixed.tif'):
                         if os.path.exists(os.path.join(RESULTS, name + sfx)):
@@ -530,8 +544,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self.send(200, {'cleared': True})
                 if not all(0.3 <= v <= 4 for v in sc.values()):
                     raise ValueError('height scales must be between 0.3 and 4')
-                info = tools.apply_class_scale(name, path, sc, infer_height.save_tiff_with_geo_info)
-                meta['class_scale'] = dict(sc, source=req.get('source', {}), **info)
+                info = tools.apply_class_scale(name, path, sc, infer_height.save_tiff_with_geo_info, canopy=canopy_trees)
+                meta['class_scale'] = dict(sc, source=req.get('source', {}), trees_source='canopy' if canopy_trees else 'scale', **info)
                 json.dump(meta, open(meta_f, 'w'))
                 return self.send(200, meta['class_scale'])
             if route == '/api/conformal':

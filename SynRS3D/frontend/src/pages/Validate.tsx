@@ -6,7 +6,7 @@ import { Scatter, Hist } from '../components/Charts';
 import { sgn } from '../engine/algos';
 import { ShadowCard, FixCard, ErrorBarsCard, TerrainSourceCard, GnssCard } from '../components/ToolCards';
 
-const VKEYS: Record<string, string> = { raster: 'Reference raster', points: 'Surveyed points', icesat2: 'ICESat-2 laser' };
+const VKEYS: Record<string, string> = { raster: 'Reference raster', points: 'Surveyed points', icesat2: 'ICESat-2 laser', gedi: 'GEDI laser' };
 const n = (v: number) => v.toLocaleString('en-IN');
 
 function Kpis({ m }: { m: any }) {
@@ -59,6 +59,19 @@ function Results() {
   const val = useEngine(s => s.val), vsel = useEngine(s => s.vsel), lim = useEngine(s => s.errLim);
   const r = vsel ? val[vsel] : null;
   if (!r) return <p className="msg">No validation for this scene yet.</p>;
+  if (vsel === 'gedi') {
+    if (!r.shots) return <p className="msg warn">{r.note || 'No GEDI shots in this scene.'}</p>;
+    return (<>
+      <h4 className="label">Trees: model vs GEDI canopy top (rh98), {r.tree_shots} footprints</h4><Kpis m={r.trees_model} />
+      {r.trees_canopy_map && <><h4 className="label">Trees: canopy map vs GEDI</h4><Kpis m={r.trees_canopy_map} /></>}
+      {r.tree_fit && <p className="msg">Model trees should be about <b>×{r.tree_fit.k}</b> ({r.tree_fit.n} footprints): apply it in <b>Fix tall objects</b> below.</p>}
+      <h4 className="label">Surface (our DSM) vs GEDI top, {r.shots} footprints</h4><Kpis m={r.top} />
+      <h4 className="label">Terrain vs GEDI ground</h4><Kpis m={r.ground} />
+      {r.scatter && <Scatter xs={r.scatter.ref} ys={r.scatter.ours} lim={lim} />}
+      <p className="fine">NASA GEDI L2A (good-quality shots: quality flag 1, not degraded) via SlideRule, {r.dates?.[0]} – {r.dates?.[1]}; ~25 m footprints compared
+        footprint against footprint (terrain: median; tops: 98th percentile). Independent of the ICESat-2 levelling. Dots on the map: blue = ours lower, red = ours higher.</p>
+    </>);
+  }
   if (vsel === 'icesat2') {
     if (!r.photons) return <p className="msg warn">{r.note || 'No ICESat-2 photons in this scene.'}</p>;
     const t = r.terrain_vs_ground;
@@ -147,6 +160,8 @@ export default function Validate() {
           <button className="btn primary" disabled={s.vbusy || !file} onClick={() => file && engine.compareFile(file, kind, datum)}>Compare</button>
           <button className="btn" disabled={s.vbusy || !geo} onClick={() => engine.checkIcesat()} title="NASA ICESat-2 photons inside this scene (needs internet and a GeoTIFF scene)">
             <Satellite size={14} />Check with ICESat-2</button>
+          <button className="btn" disabled={s.vbusy || !geo} onClick={() => engine.checkGedi()} title="NASA GEDI laser shots (canopy and ground) inside this scene (needs internet and a GeoTIFF scene)">
+            <Satellite size={14} />Check with GEDI</button>
         </div>
         <p className={`msg${s.vmsg.startsWith('⚠') ? ' warn' : ''}`}>{s.vmsg || (geo ? 'Load a reference, or check against NASA ICESat-2 laser photons.'
           : 'This scene has no georeferencing: a raster must cover exactly the same area; heights are compared after a best-fit scale.')}</p>

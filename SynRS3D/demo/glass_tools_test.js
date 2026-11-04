@@ -78,7 +78,7 @@ const check = (name, ok, info = '') => { results.push([ok ? 'PASS' : 'FAIL', nam
   const man = await ev(() => __dw.tools.T.shadow.meas[0]);
   check('manual shadow measure ≈ 9 m', man && Math.abs(man.H - 9) < 1.2, man && man.H.toFixed(2));
 
-  await on('fix'); await btn('fix', 'Fit trees from ICESat-2'); await p.waitForFunction(() => __dw.tools.s.fixFit, null, { timeout: 30000 });
+  await on('fix'); await btn('fix', 'Fit from ICESat-2'); await p.waitForFunction(() => __dw.tools.s.fixFit, null, { timeout: 30000 });
   check('ICESat-2 canopy fit ≈ ×1.5', Math.abs((await T()).fixFit.k - 1.5) < 0.05, JSON.stringify((await T()).fixFit));
   const before = await ev(() => __dw.data.buildings[0].height_m);
   await btn('shadow', 'for all buildings'); await p.waitForFunction(() => __dw.data.meta.class_scale, null, { timeout: 20000 }); await p.waitForTimeout(500);
@@ -86,6 +86,23 @@ const check = (name, ok, info = '') => { results.push([ok ? 'PASS' : 'FAIL', nam
   check('applying the fix scales building heights (trees ×1.5 kept)', Math.abs(fx.h / before - fx.k) < 0.01 && Math.abs(fx.t - 1.5) < 0.05, JSON.stringify(fx));
   await btn('fix', 'Reset'); await p.waitForFunction(() => !__dw.data.meta.class_scale, null, { timeout: 20000 }); await p.waitForTimeout(300);
   check('reset restores model heights', Math.abs((await ev(() => __dw.data.buildings[0].height_m)) - before) < 1e-6);
+
+  // GEDI check + canopy map (task 2): trees are 12 m in the model, 18 m in GEDI and in the canopy map
+  await p.locator('.card button', { hasText: 'Check with GEDI' }).click(); await p.waitForFunction(() => __dw.s.val.gedi, null, { timeout: 30000 });
+  const gd = await ev(() => __dw.s.val.gedi);
+  check('GEDI check: ground right, model trees 6 m low, fit ×1.5', gd.ground.mae < 0.5 && Math.abs(gd.trees_model.bias + 6) < 0.5 && Math.abs(gd.tree_fit.k - 1.5) < 0.05,
+    JSON.stringify({ shots: gd.shots, trees: gd.tree_shots, bias: gd.trees_model.bias, fit: gd.tree_fit }));
+  check('GEDI results shown with map dots', (await p.textContent('.panel')).includes('model vs GEDI canopy top'));
+  await p.locator('#tool-fix button', { hasText: 'Meta canopy map' }).click();
+  await p.waitForFunction(() => __dw.data.meta.canopy && __dw.tools.s.fixTrees === 'canopy', null, { timeout: 30000 });
+  const cpy = await ev(() => __dw.data.meta.canopy);
+  check('canopy map loaded: trees 18 m vs model 12 m', cpy.canopy_median_m === 18 && cpy.model_median_m === 12, JSON.stringify(cpy));
+  await btn('fix', 'Apply'); await p.waitForFunction(() => __dw.data.meta.class_scale && __dw.data.meta.class_scale.trees_source === 'canopy', null, { timeout: 20000 }); await p.waitForTimeout(400);
+  const treeH = await ev(() => { const d = __dw.data, W = d.meta.grid_w, H = d.meta.grid_h; const i = Math.round(0.175 * H) * W + Math.round(0.64 * W); return [d.lc[i], d.grid[i]]; });
+  check('trees take the canopy map heights in every view', treeH[0] === 4 && Math.abs(treeH[1] - 18) < 0.5, JSON.stringify(treeH));
+  await p.locator('.card button', { hasText: 'Check with GEDI' }).click(); await p.waitForTimeout(300); await p.waitForFunction(() => !__dw.s.vbusy, null, { timeout: 30000 });
+  check('after the canopy fix, trees match GEDI', Math.abs((await ev(() => __dw.s.val.gedi.trees_model.bias))) < 0.5, String(await ev(() => __dw.s.val.gedi.trees_model.bias)));
+  await btn('fix', 'Reset'); await p.waitForFunction(() => !__dw.data.meta.class_scale, null, { timeout: 20000 }); await p.waitForTimeout(300);
 
   await p.locator('.card button', { hasText: 'Check with ICESat-2' }).click(); await p.waitForFunction(() => __dw.s.val.icesat2, null, { timeout: 30000 });
   await on('err'); await btn('err', 'Use these error bars'); await p.waitForFunction(() => __dw.data.meta.conformal, null, { timeout: 10000 });
@@ -132,6 +149,10 @@ const check = (name, ok, info = '') => { results.push([ok ? 'PASS' : 'FAIL', nam
   await btn('obs', 'Fit the water level'); await p.waitForTimeout(500);
   const of = (await T()).obs.fit;
   check('observed flood: fitted level ≈ +2.5 m, CSI high', of && Math.abs(of.rise - 2.5) < 0.25 && of.csi > 0.9, JSON.stringify(of));
+  const ob = (await T()).obs, exp = await ev(() => { const t = __dw.tools, d = __dw.data, c = t.blockCells(), r = t.blockRims(), g = t.T.obs.grid;
+    return d.buildings.filter(b => c[b.id].some(i => g[i] > 0.5) || r[b.id].some(i => g[i] > 0.5)).length; });
+  check('observed flood: buildings reached counted (card, people, report)', ob.hitB === exp && (await p.textContent('#tool-obs')).includes('Buildings the observed flood reached')
+    && (await ev(() => __dw.tools.s.people.groups.some(g => g.title.startsWith('Observed flood')))), `${ob.hitB} buildings, ${Math.round(ob.hitPpl)} people`);
   await on('flow');
   check('flowing water switches the level flood off', !(await ev(() => __dw.s.flood)));
   await p.locator('#tool-flow label', { hasText: 'Simulate' }).locator('input').fill('0.25');

@@ -191,10 +191,11 @@ export class Engine {
     const [val, valerr] = await Promise.all([
       fetch(`/results/${name}_validation.json`).then(r => r.ok ? r.json() : {}).catch(() => ({})),
       fetch(`/results/${name}_valerr.f32`).then(r => r.ok ? r.arrayBuffer() : null).then(b => b && new Float32Array(b)).catch(() => null)]);
+    const canopy = m.canopy ? await f32(`/results/${name}_canopy.f32`).catch(() => null) : null;   // canopy map (trees), if loaded
     const photo = new Image(); photo.src = `/results/${name}.jpg`; await photo.decode();
     if (this.s.current !== name) return;
     for (const b of buildings) b.height_raw_m = b.height_m;
-    this.data = { name, meta: m, gridRaw: buf, gridCorr, unc, uncCv, photo, vmax, umax, bid, buildings, dtmRaw: dtm, lc, valerr,
+    this.data = { name, meta: m, gridRaw: buf, gridCorr, unc, uncCv, photo, vmax, umax, bid, buildings, dtmRaw: dtm, lc, valerr, canopy,
       gcpPts: (m.gcp ? m.gcp.points : []).map((p: any) => ({ u: p.u, v: p.v, z: p.z })),
       sources: [] as number[], route: { a: null, b: null, kind: null, res: null, why: '' }, tl: null, forecast: null, tlStart: this.s.depth };
     this.set({ val, vsel: null, status: 'ready', hasCorr: !!gridCorr, hasLc: !!lc, forecastOn: false, forecastInfo: '',
@@ -267,7 +268,8 @@ export class Engine {
   setGrid() {
     const d = this.data, on = this.corrOn(), m = d.meta, k = d.hscale ?? 1, cs = this.tools.classScale(), lc = d.lc;
     let src = on ? d.gridCorr : d.gridRaw;
-    if (cs) src = Float32Array.from(src, (v: number, i: number) => v * (lc[i] === 7 ? cs.buildings : lc[i] === 4 ? cs.trees : 1));   // tall-object fixes
+    if (cs) src = Float32Array.from(src, (v: number, i: number) => lc[i] === 7 ? v * cs.buildings   // tall-object fixes
+      : lc[i] === 4 ? (cs.canopy && Number.isFinite(cs.canopy[i]) ? cs.canopy[i] : v * cs.trees) : v);
     d.gridClass = src;
     d.grid = k === 1 ? src : Float32Array.from(src, (v: number) => v * k);
     d.gridMax = d.grid.reduce((a: number, v: number) => Math.max(a, v), 0);
@@ -1352,7 +1354,7 @@ export class Engine {
   }
   renderValidation() {
     if (!this.data) return;
-    const keys = ['raster', 'points', 'icesat2'].filter(k => this.s.val[k]);
+    const keys = ['raster', 'points', 'icesat2', 'gedi'].filter(k => this.s.val[k]);
     let vsel = this.s.vsel;
     if (!vsel || !keys.includes(vsel)) vsel = keys.includes('raster') ? 'raster' : keys[0] || null;
     this.set({ vsel, errLim: this.errLimit() });
@@ -1363,8 +1365,8 @@ export class Engine {
   private drawValOverlay(ctx: CanvasRenderingContext2D, c: HTMLCanvasElement) {
     const d = this.data, r = this.s.val[this.s.vsel!], lim = this.errLimit(), P = (u: number, v: number) => [u * c.width, v * c.height];
     const dot = (x: number, y: number, rad: number, rgb: RGB) => { ctx.beginPath(); ctx.arc(x, y, rad, 0, 2 * Math.PI); ctx.fillStyle = `rgb(${rgb})`; ctx.fill(); ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(0,0,0,.7)'; ctx.stroke(); };
-    if (this.s.vsel === 'icesat2' && r && r.photons_xy) {
-      const p = r.photons_xy;
+    if ((this.s.vsel === 'icesat2' || this.s.vsel === 'gedi') && r && (r.photons_xy || r.shots_xy)) {
+      const p = r.photons_xy || r.shots_xy;
       p.u.forEach((u: number, i: number) => { const [x, y] = P(u, p.v[i]); dot(x, y, 3.5, divRamp((p.ours[i] - p.h[i]) / (2 * lim) + 0.5)); });
     }
     if (this.s.vsel === 'points' && r && r.points) for (const q of r.points) { const [x, y] = P(q.u, q.v); dot(x, y, 9, divRamp((q.ours - q.ref) / (2 * lim) + 0.5)); }
@@ -1386,7 +1388,7 @@ export class Engine {
         this.data.valerr = new Float32Array(await (await fetch(`/results/${name}_valerr.f32?t=${Date.now()}`)).arrayBuffer());
         this.data.errCv = this.data.errTex = null; this.set({ vlayer: 'err' });
       }
-      this.set({ vmsg: `Done: ${({ raster: 'reference raster', points: 'surveyed points', icesat2: 'ICESat-2 laser' } as any)[j.key]}.` });
+      this.set({ vmsg: `Done: ${({ raster: 'reference raster', points: 'surveyed points', icesat2: 'ICESat-2 laser', gedi: 'GEDI laser' } as any)[j.key]}.` });
     } catch (e: any) { this.set({ vmsg: `⚠ ${e.message}` }); }
     finally { this.set({ vbusy: false }); this.renderValidation(); }
   }
@@ -1395,6 +1397,7 @@ export class Engine {
     const csv = /\.(csv|txt)$/i.test(f.name);
     this.runValidation(`/api/validate?name=${encodeURIComponent(this.data.name)}&kind=${csv ? 'points' : kind}&datum=${datum}&file=${encodeURIComponent(f.name)}`, f, `Comparing with ${f.name}…`);
   }
+  checkGedi() { if (this.data) this.runValidation(`/api/gedi?name=${encodeURIComponent(this.data.name)}`, '', 'Fetching NASA GEDI laser shots for this scene (first time can take ~30 s)…'); }
   checkIcesat() { if (this.data) this.runValidation(`/api/icesat2?name=${encodeURIComponent(this.data.name)}`, '', 'Fetching NASA ICESat-2 laser photons for this scene (first time can take ~30 s)…'); }
 
   // ---------- calibrate with ground control points ----------

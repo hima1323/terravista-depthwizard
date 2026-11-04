@@ -237,6 +237,39 @@ def icesat2_photons(bounds):
     return dict(np.load(f))
 
 
+GEDI_CACHE = os.path.join(ROOT, 'demo', 'benchmark', 'gedi')
+
+
+def gedi_quality(flags):
+    """SlideRule GEDI flags: bit 0 = degrade, bit 1 = L2 quality_flag. Good = quality 1 and not degraded."""
+    flags = np.asarray(flags, np.int64)
+    return ((flags & 2) > 0) & ((flags & 1) == 0)
+
+
+def gedi_shots(bounds):
+    """Good-quality NASA GEDI L2A laser shots (~25 m footprints) inside lon/lat bounds, all passes, from SlideRule
+    (gedi02ap, no login); cached per bounds. Arrays lon, lat, elev_lm (ground, m above the WGS84 ellipsoid), rh98
+    (98th-percentile return height above that ground ~ canopy / roof top, m), t (unix s). Same call as
+    demo/india_eval_v2.gedi_v2."""
+    w, s, e, n = bounds
+    f = os.path.join(GEDI_CACHE, f'{w:.5f}_{s:.5f}_{e:.5f}_{n:.5f}.npz')
+    if not os.path.exists(f):
+        from sliderule import gedi
+        gedi.init(verbose=False)
+        poly = [{'lon': w, 'lat': s}, {'lon': e, 'lat': s}, {'lon': e, 'lat': n}, {'lon': w, 'lat': n}, {'lon': w, 'lat': s}]
+        g = gedi.gedi02ap({'poly': poly, 'anc_fields': ['rh']})
+        k = len(g) if g is not None and 'elevation_lm' in g else 0
+        cols = dict(lon=np.zeros(0), lat=np.zeros(0), elev_lm=np.zeros(0), rh98=np.zeros(0), t=np.zeros(0, np.int64))
+        if k:
+            good = gedi_quality(np.asarray(g['flags'], np.int64))
+            rh = np.stack(g['rh'].to_numpy()).astype(np.float64)
+            cols = dict(lon=np.asarray(g.geometry.x)[good], lat=np.asarray(g.geometry.y)[good], elev_lm=np.asarray(g['elevation_lm'], np.float64)[good],
+                        rh98=rh[good, 98], t=g.index.to_numpy().astype('datetime64[s]').astype(np.int64)[good])
+        os.makedirs(GEDI_CACHE, exist_ok=True)
+        np.savez_compressed(f, **cols)
+    return dict(np.load(f))
+
+
 def laser_offset(dtm, transform, crs, p, undulation, min_passes=1, buildings=None):
     """Median of (terrain - ICESat-2 ground photon heights) inside the scene, or None if there are too few photons
     or fewer than min_passes passes (track // 100) among them. undulation = EGM2008 geoid height above the ellipsoid,
