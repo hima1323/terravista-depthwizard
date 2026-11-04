@@ -1,5 +1,5 @@
 import { Download, Route, Play, Eraser, MapPin } from 'lucide-react';
-import { engine, useEngine } from '../engine/useEngine';
+import { engine, useEngine, useTools } from '../engine/useEngine';
 import { Card, Num, Row, Seg, Toggle, dist } from './ui';
 
 export function RouteCard() {
@@ -32,15 +32,19 @@ export function RouteCard() {
   );
 }
 
-const DL: [string, string, 'terrain' | 'gcp' | null][] = [['glb', '3D model (.glb)', null], ['_dsm.tif', 'DSM, m a.s.l. (.tif)', 'terrain'], ['_dtm.tif', 'Terrain DTM (.tif)', 'terrain'],
+const DL: [string, string, 'terrain' | 'gcp' | 'fix' | 'geo' | null][] = [['glb', '3D model (.glb)', null], ['_dsm.tif', 'DSM, m a.s.l. (.tif)', 'terrain'], ['_dtm.tif', 'Terrain DTM (.tif)', 'terrain'],
   ['_height.tif', 'Height above ground (.tif)', null], ['_uncertainty.tif', 'Consistency score (.tif)', null], ['_dsm_gcp.tif', 'DSM with control points (.tif)', 'gcp'],
+  ['_height_fixed.tif', 'Height with tall-object fixes (.tif)', 'fix'], ['api:geojson', 'Building footprints (.geojson)', 'geo'], ['api:cityjson', '3D buildings, CityJSON LOD1', 'geo'],
   ['_buildings.json', 'Building blocks (.json)', null]];
 export function Downloads() {
-  const hasTerrain = useEngine(s => s.hasTerrain), hasGcp = useEngine(s => s.hasGcp);
+  const hasTerrain = useEngine(s => s.hasTerrain), hasGcp = useEngine(s => s.hasGcp), cur = useEngine(s => s.current);
+  useTools(s => s.fixBusy);
+  const hasFix = !!(cur && engine.data?.meta?.class_scale);
+  const ok = (need: string | null) => need === null || (need === 'terrain' ? hasTerrain : need === 'gcp' ? hasGcp : need === 'fix' ? hasFix : true);
   return (
     <Card icon={Download} title="Downloads">
       <div className="btns">
-        {DL.filter(([, , need]) => need === null || (need === 'terrain' ? hasTerrain : hasGcp)).map(([k, l]) =>
+        {DL.filter(([, , need]) => ok(need)).map(([k, l]) =>
           <button key={k} className="btn sm" onClick={() => engine.download(k)}>{l}</button>)}
       </div>
       <p className="fine">GeoTIFFs open in QGIS / ArcGIS; the 3D model (true metres) in Blender or any glTF viewer.</p>

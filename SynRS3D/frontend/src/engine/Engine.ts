@@ -10,10 +10,11 @@ import {
   LC_RUNOFF, TRAVEL, SITE_LC, MAX_SITES, ARR_KEYS, arrivalRGBA, FLOOD_RGBA, imdClass, SLOPE_CLASSES, nice, sgn,
   type TravelMode, type RGB,
 } from './algos';
+import { Tools, type ToolPick } from './tools';
 
 export type Page = 'home' | 'scenes' | 'explore' | 'validate' | 'prepare' | 'respond' | 'relief' | 'assess';
 export const DISASTER_PAGES: Page[] = ['prepare', 'respond', 'relief', 'assess'];
-export type Pick = null | 'A' | 'B' | 'src' | 'gcp';
+export type Pick = null | 'A' | 'B' | 'src' | 'gcp' | ToolPick;
 export type Legend = { kind: 'grad'; ramp: (x: number) => RGB; lo: string; hi: string } | { kind: 'flood' } | { kind: 'arrival' } | null;
 
 export interface FloodSummary {
@@ -71,6 +72,7 @@ export class Engine {
   data: any = null;
   private loading: string | null = null;
   el: { photo?: HTMLImageElement; heat?: HTMLCanvasElement; ovl?: HTMLCanvasElement; v3d?: HTMLElement; pin?: HTMLElement } = {};
+  tools = new Tools(this);   // the newer analysis tools (tools.ts)
 
   // ---------- store ----------
   subscribe = (f: () => void) => { this.ls.add(f); return () => this.ls.delete(f); };
@@ -165,9 +167,9 @@ export class Engine {
     this.loading = name;
     try { await this.load(name, s.meta); } finally { if (this.loading === name) this.loading = null; }
   }
-  async upload(file: File) {
+  async upload(file: File, bands = 'auto') {
     this.set({ uploadMsg: `Uploading ${file.name}…` });
-    const r = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+    const r = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}&bands=${bands}`, { method: 'POST', body: file });
     const j = await r.json();
     this.set({ uploadMsg: r.ok ? '' : `Upload failed: ${j.error}` });
     if (r.ok) { await this.poll(); this.select(j.name); }
@@ -208,6 +210,7 @@ export class Engine {
     this.toolsSceneLoaded();
     this.renderValidation(); this.renderGcp(); this.computePrepare();
     this.applyLinkParams();
+    this.tools.sceneLoaded();
   }
   // demo links, once per page load: #/respond?scene=x&view=2d&flood=4&src=edges&timeline=1&tarr=1&t=12&route=1&sites=1&cam=street
   private linkDone = false;
@@ -262,26 +265,33 @@ export class Engine {
   laserShift() { const la = this.data.meta.terrain && this.data.meta.terrain.laser; return la && la.offset_m != null ? -la.offset_m : null; }
   corrOn() { return this.s.corr && !!this.data?.gridCorr; }
   setGrid() {
-    const d = this.data, on = this.corrOn(), m = d.meta, k = d.hscale ?? 1, src = on ? d.gridCorr : d.gridRaw;
+    const d = this.data, on = this.corrOn(), m = d.meta, k = d.hscale ?? 1, cs = this.tools.classScale(), lc = d.lc;
+    let src = on ? d.gridCorr : d.gridRaw;
+    if (cs) src = Float32Array.from(src, (v: number, i: number) => v * (lc[i] === 7 ? cs.buildings : lc[i] === 4 ? cs.trees : 1));   // tall-object fixes
+    d.gridClass = src;
     d.grid = k === 1 ? src : Float32Array.from(src, (v: number) => v * k);
+    d.gridMax = d.grid.reduce((a: number, v: number) => Math.max(a, v), 0);
     for (const b of d.buildings) {
-      b.height_m = (on && b.height_corr_m != null ? b.height_corr_m : b.height_raw_m) * k;
+      b.height_m = (on && b.height_corr_m != null ? b.height_corr_m : b.height_raw_m) * k * (cs ? cs.buildings : 1);
       b.floors = Math.max(1, Math.round(b.height_m / m.floor_m));
     }
     d.heat = colourCanvas(d.grid, m.grid_w, m.grid_h, turbo, d.vmax);
   }
   renderStats() {
-    const d = this.data, m = d.meta, c = this.corrOn() ? m.corrected : m, k = d.hscale ?? 1, cal = d.calib;
-    const stats: [string, string][] = [['Tallest', `${(c.max * k).toFixed(1)} m`], ['99th pct', `${(c.p99 * k).toFixed(1)} m`],
+    const d = this.data, m = d.meta, c = this.corrOn() ? m.corrected : m, k = d.hscale ?? 1, cal = d.calib, cs = this.tools.classScale(), conf = m.conformal;
+    const stats: [string, string][] = [['Tallest', `${(cs ? d.gridMax : c.max * k).toFixed(1)} m`], ...(cs ? [] : [['99th pct', `${(c.p99 * k).toFixed(1)} m`] as [string, string]]),
       ['Built-up', `${m.built_pct.toFixed(0)}%`], ['Blocks', String(m.buildings)],
       ...(d.dtm ? [['Ground', `${d.gmin.toFixed(0)}–${d.gmax.toFixed(0)} m`] as [string, string]] : []),
-      ['GSD', `${m.gsd.toFixed(2)} m${m.gsd_assumed ? ' (assumed)' : ''}`], ['Consistency', `${m.unc_mean.toFixed(2)} m`]];
+      ['GSD', `${m.gsd.toFixed(2)} m${m.gsd_assumed ? ' (assumed)' : ''}`],
+      conf ? [`Error (${Math.round(+conf.level * 100)}%)`, `± ${(conf.k * (m.unc_mean + conf.u0)).toFixed(1)} m`] : ['Consistency', `${m.unc_mean.toFixed(2)} m`]];
     const la = m.terrain && m.terrain.laser, ls = this.laserShift();
     const note = (m.gsd_assumed ? 'No georeferencing: scale assumes 0.5 m pixels. ' : '')
       + (this.corrOn() ? 'Heights bias-corrected with a curve learned on US LiDAR (DFC2019); not yet verified on Indian cities. ' : 'Model estimate of height above ground. ')
       + (cal ? `Calibrated with ${cal.n} control point${cal.n > 1 ? 's' : ''}: level ${cal.a >= 0 ? '+' : ''}${cal.a.toFixed(2)} m`
            + (cal.s !== 1 ? `, heights ×${cal.s.toFixed(2)}` : '') + (cal.terms.includes('bx') ? ', tilt corrected' : '') + '. ' : '')
-      + 'Consistency score = spread of 4 flipped predictions, not an error bar; building blocks show a 90% interval calibrated on GAMUS LiDAR (US cities): about ±6 m, and it misses about half of the blocks that are really 10–20 m tall and most above 20 m. '
+      + (cs ? `Tall-object fixes: buildings ×${cs.buildings.toFixed(2)}, trees ×${cs.trees.toFixed(2)}. ` : '')
+      + (conf ? `± = ${Math.round(+conf.level * 100)}% error bar calibrated on this scene's ${({ raster: 'reference raster', points: 'surveyed points', icesat2: 'ICESat-2' } as any)[conf.source] || conf.source} check (split conformal). `
+        : 'Consistency score = spread of 4 flipped predictions, not an error bar; building blocks show a 90% interval calibrated on GAMUS LiDAR (US cities): about ±6 m, and it misses about half of the blocks that are really 10–20 m tall and most above 20 m. ')
       + (d.dtmRaw ? `Absolute heights in m above mean sea level (EGM2008); terrain: ${this.terrainLabel()}, cleaned with the model's land cover`
            + (ls != null ? `, levelled ${ls.toFixed(1)} m to match ${la.ground_photons} NASA ICESat-2 laser ground points.`
                          : (la && la.none ? `; not levelled: ${la.none}.` : '; no ICESat-2 laser points in this scene.'))
@@ -317,22 +327,23 @@ export class Engine {
   buildingAt(u: number, v: number) { const id = this.data.bid[this.cellAt(u, v)]; return id > 0 ? this.data.buildings[id - 1] : null; }
   pointLines(u: number, v: number): string[] {
     const d = this.data, h = Math.max(0, this.heightAt(u, v)), un = this.uncAt(u, v), out: string[] = [];
-    if (!d.dtm) out.push(`${h.toFixed(1)} m above ground (consistency score ${un.toFixed(1)} m)`);
+    if (!d.dtm) out.push(`${h.toFixed(1)} m above ground (${this.tools.pm(un)})`);
     else {
       const g = this.groundAt(u, v), sl = this.sample(d.slope, u, v);
-      out.push(`${(g + h).toFixed(1)} m a.s.l.`, `ground ${g.toFixed(1)} m + height ${h.toFixed(1)} m (consistency ${un.toFixed(1)} m)`,
+      out.push(`${(g + h).toFixed(1)} m a.s.l.`, `ground ${g.toFixed(1)} m + height ${h.toFixed(1)} m (${this.tools.pm(un)})`,
         `terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})`);
     }
     const f = this.floodText(u, v); if (f) out.push(f);
     const e = this.valText(u, v); if (e) out.push(e);
+    out.push(...this.tools.pointLines(u, v));
     const b = this.buildingAt(u, v); if (b) out.push(...this.buildingLines(b));
     return out;
   }
   buildingLines(b: any) {
-    const d = this.data, k = d.hscale ?? 1, ci = b.ci90 && !this.corrOn() ? b.ci90 : null, out: string[] = [];
+    const d = this.data, k = d.hscale ?? 1, ci = b.ci90 && !this.corrOn() && !this.tools.classScale() && !d.meta.conformal ? b.ci90 : null, out: string[] = [];
     out.push(`Block ${b.height_m.toFixed(1)} m tall · ${Math.round(b.area_m2)} m² · ~${b.floors} floor${b.floors > 1 ? 's' : ''}`);
     out.push(ci ? `90% interval (calibrated on GAMUS, US cities) ${(ci[0] * k).toFixed(1)}–${(ci[1] * k).toFixed(1)} m (often too low for buildings over 10 m)`
-      : `consistency score ${b.unc_m.toFixed(1)} m`);
+      : this.tools.pm(b.unc_m));
     if (d.dtm) out.push(`roof ${(this.blockGround(b) + b.height_m).toFixed(1)} m a.s.l.`);
     if (this.s.flood) {
       const L = this.waterLevel(), st = this.blockState(b, L);
@@ -341,13 +352,19 @@ export class Engine {
       if (d.tl) { const a = d.tl.bArr[b.id];
         out.push(a === 0 ? 'Timeline: water inside from the start' : a < NEVER ? `Timeline: water reaches the ground floor ${this.fmtWhen(a)}` : 'Timeline: stays dry'); }
     }
-    return out;
+    return out.concat(this.tools.buildingLines(b));
   }
   hover2D(u: number, v: number, x: number, y: number) {
     if (!this.data || u < 0 || v < 0 || u > 1 || v > 1) return this.set({ hover: null });
     this.set({ hover: { text: this.pointLines(u, v).join(' · '), x, y } });
   }
-  click2D(u: number, v: number) { if (this.data) this.onPick(u, v); }
+  click2D(u: number, v: number) {
+    if (!this.data || this.onPick(u, v)) return;
+    if (this.nav.drawing) {   // the flythrough / drone path can be drawn on the 2D map too
+      this.nav.path.push(new THREE.Vector2((u - 0.5) * this.sceneW(), (v - 0.5) * this.sceneH()));
+      this.set({ pathN: this.nav.path.length }); this.drawRoute(); this.drawOverlay(); this.showHint(); this.tools.pathChanged();
+    }
+  }
 
   // ---------- 2D layers and legend ----------
   showLayer() {
@@ -373,7 +390,8 @@ export class Engine {
   setLayer(layer: UI['layer']) { this.set({ layer }); this.showLayer(); }
 
   // ---------- 3D ----------
-  surfaceImage(): any {
+  surfaceImage(): any { return this.tools.compose(this.baseSurface()); }
+  baseSurface(): any {
     const d = this.data, p = this.s.page;
     if (p === 'validate') return this.s.vlayer === 'err' && this.errTexture() || (this.s.vlayer === 'none' ? d.photo : d.heat);
     if (this.s.flood && d.floodTex) return d.floodTex;
@@ -441,6 +459,7 @@ export class Engine {
   }
   groundGrid() { const d = this.data; return d.dtm || d.flat || (d.flat = new Float32Array(d.grid.length)); }
   waterHeights(pos: THREE.BufferAttribute, k: number) {
+    if (this.tools.flowShown()) return this.tools.flowHeights(pos, k);
     const d = this.data, L = this.waterLevel(), g = this.groundGrid(), y0 = (L - d.gmin) * k;
     for (let i = 0; i < pos.count; i++) pos.setY(i, d.reach[i] < L ? y0 : (g[i] - d.gmin - 1) * k);
     pos.needsUpdate = true;
@@ -457,7 +476,7 @@ export class Engine {
     if (!hit) return this.clearPin();
     const hu = hit.point.x / this.sceneW() + 0.5, hv = hit.point.z / this.sceneH() + 0.5;
     if (this.onPick(hu, hv)) return;
-    if (this.nav.drawing) { this.nav.path.push(new THREE.Vector2(hit.point.x, hit.point.z)); this.drawRoute(); this.set({ pathN: this.nav.path.length }); return this.showHint(); }
+    if (this.nav.drawing) { this.nav.path.push(new THREE.Vector2(hit.point.x, hit.point.z)); this.drawRoute(); this.drawOverlay(); this.set({ pathN: this.nav.path.length }); this.tools.pathChanged(); return this.showHint(); }
     if (!this.marker) { this.marker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x7dd3fc })); this.scene3.add(this.marker); }
     this.marker.scale.setScalar(this.sceneS() / 250);
     this.marker.position.copy(hit.point); this.marker.visible = true; this.markerPos = hit.point.clone();
@@ -568,7 +587,7 @@ export class Engine {
     nav.drawing = !nav.drawing;
     if (nav.drawing) { nav.path = []; this.clearPin(); }
     this.set({ drawing: nav.drawing, pathN: nav.path.length });
-    this.drawRoute(); this.showHint();
+    this.drawRoute(); this.drawOverlay(); this.showHint(); this.tools.pathChanged();
   }
   playPath(record = false) {
     const nav = this.nav;
@@ -635,6 +654,7 @@ export class Engine {
       : nav.drawing ? `Click the scene to add route points (${nav.path.length}) · Done when finished`
       : this.s.pick === 'src' ? 'Click where water comes in (river, canal, breached embankment) · Done when finished'
       : this.s.pick === 'gcp' ? 'Click points of known elevation, then type their heights in the panel'
+      : this.tools.hint() ? this.tools.hint()
       : this.s.pick ? `Click the scene to place ${this.s.pick}`
       : nav.mode === 'fly' ? 'Drag to look · W A S D move · R / F up / down · Shift faster · click = measure'
       : nav.mode === 'street' ? 'Drag to look around · W A S D move (buildings block you; on flooded streets you float) · Shift faster'
@@ -696,6 +716,7 @@ export class Engine {
   }
   async download(what: string) {
     if (!this.data || !what) return;
+    if (what.startsWith('api:')) return download(`/api/export?name=${encodeURIComponent(this.data.name)}&fmt=${what.slice(4)}`, `${this.data.name}_${what === 'api:cityjson' ? 'city.json' : 'footprints.geojson'}`);
     if (what !== 'glb') return download(`/results/${this.data.name}${what}`, `${this.data.name}${what}`);
     download(URL.createObjectURL(await this.exportGLB()), `${this.data.name}.glb`);
   }
@@ -743,7 +764,8 @@ export class Engine {
   }
   updateFlood() {
     const on = this.s.flood;
-    this.water.visible = on;
+    if (on && this.tools.isOpen('flow')) this.tools.toggle('flow', false);   // one water model at a time
+    this.water.visible = on || this.tools.flowShown();
     if (!on) {
       if (this.s.pick === 'src') this.setPick(null);
       if (this.s.timeOpen && this.data) { this.data.tl = null; this.set({ depth: this.data.tlStart }); }
@@ -754,6 +776,7 @@ export class Engine {
     this.updateWater(); this.showLayer(); this.refreshSurface(); this.drawMarks3D(); this.refreshPin();
     this.schedule('route', () => this.updateRoute(), 150);
     if (this.s.sitesOpen) this.schedule('sites', () => this.findSites(), 200);
+    this.tools.floodChanged();
   }
   cellArea() { const m = this.data.meta; return (m.width * m.gsd / m.grid_w) * (m.height * m.gsd / m.grid_h); }
   // data.reach[i] = lowest water level at which cell i is under water (bathtub: own ground; connected: priority flood)
@@ -837,6 +860,7 @@ export class Engine {
   onPick(u: number, v: number) {
     const d = this.data;
     if (!this.s.pick || !d || u < 0 || u > 1 || v < 0 || v > 1) return false;
+    if (this.tools.pick(u, v)) return true;
     const i = this.cellAt(u, v), R = d.route;
     if (this.s.pick === 'src') { d.sources.push(i); this.set({ nSources: d.sources.length }); this.reachChanged(); return true; }
     if (this.s.pick === 'gcp') { d.gcpPts.push({ u, v, z: null }); this.renderGcp(); this.drawOverlay(); this.drawMarks3D(); return true; }
@@ -847,8 +871,8 @@ export class Engine {
   }
 
   // ---------- route finder: A* on the grid (8-connected) ----------
-  travelCost(L: number) {
-    const d = this.data, N = d.grid.length, tr = TRAVEL[this.s.rmode], maxD = Math.max(0, this.s.rdepth || 0), g = this.groundGrid();
+  travelCost(L: number, how: TravelMode = this.s.rmode, limit: number = this.s.rdepth) {
+    const d = this.data, N = d.grid.length, tr = TRAVEL[how], maxD = Math.max(0, limit || 0), g = this.groundGrid();
     const f = new Float32Array(N), depth = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       const lc = d.lc ? d.lc[i] : 2;
@@ -982,7 +1006,8 @@ export class Engine {
     const ctx = c.getContext('2d')!;
     ctx.clearRect(0, 0, c.width, c.height);
     const xy = (i: number) => [(i % W + 0.5) * s, (Math.floor(i / W) + 0.5) * s];
-    if (this.s.page === 'validate') return this.drawValOverlay(ctx, c);
+    if (this.s.page === 'validate') { this.drawValOverlay(ctx, c); return this.tools.overlay(ctx, c); }
+    this.tools.rasters(ctx, c);
     const R = d.route, routeOn = this.s.routeOpen, S = this.s.sitesOpen && d.sites, m = d.meta;
     const label = (x: number, y: number, txt: string, col: string) => {
       ctx.font = 'bold 17px "Montserrat Variable", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1022,6 +1047,7 @@ export class Engine {
     };
     if (this.s.flood && this.s.fsrc === 'pick') for (const i of d.sources) dot(i, '#2f7fe0', '≈');
     if (routeOn) { if (R.a != null) dot(R.a, '#2e9e5b', 'A'); if (R.kind === 'ab' && R.b != null) dot(R.b, '#d64545', 'B'); }
+    this.tools.overlay(ctx, c);
   }
   drawMarks3D() {
     for (const o of this.marks.children as any[]) { o.geometry.dispose(); o.material.dispose(); }
@@ -1034,6 +1060,7 @@ export class Engine {
       const [[x, z]] = this.routeCells([i], 1), b = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color }));
       b.position.set(x, at(x, z) + r, z); this.marks.add(b);
     };
+    this.tools.marks3D(at, r, k);
     if (this.s.page === 'validate') { for (const p of d.gcpPts) ball(this.cellAt(p.u, p.v), 0xff7ad9); return; }
     if (this.s.flood && this.s.fsrc === 'pick') for (const i of d.sources) ball(i, 0x2f7fe0);
     const S = this.s.sitesOpen && d.sites;
@@ -1372,7 +1399,7 @@ export class Engine {
 
   // ---------- calibrate with ground control points ----------
   modelHeightAt(u: number, v: number) {
-    const d = this.data, g = this.corrOn() ? d.gridCorr : d.gridRaw;
+    const d = this.data, g = d.gridClass || (this.corrOn() ? d.gridCorr : d.gridRaw);   // the server fits on the same (fixed) heights
     return (d.dtmRaw ? this.sample(d.dtmRaw, u, v) : 0) + Math.max(0, this.sample(g, u, v));
   }
   renderGcp() {
@@ -1382,7 +1409,7 @@ export class Engine {
   }
   setGcpZ(k: number, z: number | null) { this.data.gcpPts[k].z = z; this.renderGcp(); }
   removeGcp(k: number) { this.data.gcpPts.splice(k, 1); this.renderGcp(); this.drawOverlay(); this.drawMarks3D(); }
-  rebuildScene() { this.applyTerrain(); this.renderStats(); this.showLayer(); this.build3D(); this.updateFlood(); this.renderGcp(); this.drawOverlay(); this.computePrepare(); }
+  rebuildScene() { this.applyTerrain(); this.renderStats(); this.showLayer(); this.build3D(); this.updateFlood(); this.renderGcp(); this.drawOverlay(); this.computePrepare(); this.tools.heightsChanged(); }
   async fitGcp() {
     const d = this.data;
     if (!d) return;
@@ -1411,6 +1438,7 @@ export class Engine {
     if (page === prev) return;
     this.set({ page });
     if (this.s.pick) this.setPick(null);
+    this.tools.pageChanged(page);
     if (isDisaster(prev) && !isDisaster(page)) {   // the disaster tools run only on their own pages
       this.set({ routeOpen: false, sitesOpen: false, sites: null });
       if (this.data) this.data.sites = null;
@@ -1457,3 +1485,5 @@ export class Engine {
 function download(href: string, name: string) { Object.assign(document.createElement('a'), { href, download: name }).click(); }
 
 export const engine = new Engine();
+// #…v2test in the address: expose the engine to the headless browser test (demo/glass_tools_test.js); nothing otherwise
+if (location.hash.includes('v2test')) (window as any).__dw = engine;

@@ -2,6 +2,7 @@ import { Palette, Plane, Video, PenLine, Square, Info, Wand2 } from 'lucide-reac
 import { engine, useEngine } from '../engine/useEngine';
 import { Card, Panel, Seg, Toggle } from '../components/ui';
 import { Downloads } from '../components/Shared';
+import { LineOfSightCard, VolumeCard, DroneCard, SolarCard, MapOverlayCard, MosaicCard } from '../components/ToolCards';
 
 export default function Explore() {
   const s = useEngine(x => x);
@@ -33,6 +34,12 @@ export default function Explore() {
           <p className="fine">Learned on US LiDAR (DFC2019, which is inside the model's adaptation data); not verified on Indian cities.</p>
         </Card>
       )}
+      <LineOfSightCard />
+      <VolumeCard />
+      <DroneCard />
+      <SolarCard />
+      <MapOverlayCard />
+      <MosaicCard />
       <Downloads />
       <Card icon={Info} title="About these heights"><p className="fine">{s.note}</p></Card>
     </Panel>

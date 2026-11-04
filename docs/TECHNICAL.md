@@ -186,8 +186,12 @@ The results are written into the page title, so a headless browser can check the
 
 ## 5b. Toolbar tools
 
-Every tool is a card opened from the toolbar; the tool finder (Ctrl K) searches them all. Browser-side tools work on
-the 512 × 512 grids; server-side ones on the saved full-resolution results.
+In the glass UI every tool is a card on its page (`frontend/src/components/ToolCards.tsx`), with its state and maths
+in `frontend/src/engine/tools.ts`, which the Engine calls at its extension points (picks, 2D overlay, 3D marks, hover
+lines, water surface, heights, scene load, page change). `ToolFinder.tsx` is the Ctrl K search. The classic viewer
+(`web/index.html`, at /classic) has the same tools in a toolbar. Browser-side tools work on the 512 × 512 grids;
+server-side ones on the saved full-resolution results. After editing the frontend: `cd frontend && npm ci && npm run build`
+(writes `web/app/`).
 
 | Tool | Where | Method |
 |---|---|---|
@@ -215,7 +219,8 @@ interpretation or band names, else B, G, R for 4+ bands; non-8-bit data stretche
 percentile (a plain cast to 8 bit wrapped 16-bit values around).
 
 **Tests:** `demo/tools_harness.py <dir>` serves synthetic scenes with known truth through the real `app.py` (model
-stubbed, no PyTorch needed); `node demo/tools_test.js <dir>` drives every tool in a headless browser (36 checks).
+stubbed, no PyTorch needed); `node demo/glass_tools_test.js <dir>` drives every tool in the glass UI (32 checks) and
+`node demo/tools_test.js <dir>` in the classic viewer (36 checks), both in a headless browser.
 `python tools.py` runs the module's self-checks.
 
 ## 6. HTTP API (`app.py`, http://127.0.0.1:8000)

@@ -14,6 +14,7 @@ import Prepare from './pages/Prepare';
 import Respond from './pages/Respond';
 import Relief from './pages/Relief';
 import Assess from './pages/Assess';
+import ToolFinder from './components/ToolFinder';
 
 function Hint() {
   const hint = useEngine(s => s.hint);
@@ -40,6 +41,7 @@ export default function App() {
       </Routes>
       <Toolbar />
       <Hint />
+      <ToolFinder />
     </div>
   );
 }

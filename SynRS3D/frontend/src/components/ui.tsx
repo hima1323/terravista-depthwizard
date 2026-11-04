@@ -18,9 +18,9 @@ export function Panel({ page, children, extra }: { page: Page; children: ReactNo
   );
 }
 
-export function Card({ icon: Icon, title, right, children }: { icon?: LucideIcon; title?: ReactNode; right?: ReactNode; children: ReactNode }) {
+export function Card({ icon: Icon, title, right, children, id }: { icon?: LucideIcon; title?: ReactNode; right?: ReactNode; children: ReactNode; id?: string }) {
   return (
-    <section className="card glass-in">
+    <section className="card glass-in" id={id}>
       {title && <h3>{Icon && <Icon size={15} />}{title}{right && <span className="grow">{right}</span>}</h3>}
       {children}
     </section>

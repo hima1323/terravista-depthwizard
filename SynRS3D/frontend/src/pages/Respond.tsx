@@ -4,6 +4,14 @@ import { Card, Kpi, Num, Panel, Row, Seg, Slider, Toggle, ha, m2 } from '../comp
 import { RouteCard, FloodSwitch } from '../components/Shared';
 import { TimelineChart } from '../components/Charts';
 import { ARR_KEYS } from '../engine/algos';
+import { FlowCard, ObservedFloodCard, PeopleCard } from '../components/ToolCards';
+import { tools, useTools } from '../engine/useEngine';
+
+function FloodPeople() {   // residents of the flooded buildings (People at risk settings)
+  useTools(x => x.people);
+  const p = tools.floodPeople();
+  return p && p.wet > 0 ? <p className="msg">≈ <b>{Math.round(p.wet).toLocaleString('en-IN')}</b> people live in buildings with water inside ({Math.round(p.sub).toLocaleString('en-IN')} fully submerged).</p> : null;
+}
 
 function FloodCard() {
   const s = useEngine(x => x), f = s.floodSum;
@@ -31,6 +39,7 @@ function FloodCard() {
             <Kpi v={f.dry} l="blocks dry" tone="good" />
             <Kpi v={m2(f.floorArea)} l="floor area under water" />
           </div>
+          <FloodPeople />
           <p className="fine">{f.total} building blocks from the model's land cover (attached buildings count as one), ~3 m per floor. {f.model} {f.terrain} Heights carry model error. Hover or click a point to see when it floods.</p>
         </>)}
       </>)}
@@ -81,7 +90,10 @@ export default function Respond() {
     <Panel page="respond">
       <FloodCard />
       <TimelineCard />
+      <FlowCard />
+      <ObservedFloodCard />
       <RouteCard />
+      <PeopleCard />
     </Panel>
   );
 }

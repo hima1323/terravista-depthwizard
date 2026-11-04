@@ -3,6 +3,7 @@ import { engine, useEngine } from '../engine/useEngine';
 import { metaOf } from '../nav';
 import { nice } from '../engine/algos';
 import { Seg } from './ui';
+import { FinderButton } from './ToolFinder';
 
 export default function TopBar() {
   const page = useEngine(s => s.page), current = useEngine(s => s.current), stats = useEngine(s => s.stats), view = useEngine(s => s.view);
@@ -26,6 +27,7 @@ export default function TopBar() {
       <div className="chips">
         {stats.map(([k, v]) => <span key={k} className="chip">{k}<b>{v}</b></span>)}
       </div>
+      <FinderButton />
       <Seg value={view} onChange={v => engine.setView(v)} options={[['3d', <><Box size={14} />3D</>], ['2d', <><Map size={14} />2D</>]]} />
     </header>
   );

@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { Mountain, Waves, ArrowRight } from 'lucide-react';
 import { engine, useEngine } from '../engine/useEngine';
 import { Card, Panel, Ring, Seg, Stat } from '../components/ui';
+import { LandslideCard, PeopleCard } from '../components/ToolCards';
 
 const RANGES = ['≤ 15°', '16–25°', '26–35°', '36–45°', '> 45°'];   // SLOPE_CLASSES in algos.ts
 
@@ -52,6 +53,8 @@ export default function Prepare() {
         <p className="note">These are scenarios, not forecasts. Use them to compare what each rise would reach.</p>
         <button className="btn" onClick={() => nav('/respond')}>Run a scenario in Respond <ArrowRight size={14} /></button>
       </Card>
+      <LandslideCard />
+      <PeopleCard />
     </Panel>
   );
 }

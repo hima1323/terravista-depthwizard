@@ -34,12 +34,24 @@ Other scenes stay usable while you wait.
 
 ## Finding the tools
 
-- **The toolbar** under the mode tabs shows every tool of the current mode. Click a tool to open its card on the
-  right; click it again, or **×** on the card, to close it. Each card starts with one line saying what it does and
-  the steps.
-- **🔍 Find a tool** (or **Ctrl K**, or **/**) searches every tool in every mode and switches the mode for you.
-  Example: type `drone` and press Enter.
-- **📄 Report** turns the map and every open card into a printable page (save it as PDF from the print dialog).
+- **Each page's panel lists its tools as cards.** A tool with a switch in its title is off until you switch it on:
+  off, it says in one line what it does; on, it shows its inputs and results and draws its layer on the map.
+  Leaving a page switches its tools off.
+
+  | Page | Tools |
+  |---|---|
+  | Explore | Line of sight · Volume & area · Drone flight plan · Rooftop solar · Map overlay · Mosaic · Downloads |
+  | Validate | Compare with reference · Control points · GNSS & field points · Heights from shadows · Fix tall objects · Calibrated error bars · Terrain source |
+  | Prepare | Landslide-prone slopes · Flood exposure · Landslide risk · People at risk |
+  | Respond | Flood scenario · Timeline · Flowing water · Observed flood · Route finder · People at risk |
+  | Relief | Site rules, helipads and camps · Evacuation plan · Route finder |
+  | Assess | Scenario impact · Damage: before / after · People at risk · Situation report · Downloads |
+
+- **🔍 Find a tool** (top bar, or **Ctrl K**, or **/**) searches every tool on every page, opens that page and
+  switches the tool on. Example: type `drone` and press Enter.
+- **Situation report** (Assess) puts the map, the 3D view and every tool result on one printable page (save it as
+  PDF from the print dialog).
+- The classic viewer at `http://127.0.0.1:8000/classic` has the same tools in a toolbar per mode.
 
 ## 3. Explore mode: the heights and the 3D flythrough
 
@@ -78,7 +90,7 @@ Choose a scene, then switch between **2D compare** and **3D view**.
 - **building footprints + heights** as GeoJSON (for QGIS), and **3D buildings** as CityJSON LOD1 (for city models);
 - building blocks as JSON.
 
-**Explore tools (toolbar):**
+**Explore page tools:**
 
 | Tool | What it does | Example |
 |---|---|---|
@@ -152,7 +164,7 @@ control points**. Untick "Use the calibrated heights" to compare with and withou
 
 **PNG/JPG images:** control points turn their relative heights into absolute ones.
 
-### 4.3 More checks and fixes (toolbar)
+### 4.3 More checks and fixes (Validate page)
 
 | Tool | What it does | Example |
 |---|---|---|
@@ -161,7 +173,7 @@ control points**. Untick "Use the calibrated heights" to compare with and withou
 | **± Calibrated error** | After a check in **Compare with reference**, turns the ± spread into a calibrated error bar (68 / 90 / 95 %). The *check* column tests it on half of the values it did not use. | Hover then reads like `12.4 m ± 3.1 m (90 %)`: 9 in 10 true heights lie within the band. |
 | **⛰ Terrain source** | Upload your own DEM (ISRO CartoDEM from Bhuvan, SRTM…) to replace Copernicus GLO-30. Choose EGM96 for CartoDEM / SRTM. It must cover the whole scene. **Back to the default** undoes it. | `cartodem_shimla.tif`, EGM96. |
 
-**GNSS and field points** (in **📍 Control points**): import a CSV (`lat, lon, alt`) or GPX file, or **Load
+**GNSS & field points** (card under the control points): import a CSV (`lat, lon, alt`) or GPX file, or **Load
 field-app points**. Pick the height type: raw GNSS / phone GPS heights are *ellipsoidal*, and DepthWizard converts
 them to sea level. Then **Fit & apply** as in 4.2.
 
@@ -186,12 +198,12 @@ and **Send to DepthWizard**. Points stay on the phone until they are sent.
 | **⤳ Route** | Route from A to B, on foot or by car. Avoids buildings, steep ground and water deeper than the limit, and prefers roads. **▶ Fly** follows the route in 3D. |
 | **🚁 Relief sites** | Helicopter landing circles and relief camp areas: flat, open and dry ground. Shows capacity (45 m² per person), road access and **Route here**. |
 
-| **💧 Flowing water** | A 2D shallow-water simulation: water spreads over time from inflow points (a breach, a river, a drain outlet) and rain. Drag the time slider, or show the "time until wet" map. Turns the level flood off (one water model at a time). The card shows the area under water, the deepest water and the buildings wet at each time. |
-| **🧭 Evacuation plan** | Sends each building's residents to the nearest relief camp that still has space, avoiding deep water. Choose who leaves: flooded buildings, high landslide risk, or everyone. Buildings are coloured by their camp; red = no dry route (boats / helicopters), grey = no camp space left. |
-| **👥 People at risk** | Residents ≈ floors × footprint × occupied share ÷ floor space per person (10 m², 80 % by default), counted for each open hazard tool. Test scenes: 1 651 residents; 616 lived in the 2 collapsed buildings. |
-| **🏚 Damage** | Open the after-event scene, choose the before image, **Compare**. Buildings that lost ≥ 50 % of their height are collapsed, ≥ 20 % damaged (both editable); also new structures, lost tree canopy and debris volume. The two images are aligned automatically. |
-| **⛰ Landslide risk** | A screening map from slope, land cover and local relief (ratings after BIS IS 14496 Part 2), raised for heavy rain. **From timeline / forecast** takes the highest 24-hour rain. Needs a GeoTIFF scene. |
-| **🛰 Observed flood** | Load a real flood map (Sentinel-1 radar in dB or linear, or any 0/1 water mask). Shows hits, misses and false alarms against the scenario, with CSI. **🎯 Fit the water level** finds the level that matches it best. |
+| **💧 Flowing water** (Respond) | A 2D shallow-water simulation: water spreads over time from inflow points (a breach, a river, a drain outlet) and rain. Drag the time slider, or show the "time until wet" map. Turns the level flood off (one water model at a time). The card shows the area under water, the deepest water and the buildings wet at each time. |
+| **🧭 Evacuation plan** (Relief) | Sends each building's residents to the nearest relief camp that still has space, avoiding deep water. Choose who leaves: flooded buildings, high landslide risk, or everyone. Buildings are coloured by their camp; red = no dry route (boats / helicopters), grey = no camp space left. |
+| **👥 People at risk** (Prepare, Respond, Assess) | Residents ≈ floors × footprint × occupied share ÷ floor space per person (10 m², 80 % by default), counted for each open hazard tool. Test scenes: 1 651 residents; 616 lived in the 2 collapsed buildings. |
+| **🏚 Damage** (Assess) | Open the after-event scene, choose the before image, **Compare**. Buildings that lost ≥ 50 % of their height are collapsed, ≥ 20 % damaged (both editable); also new structures, lost tree canopy and debris volume. The two images are aligned automatically. |
+| **⛰ Landslide risk** (Prepare) | A screening map from slope, land cover and local relief (ratings after BIS IS 14496 Part 2), raised for heavy rain. **From timeline / forecast** takes the highest 24-hour rain. Needs a GeoTIFF scene. |
+| **🛰 Observed flood** (Respond) | Load a real flood map (Sentinel-1 radar in dB or linear, or any 0/1 water mask). Shows hits, misses and false alarms against the scenario, with CSI. **🎯 Fit the water level** finds the level that matches it best. |
 
 
 These tools give **scenarios, not forecasts**. The ground model has a 30 m resolution, so check routes and sites on

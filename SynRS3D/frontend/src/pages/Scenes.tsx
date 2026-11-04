@@ -17,7 +17,8 @@ export default function Scenes() {
   const [over, setOver] = useState(false), picked = useRef<HTMLElement>(null);
   const reveal = () => requestAnimationFrame(() => picked.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   const choose = (name: string) => { engine.select(name); reveal(); };
-  const upload = (f?: File) => { if (f) { engine.upload(f); reveal(); } };
+  const [bands, setBands] = useState('auto');
+  const upload = (f?: File) => { if (f) { engine.upload(f, bands); reveal(); } };
   const running = scenes.filter(s => s.state === 'running').length, queued = scenes.filter(s => s.state === 'queued').length;
   return (
     <div className="home">
@@ -57,6 +58,9 @@ export default function Scenes() {
               <span>or click to choose · PNG · JPG · GeoTIFF<br />GeoTIFF adds true scale and heights above sea level.</span>
               <input type="file" hidden accept=".png,.jpg,.jpeg,.tif,.tiff" onChange={e => upload(e.target.files?.[0])} />
             </label>
+            <label className="field" title="Which bands hold red, green and blue. Auto reads the file's band labels; 4-band products without labels (Cartosat-3 MX, PlanetScope) are taken as blue, green, red, NIR. 16-bit images are stretched to 8 bit.">
+              <span>Band order</span>
+              <select value={bands} onChange={e => setBands(e.target.value)}><option value="auto">Auto (from the file)</option><option value="rgb">R, G, B</option><option value="bgr">B, G, R (+NIR): Cartosat, multispectral</option></select></label>
             <p className="fine">The image is processed on this machine: a few seconds with an NVIDIA GPU, several minutes on CPU. Other scenes stay usable meanwhile.</p>
           </aside>
         </div>

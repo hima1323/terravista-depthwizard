@@ -46,14 +46,14 @@ How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 | Standalone deployment, one unified module | `Install.bat` + `DepthWizard.bat`; runs offline after installation; CPU fallback |
 | Source code + technical documentation | This repository · [docs/TECHNICAL.md](docs/TECHNICAL.md) · [docs/USER_GUIDE.md](docs/USER_GUIDE.md) |
 
-**Beyond the problem statement** (toolbar tools):
+**Beyond the problem statement** (cards on each page; **Ctrl K** finds any of them):
 
-| Mode | Tools |
+| Page | Tools |
 |---|---|
 | Explore | line of sight · volume · drone flight plan (KML / QGroundControl) · rooftop solar · WMS map overlay (OSM, Bhuvan) · mosaics · GeoJSON / CityJSON LOD1 export |
-| Validate & calibrate | building heights from shadows · tall-object fixes (shadows, ICESat-2 canopy) · calibrated error bars (conformal) · your own DEM (CartoDEM, SRTM) · GNSS / GPX import · phone field app |
-| Disaster tools | flowing water (2D shallow water) · evacuation plan · people at risk · before/after damage · landslide risk · observed flood (Sentinel-1) |
-| All | 🔍 tool finder (Ctrl K) · 📄 printable situation report |
+| Validate | building heights from shadows · tall-object fixes (shadows, ICESat-2 canopy) · calibrated error bars (conformal) · your own DEM (CartoDEM, SRTM) · GNSS / GPX import · phone field app |
+| Prepare · Respond · Relief · Assess | landslide risk · people at risk · flowing water (2D shallow water) · observed flood (Sentinel-1) · evacuation plan · before/after damage |
+| All | 🔍 tool finder (Ctrl K) · 📄 printable situation report (Assess) |
 
 ## Accuracy
 

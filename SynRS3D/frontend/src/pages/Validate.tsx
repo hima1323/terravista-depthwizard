@@ -4,6 +4,7 @@ import { engine, useEngine } from '../engine/useEngine';
 import { Card, Panel, Ring, Seg, Stat, Toggle, Row } from '../components/ui';
 import { Scatter, Hist } from '../components/Charts';
 import { sgn } from '../engine/algos';
+import { ShadowCard, FixCard, ErrorBarsCard, TerrainSourceCard, GnssCard } from '../components/ToolCards';
 
 const VKEYS: Record<string, string> = { raster: 'Reference raster', points: 'Surveyed points', icesat2: 'ICESat-2 laser' };
 const n = (v: number) => v.toLocaleString('en-IN');
@@ -156,6 +157,11 @@ export default function Validate() {
         <Results />
       </Card>
       <Gcp />
+      <GnssCard />
+      <ShadowCard />
+      <FixCard />
+      <ErrorBarsCard />
+      <TerrainSourceCard />
     </Panel>
   );
 }
