@@ -21,6 +21,8 @@ import numpy as np
 import rasterio
 from rasterio.warp import Resampling, reproject, transform as warp_transform, transform_bounds
 
+import tools
+
 ROOT = os.path.dirname(os.path.abspath(__file__))
 RESULTS = os.path.join(ROOT, 'demo', 'results')
 REFERENCE = os.path.join(ROOT, 'demo', 'reference')
@@ -84,16 +86,27 @@ class Scene:
         self.name, self.image_path = name, image_path
         r = lambda sfx: os.path.join(RESULTS, name + sfx)
         with rasterio.open(r('_height.tif')) as src:
-            self.h = src.read(1).astype(np.float32)
+            self.h_raw = src.read(1).astype(np.float32)
             self.crs, self.transform = src.crs, src.transform
-        self.shape = self.h.shape
+        self.shape = self.h_raw.shape
         self.lc = rasterio.open(r('_landcover.tif')).read(1).astype(np.uint8)
+        self.meta = json.load(open(r('.json')))
+        # tall-object fixes (per-class height scale for buildings / trees), when the user applied them
+        cs = self.meta.get('class_scale')
+        self.h = self.h_raw if not cs else tools.scaled_heights(self.h_raw, self.lc, tools.meta_class_scale(self.meta))
         self.dtm = rasterio.open(r('_dtm.tif')).read(1).astype(np.float32) if os.path.exists(r('_dtm.tif')) else None
         self.dsm = None if self.dtm is None else self.dtm + np.clip(self.h, 0, None)
-        self.meta = json.load(open(r('.json')))
+        self._unc, self._unc_f = None, r('_uncertainty.tif')
         self.gsd = self.meta.get('gsd', 0.5)
         # terrain slope on the ground pixel size (works for projected and lon/lat grids alike)
         self.slope = None if self.dtm is None else slope_deg(self.dtm, rasterio.Affine(self.gsd, 0, 0, 0, -self.gsd, 0))
+
+    @property
+    def unc(self):
+        """Per-pixel spread of the 4 flipped predictions (m), or None."""
+        if self._unc is None and os.path.exists(self._unc_f):
+            self._unc = rasterio.open(self._unc_f).read(1).astype(np.float32)
+        return self._unc
 
     def product(self, kind):
         """Our counterpart of a reference of this kind: dsm / ndsm / dtm."""
@@ -185,6 +198,8 @@ def compare_raster(scene, ref_path, kind='dsm', datum='egm2008'):
     lim = float(max(1.0, np.percentile(np.abs(e), 98)))
     counts, edges = np.histogram(np.clip(e, -lim, lim), bins=40, range=(-lim, lim))
     res['histogram'] = {'counts': counts.tolist(), 'lo': -lim, 'hi': lim}
+    if scene.unc is not None and kind != 'dtm':   # calibrated error bars from this comparison
+        res['conformal'] = tools.conformal(err[ok], scene.unc[ok])
     gw, gh = scene.meta['grid_w'], scene.meta['grid_h']
     to_grid(err, gw, gh).astype('<f4').tofile(os.path.join(RESULTS, scene.name + '_valerr.f32'))
     res['error_grid'] = True
@@ -254,7 +269,8 @@ def compare_points(scene, pts, datum='egm2008'):
     if scene.dsm is None:
         s, a = np.polyfit(ours, ref, 1) if len(pts) >= 3 else (1.0, 0.0)
         ours, fit = a + s * ours, {'scale': float(s), 'offset': float(a)}
-    return {'kind': 'points', 'datum': datum, 'datum_shift_m': shift, 'relative_fit': fit, 'overall': metrics(ours, ref) or
+    unc = np.array([sample(scene.unc, p['c'], p['r']) for p in pts]) if scene.unc is not None else None
+    return {'kind': 'points', 'datum': datum, 'conformal': tools.conformal(ours - ref, unc) if unc is not None else None, 'datum_shift_m': shift, 'relative_fit': fit, 'overall': metrics(ours, ref) or
             {'n': len(pts), 'mae': float(np.nanmean(np.abs(ours - ref))), 'rmse': float(np.sqrt(np.nanmean((ours - ref) ** 2))),
              'bias': float(np.nanmean(ours - ref)), 'r': None},
             'points': [{'u': p['c'] / scene.shape[1], 'v': p['r'] / scene.shape[0], 'ref': float(z), 'ours': float(o)}
@@ -296,6 +312,8 @@ def compare_icesat2(scene):
            'terrain_vs_ground': metrics(dtm_before[g], h[g]),
            'surface_vs_all': metrics(dsm, h)}
     res.update(breakdowns(dsm, h, lc, slope, np.clip(scene.h[r, c], 0, None)))
+    if scene.unc is not None:
+        res['conformal'] = tools.conformal(dsm - h, scene.unc[r, c])
     keep = np.random.default_rng(0).choice(len(h), min(2500, len(h)), replace=False)
     res['photons_xy'] = {'u': (c[keep] / scene.shape[1]).round(4).tolist(), 'v': (r[keep] / scene.shape[0]).round(4).tolist(),
                          'h': h[keep].round(2).tolist(), 'ours': dsm[keep].round(2).tolist(), 'cls': cls[keep].astype(int).tolist()}

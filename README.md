@@ -11,8 +11,10 @@ DepthWizard takes a single optical satellite image and:
 3. shows the result as a **3D terrain you can fly through**, where you can **check the heights against reference
    data** (LiDAR, a DSM, surveyed points, ICESat-2).
 
-Everything runs locally in one app. For Disaster Management it adds flood scenarios, a rain and river-rise timeline,
-evacuation routing, and helipad / relief-camp siting.
+Everything runs locally in one app. For Disaster Management it adds flood scenarios (level fill and 2D flowing
+water), a rain and river-rise timeline, routing, helipad / relief-camp siting, evacuation plans, people at risk,
+before/after damage, landslide risk and checks against real satellite flood maps. Every tool sits in a toolbar per
+mode, and **Ctrl K** searches them all (see [docs/USER_GUIDE.md](docs/USER_GUIDE.md#finding-the-tools)).
 
 ## Quick start (Windows)
 
@@ -41,6 +43,15 @@ How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 | RMSE, MAE, **correlation**; stability across **urban, sparse, hilly, forested** | In the app per scene, and in the benchmarks below |
 | Standalone deployment, one unified module | `Install.bat` + `DepthWizard.bat`; runs offline after installation; CPU fallback |
 | Source code + technical documentation | This repository · [docs/TECHNICAL.md](docs/TECHNICAL.md) · [docs/USER_GUIDE.md](docs/USER_GUIDE.md) |
+
+**Beyond the problem statement** (toolbar tools):
+
+| Mode | Tools |
+|---|---|
+| Explore | line of sight · volume · drone flight plan (KML / QGroundControl) · rooftop solar · WMS map overlay (OSM, Bhuvan) · mosaics · GeoJSON / CityJSON LOD1 export |
+| Validate & calibrate | building heights from shadows · tall-object fixes (shadows, ICESat-2 canopy) · calibrated error bars (conformal) · your own DEM (CartoDEM, SRTM) · GNSS / GPX import · phone field app |
+| Disaster tools | flowing water (2D shallow water) · evacuation plan · people at risk · before/after damage · landslide risk · observed flood (Sentinel-1) |
+| All | 🔍 tool finder (Ctrl K) · 📄 printable situation report |
 
 ## Accuracy
 
@@ -87,7 +98,8 @@ Install.bat, install.ps1, DepthWizard.bat   setup and launcher (Windows)
 docs/                                       user guide, technical documentation
 SynRS3D/
   app.py, infer_height.py, terrain.py, validate.py    the pipeline and local server
-  web/index.html                                      the viewer (three.js bundled)
+  tools.py                                            server side of the toolbar tools
+  web/index.html, web/field.html                      the viewer (three.js bundled); the phone field page
   demo/                                               benchmarks and data helpers
 deck_work/, DepthWizard_Deck_Spec.md        SIH presentation material
 ```

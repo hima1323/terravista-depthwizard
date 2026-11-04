@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DepthWizard Field</title>
+<style>
+  :root { --bg: #0f1419; --panel: #161c23; --panel-2: #1d252e; --line: #2a343f; --text: #e6edf3; --muted: #8b98a5; --accent: #3d9be9; --ok: #4fb286; --err: #e5734a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif; padding: 12px 16px 40px; max-width: 640px; margin-inline: auto; }
+  h1 { font-size: 18px; margin: 4px 0 2px; }
+  p, small { color: var(--muted); }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px; margin: 12px 0; }
+  label { display: block; margin: 8px 0 4px; color: var(--muted); font-size: 13px; }
+  select, input { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 10px; font: inherit; }
+  button { width: 100%; padding: 14px; margin-top: 10px; border-radius: 10px; border: 0; background: var(--accent); color: #fff; font: inherit; font-weight: 600; }
+  button.sec { background: var(--panel-2); border: 1px solid var(--line); color: var(--text); }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .map { position: relative; margin-top: 8px; }
+  .map img { width: 100%; border-radius: 8px; display: block; }
+  .map i { position: absolute; width: 16px; height: 16px; margin: -8px 0 0 -8px; border-radius: 50%; border: 2px solid #fff; }
+  .fix { font-variant-numeric: tabular-nums; }
+  .ok { color: var(--ok); } .warn { color: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+  td { border-top: 1px solid var(--line); padding: 4px 2px; }
+</style>
+</head>
+<body>
+<h1>DepthWizard field points</h1>
+<p>Record GPS positions of places whose height you know (survey marks, benchmarks) or measure, then send them to DepthWizard. In the app: <b>Validate &amp; calibrate → 📍 Control points → Load field-app points</b>.</p>
+
+<div class="card">
+  <label for="scene">Scene</label>
+  <select id="scene"></select>
+  <div class="map" id="map" hidden><img id="photo" alt="scene photo"></div>
+  <small id="where"></small>
+</div>
+
+<div class="card">
+  <button id="gps">📍 Record my position</button>
+  <div id="fix" class="fix"></div>
+  <details id="manual"><summary><small>No GPS here? Type the position</small></summary>
+    <div class="row2"><div><label>Latitude</label><input id="mlat" type="number" step="any"></div><div><label>Longitude</label><input id="mlon" type="number" step="any"></div></div>
+    <label>GPS height (m above the ellipsoid, optional)</label><input id="malt" type="number" step="any">
+  </details>
+  <label for="known">Known height of this point (m above sea level), if it is a survey mark</label>
+  <input id="known" type="number" step="any" placeholder="leave empty to use the GPS height">
+  <label for="note">Note</label>
+  <input id="note" type="text" placeholder="e.g. benchmark on the school gate">
+  <button id="save" class="sec">＋ Save point</button>
+</div>
+
+<div class="card">
+  <table id="list"></table>
+  <button id="send">⬆ Send to DepthWizard</button>
+  <button id="csv" class="sec">⬇ Download CSV</button>
+  <small id="msg"></small>
+</div>
+<small>Phone GPS heights are only good to about ±10 m; for calibration prefer a survey-grade GNSS receiver or the known height of a mark.
+Browsers give GPS only on secure pages (https) or on this computer itself; on a phone over plain http, type the position instead.
+Points are kept on this phone until they are sent.</small>
+
+<script>
+const $ = id => document.getElementById(id);
+const KEY = 'depthwizard-field-points';
+let scenes = [], fix = null;
+const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } };
+const store = pts => { try { localStorage.setItem(KEY, JSON.stringify(pts)); } catch {} };
+function scene() { return scenes.find(s => s.name === $('scene').value); }
+function uvOf(lon, lat) {   // inverse of the corner mapping (affine from three corners)
+  const c = scene() && scene().meta.corners_lonlat;
+  if (!c) return null;
+  const [tl, tr, , bl] = c, ax = tr[0] - tl[0], ay = tr[1] - tl[1], bx = bl[0] - tl[0], by = bl[1] - tl[1], d = ax * by - ay * bx;
+  const px = lon - tl[0], py = lat - tl[1];
+  return [(px * by - py * bx) / d, (ax * py - ay * px) / d];
+}
+function drawMap() {
+  const s = scene();
+  $('map').hidden = !s;
+  if (!s) return;
+  if (!$('photo').src.endsWith(`/results/${s.name}.jpg`)) $('photo').src = `/results/${s.name}.jpg`;
+  $('map').querySelectorAll('i').forEach(e => e.remove());
+  const dot = (lon, lat, col) => { const uv = uvOf(lon, lat); if (!uv || uv[0] < 0 || uv[0] > 1 || uv[1] < 0 || uv[1] > 1) return false;
+    const i = document.createElement('i'); i.style.left = `${uv[0] * 100}%`; i.style.top = `${uv[1] * 100}%`; i.style.background = col; $('map').append(i); return true; };
+  for (const p of load().filter(p => p.scene === s.name)) dot(p.lon, p.lat, p.sent ? '#4fb286' : '#ffb020');
+  if (fix) $('where').textContent = dot(fix.lon, fix.lat, '#3d9be9') ? 'Blue = you, orange = saved, green = sent.' : 'You are outside this scene.';
+}
+function render() {
+  const pts = load();
+  $('list').innerHTML = pts.length ? '<tr><td>#</td><td>lat, lon</td><td>height</td><td></td></tr>' + pts.map((p, k) =>
+    `<tr><td>${k + 1}</td><td>${p.lat.toFixed(6)}, ${p.lon.toFixed(6)}<br><small>${p.note || ''}</small></td><td>${p.known != null ? p.known + ' m a.s.l.' : p.alt != null ? p.alt.toFixed(1) + ' m GPS' : '–'}</td><td>${p.sent ? '✓' : ''}</td></tr>`).join('')
+    : '<tr><td>No points saved yet.</td></tr>';
+  drawMap();
+}
+$('gps').onclick = () => {
+  if (!navigator.geolocation || !isSecureContext) { $('manual').open = true; $('fix').innerHTML = '<span class="warn">GPS is not available on this page: type the position below.</span>'; return; }
+  $('fix').textContent = 'Waiting for GPS…';
+  navigator.geolocation.getCurrentPosition(p => {
+    const c = p.coords;
+    fix = { lat: c.latitude, lon: c.longitude, alt: c.altitude, acc: c.accuracy, altAcc: c.altitudeAccuracy, t: p.timestamp };
+    $('fix').innerHTML = `${fix.lat.toFixed(6)}, ${fix.lon.toFixed(6)} · ±${Math.round(fix.acc)} m`
+      + (fix.alt != null ? `<br>GPS height ${fix.alt.toFixed(1)} m (ellipsoid)${fix.altAcc ? ` ±${Math.round(fix.altAcc)} m` : ''}` : '<br><span class="warn">No height from this GPS: enter the known height.</span>');
+    drawMap();
+  }, e => { $('fix').innerHTML = `<span class="warn">${e.message}</span>`; $('manual').open = true; }, { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 });
+};
+$('save').onclick = () => {
+  const m = $('manual').open && $('mlat').value !== '' && $('mlon').value !== '';
+  const f = m ? { lat: +$('mlat').value, lon: +$('mlon').value, alt: $('malt').value === '' ? null : +$('malt').value, acc: null, t: Date.now() } : fix;
+  if (!f) return void ($('fix').innerHTML = '<span class="warn">Record your position first (or type it).</span>');
+  const known = $('known').value === '' ? null : +$('known').value;
+  if (known == null && f.alt == null) return void ($('fix').innerHTML = '<span class="warn">This point has no height: enter the known height.</span>');
+  const pts = load();
+  pts.push({ ...f, known, note: $('note').value, scene: $('scene').value, sent: false });
+  store(pts); $('known').value = $('note').value = ''; render();
+};
+$('send').onclick = async () => {
+  const pts = load(), todo = pts.filter(p => !p.sent && p.scene === $('scene').value);
+  if (!todo.length) return void ($('msg').textContent = 'Nothing new to send for this scene.');
+  try {
+    const r = await fetch(`/api/field?name=${encodeURIComponent($('scene').value)}`, { method: 'POST', body: JSON.stringify({ points: todo }) }), j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    todo.forEach(p => p.sent = true); store(pts); render();
+    $('msg').innerHTML = `<span class="ok">Sent ${j.added} point${j.added === 1 ? '' : 's'}.</span>`;
+  } catch (e) { $('msg').innerHTML = `<span class="warn">Could not send (${e.message}). The points stay on this phone; try again when connected.</span>`; }
+};
+$('csv').onclick = () => {
+  const rows = ['scene,lat,lon,gps_height_ellipsoid_m,known_height_m_asl,accuracy_m,note,time'].concat(load().map(p =>
+    [p.scene, p.lat, p.lon, p.alt ?? '', p.known ?? '', p.acc ?? '', `"${(p.note || '').replaceAll('"', "'")}"`, new Date(p.t).toISOString()].join(',')));
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob([rows.join('\n')], { type: 'text/csv' })), download: 'field_points.csv' });
+  a.click();
+};
+$('scene').onchange = () => { try { localStorage.setItem(KEY + '-scene', $('scene').value); } catch {} render(); };
+fetch('/api/scenes').then(r => r.json()).then(list => {
+  scenes = list.filter(s => s.state === 'done' && s.meta && s.meta.corners_lonlat);
+  $('scene').innerHTML = scenes.map(s => `<option value="${s.name}">${s.name.replaceAll('_', ' ')}</option>`).join('') || '<option value="">no georeferenced scene yet</option>';
+  let last = null; try { last = localStorage.getItem(KEY + '-scene'); } catch {}
+  if (scenes.some(s => s.name === last)) $('scene').value = last;
+  render();
+}).catch(() => { $('msg').textContent = 'Offline: points are saved on this phone and can be sent later.'; render(); });
+</script>
+</body>
+</html>

@@ -49,16 +49,23 @@ def geoid_shift(lon, lat, src='EPSG:4326+5773', dst='EPSG:4326+3855'):
         return None
 
 
-def _sources(bounds):
-    """[(path, source label, needs EGM96->EGM2008 shift)] covering the lon/lat bounds."""
+def _sources(bounds, prefer=None):
+    """[(path, source label, needs EGM96->EGM2008 shift)] covering the lon/lat bounds. prefer = file name in
+    demo/terrain uploaded for this scene in the viewer (checked first)."""
     w, s, e, n = bounds
-    for f in sorted(glob.glob(os.path.join(USER_DEM_DIR, '*.tif'))):
+    files = sorted(glob.glob(os.path.join(USER_DEM_DIR, '*.tif')))
+    if prefer and os.path.join(USER_DEM_DIR, prefer) in files:
+        files.remove(os.path.join(USER_DEM_DIR, prefer))
+        files.insert(0, os.path.join(USER_DEM_DIR, prefer))
+    for f in files:
         with rasterio.open(f) as src:
             if not src.crs:
                 continue
             fw, fs, fe, fn = transform_bounds(src.crs, 'EPSG:4326', *src.bounds)
         if fw <= w and fs <= s and fe >= e and fn >= n:
-            return [(f, os.path.basename(f), 'egm96' in os.path.basename(f).lower())]
+            return [(f, os.path.basename(f).split('__')[-1], 'egm96' in os.path.basename(f).lower())]
+        if f.endswith(prefer or '\0'):
+            raise RuntimeError(f'the uploaded DEM {prefer.split("__")[-1]} does not cover the whole scene')
     return [(GLO30.format(glo30_tile(lat, lon)), 'Copernicus GLO-30', False)
             for lat in range(math.floor(s), math.floor(n) + 1) for lon in range(math.floor(w), math.floor(e) + 1)]
 
@@ -111,7 +118,7 @@ def surface_share(dem, mean_h, inside, sigma=2.0):
     return float(np.clip((x * y).sum() / max((x * x).sum(), 1e-6), 0, 1))
 
 
-def build_dtm(image_path, ndsm, ground):
+def build_dtm(image_path, ndsm, ground, prefer=None):
     """Bare-ground elevation (float32, image pixel grid, EGM2008 metres) and an info dict, or (None, info)
     when the image has no georeferencing (PNG/JPG). ndsm = model height above ground, ground = bool mask of
     pixels the model calls open ground (roads, bare, water...), both on the image grid."""
@@ -128,7 +135,7 @@ def build_dtm(image_path, ndsm, ground):
     dem = np.full((gh, gw), np.nan, np.float32)
     labels, shift_needed = [], False
     with rasterio.Env(**GDAL_ENV):
-        for path, label, egm96 in _sources((w, s, e, n)):
+        for path, label, egm96 in _sources((w, s, e, n), prefer):
             try:
                 with rasterio.open(path) as src:
                     part = _warp(rasterio.band(src, 1), src.transform, src.crs, dem.shape, grid_t, 'EPSG:4326',

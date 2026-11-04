@@ -4,7 +4,7 @@ GeoTIFF scenes also get bare-ground terrain and an absolute DSM (metres above se
 usage: .venv/bin/python app.py   ->   http://127.0.0.1:8000
 Scenes live in demo/samples (any PNG/JPG/TIF); results are cached in demo/results.
 """
-import hashlib, json, os, queue, re, threading, traceback, urllib.parse
+import argparse, hashlib, json, os, queue, re, socket, threading, traceback, urllib.parse
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from math import atan, cos, sinh
 
@@ -16,6 +16,7 @@ from PIL import Image
 
 import infer_height
 import terrain
+import tools
 import validate
 from utils import geo_func
 
@@ -23,6 +24,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 SAMPLES = os.path.join(ROOT, 'demo', 'samples')
 RESULTS = os.path.join(ROOT, 'demo', 'results')
 WEB = os.path.join(ROOT, 'web', 'index.html')
+FIELD = os.path.join(ROOT, 'web', 'field.html')
 VENDOR = os.path.join(ROOT, 'web', 'vendor')
 EXTS = ('.tif', '.tiff', '.png', '.jpg', '.jpeg')
 GRID = 512            # max side of the height grid sent to the browser
@@ -30,7 +32,8 @@ MAX_UPLOAD = 50 << 20
 BUILDING = infer_height.LANDCOVER.index('buildings')
 FLOOR_M = 3.0         # assumed storey height for floor estimates
 SUFFIXES = ('', '_height', '_unc', '_uncertainty', '_landcover', '_bid', '_buildings', '_corr',
-            '_height_corrected', '_dtm', '_dsm', '_lc', '_valerr', '_validation', '_dsm_gcp')  # per-scene result files
+            '_height_corrected', '_dtm', '_dsm', '_lc', '_valerr', '_validation', '_dsm_gcp', '_dh', '_bidb', '_change',
+            '_obsflood', '_wms', '_height_fixed', '_dsm_fixed', '_field')  # per-scene result files
 TERRAIN_VERSION = 2  # bump to recompute terrain for every scene (2: ICESat-2 laser correction)
 # Height correction learned on DFC2019 LiDAR (demo/height_correction.py); only present if it passed every test split
 CHOSEN = os.path.join(ROOT, 'demo', 'benchmark', 'height_correction_chosen.json')
@@ -120,19 +123,19 @@ def ensure_corrected(name, path):
     json.dump(meta, open(meta_f, 'w'))
 
 
-def ensure_terrain(name, path):
+def ensure_terrain(name, path, force=False):
     """Absolute heights: bare-ground terrain (DTM) under the scene and DSM = DTM + height above ground, both in
     metres above mean sea level (EGM2008). Uses the saved rasters (no model run). Non-georeferenced images keep
     relative heights; a failed download is retried on the next start."""
     meta_f = os.path.join(RESULTS, name + '.json')
     meta = json.load(open(meta_f))
     t = meta.get('terrain', {})
-    if t.get('version') == TERRAIN_VERSION and 'error' not in t and 'unavailable' not in (t.get('laser') or {}).get('none', ''):
+    if not force and t.get('version') == TERRAIN_VERSION and 'error' not in t and 'unavailable' not in (t.get('laser') or {}).get('none', ''):
         return
     h = rasterio.open(os.path.join(RESULTS, name + '_height.tif')).read(1)
     lc = rasterio.open(os.path.join(RESULTS, name + '_landcover.tif')).read(1).astype(np.uint8)
     try:
-        dtm, info = terrain.build_dtm(path, h, infer_height.ground_mask(h, lc))
+        dtm, info = terrain.build_dtm(path, h, infer_height.ground_mask(h, lc), prefer=meta.get('terrain_prefer'))
     except Exception as e:  # offline, or no DEM for this area
         dtm, info = None, {'error': f'terrain unavailable: {e}'}
     info['version'] = TERRAIN_VERSION
@@ -168,6 +171,9 @@ def ensure_extras(name, path):
         lc = rasterio.open(os.path.join(RESULTS, name + '_landcover.tif')).read(1).astype(np.float32)
         grid = np.asarray(Image.fromarray(lc, 'F').resize((meta['grid_w'], meta['grid_h']), Image.NEAREST), np.float32)
         grid.astype('<f4').tofile(lc_f)
+    if 'corners_lonlat' not in meta:   # image corners, for drone plans and lon/lat read-outs in the viewer
+        meta['corners_lonlat'] = tools.corners_lonlat(path)
+        json.dump(meta, open(meta_f, 'w'))
     if 'center_lonlat' not in meta:
         with rasterio.open(path) as src:
             ll = None
@@ -185,6 +191,34 @@ def ensure_photo(name, path):
         Image.fromarray(geo_func.load_multiband(path)[:, :, :3]).save(out, quality=88)
 
 
+def finish_scene(name, path, h, u, lc, rgb, grid=GRID):
+    """Everything after the model run: result GeoTIFFs, building blocks, browser grids, metadata, terrain, extras.
+    Shared by the model worker and mosaics (which merge saved results instead of running the model)."""
+    infer_height.save_tiff_with_geo_info(path, os.path.join(RESULTS, name + '_height.tif'), h)
+    infer_height.save_tiff_with_geo_info(path, os.path.join(RESULTS, name + '_uncertainty.tif'), u)
+    infer_height.save_tiff_with_geo_info(path, os.path.join(RESULTS, name + '_landcover.tif'), lc.astype(np.float32))
+    gsd = ground_gsd(path)
+    bid, buildings = extract_buildings(h, u, lc, gsd or 0.5, rgb[:, :, :3])
+    json.dump(buildings, open(os.path.join(RESULTS, name + '_buildings.json'), 'w'))
+    H, W = h.shape
+    s = min(1.0, grid / max(H, W))
+    gw, gh = max(1, round(W * s)), max(1, round(H * s))
+    for arr, suffix, rs in [(h, '', Image.BILINEAR), (u, '_unc', Image.BILINEAR), (bid, '_bid', Image.NEAREST)]:
+        g = np.asarray(Image.fromarray(arr.astype(np.float32), 'F').resize((gw, gh), rs), np.float32)
+        g.astype('<f4').tofile(os.path.join(RESULTS, name + suffix + '.f32'))
+    meta = {'grid_w': gw, 'grid_h': gh, 'width': W, 'height': H, 'gsd': gsd or 0.5, 'gsd_assumed': gsd is None,
+            'max': float(h.max()), 'p99': float(np.percentile(h, 99)), 'mean': float(h.mean()),
+            'built_pct': float((h > 3).mean() * 100),
+            'unc_mean': float(u.mean()), 'unc_p95': float(np.percentile(u, 95)),
+            'unc_built': float(u[h > 3].mean()) if (h > 3).any() else 0.0,
+            'buildings': len(buildings), 'floor_m': FLOOR_M}
+    json.dump(meta, open(os.path.join(RESULTS, name + '.json'), 'w'))
+    ensure_photo(name, path)
+    ensure_corrected(name, path)
+    ensure_terrain(name, path)
+    ensure_extras(name, path)
+
+
 def worker():
     model = None  # loaded on the first job, so a server with everything cached starts instantly and stays light
     while True:
@@ -199,33 +233,32 @@ def worker():
             img = geo_func.load_multiband(path)
             out = infer_height.predict(model, device, dtype, img, use_tta=True, full=True,
                                        progress=lambda d, t: st.update(progress=d / t))
-            h, u, lc = out['height'], out['std'], out['landcover']
-            infer_height.save_tiff_with_geo_info(path, os.path.join(RESULTS, name + '_height.tif'), h)
-            infer_height.save_tiff_with_geo_info(path, os.path.join(RESULTS, name + '_uncertainty.tif'), u)
-            infer_height.save_tiff_with_geo_info(path, os.path.join(RESULTS, name + '_landcover.tif'), lc.astype(np.float32))
-            gsd = ground_gsd(path)
-            bid, buildings = extract_buildings(h, u, lc, gsd or 0.5, img[:, :, :3])
-            json.dump(buildings, open(os.path.join(RESULTS, name + '_buildings.json'), 'w'))
-            H, W = h.shape
-            s = min(1.0, GRID / max(H, W))
-            gw, gh = max(1, round(W * s)), max(1, round(H * s))
-            for arr, suffix, rs in [(h, '', Image.BILINEAR), (u, '_unc', Image.BILINEAR), (bid, '_bid', Image.NEAREST)]:
-                grid = np.asarray(Image.fromarray(arr.astype(np.float32), 'F').resize((gw, gh), rs), np.float32)
-                grid.astype('<f4').tofile(os.path.join(RESULTS, name + suffix + '.f32'))
-            meta = {'grid_w': gw, 'grid_h': gh, 'width': W, 'height': H, 'gsd': gsd or 0.5, 'gsd_assumed': gsd is None,
-                    'max': float(h.max()), 'p99': float(np.percentile(h, 99)), 'mean': float(h.mean()),
-                    'built_pct': float((h > 3).mean() * 100),
-                    'unc_mean': float(u.mean()), 'unc_p95': float(np.percentile(u, 95)),
-                    'unc_built': float(u[h > 3].mean()) if (h > 3).any() else 0.0,
-                    'buildings': len(buildings), 'floor_m': FLOOR_M}
-            json.dump(meta, open(os.path.join(RESULTS, name + '.json'), 'w'))
-            ensure_corrected(name, path)
-            ensure_terrain(name, path)
-            ensure_extras(name, path)
+            finish_scene(name, path, out['height'], out['std'], out['landcover'], img)
             st.update(state='done', progress=1.0)
         except Exception as e:
             traceback.print_exc()
             st.update(state='error', error=str(e))
+
+
+def build_mosaic(name, names, grid):
+    """Merge processed georeferenced scenes into a new scene <name> (image + model outputs; no model run)."""
+    st = status[name]
+    try:
+        files = scene_files()
+        rgb, h, u, lc, profile = tools.mosaic_arrays([(files[n], n) for n in names])
+        st['progress'] = 0.4
+        path = os.path.join(SAMPLES, name + '.tif')
+        with rasterio.open(path, 'w', **profile) as dst:
+            dst.write(np.moveaxis(rgb, -1, 0))
+        finish_scene(name, path, h.astype(np.float32), u.astype(np.float32), lc, rgb, grid)
+        meta_f = os.path.join(RESULTS, name + '.json')
+        meta = json.load(open(meta_f))
+        meta['mosaic_of'] = names
+        json.dump(meta, open(meta_f, 'w'))
+        st.update(state='done', progress=1.0)
+    except Exception as e:
+        traceback.print_exc()
+        st.update(state='error', error=str(e))
 
 
 def enqueue_missing():
@@ -257,6 +290,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path == '/':
             return self.send(200, open(WEB, 'rb').read(), 'text/html; charset=utf-8')
+        if self.path.split('?')[0] == '/field':   # phone page for collecting GNSS / GPS control points in the field
+            return self.send(200, open(FIELD, 'rb').read(), 'text/html; charset=utf-8')
+        if self.path.startswith(('/api/export', '/api/field')):
+            return self.get_api()
         if self.path == '/api/scenes':
             out = []
             for name in scene_files():
@@ -266,11 +303,11 @@ class Handler(BaseHTTPRequestHandler):
                     st['meta'] = json.load(open(meta))
                 out.append({'name': name, **st})
             return self.send(200, out)
-        m = re.fullmatch(r'/results/([\w-]+)\.(jpg|f32|json|tif)', urllib.parse.urlsplit(self.path).path)
+        m = re.fullmatch(r'/results/([\w-]+)\.(jpg|png|f32|json|tif)', urllib.parse.urlsplit(self.path).path)
         if m:
             f = os.path.join(RESULTS, f'{m[1]}.{m[2]}')
             if os.path.exists(f):
-                ctype = {'jpg': 'image/jpeg', 'json': 'application/json', 'tif': 'image/tiff'}.get(m[2], 'application/octet-stream')
+                ctype = {'jpg': 'image/jpeg', 'png': 'image/png', 'json': 'application/json', 'tif': 'image/tiff'}.get(m[2], 'application/octet-stream')
                 return self.send(200, open(f, 'rb').read(), ctype)
         m = re.fullmatch(r'/vendor/([\w./-]+\.js)', self.path)  # three.js, bundled so the demo runs offline
         if m and '..' not in m[1] and os.path.isfile(os.path.join(VENDOR, m[1])):
@@ -280,17 +317,25 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):
         if self.path.startswith('/api/validate') or self.path.startswith('/api/icesat2') or self.path.startswith('/api/gcp'):
             return self.validation_api()
-        m = re.fullmatch(r'/api/upload\?name=([^&]+)', self.path)
+        if not self.path.startswith('/api/upload'):
+            return self.tools_api()
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(self.path).query))
+        m = re.fullmatch(r'/api/upload\?name=([^&]+)(&.*)?', self.path)
         size = int(self.headers.get('Content-Length', 0))
         if not m or not 0 < size <= MAX_UPLOAD:
             return self.send(400, {'error': 'bad request or file over 50 MB'})
-        base, ext = os.path.splitext(m[1].lower())
+        base, ext = os.path.splitext(urllib.parse.unquote(m[1]).lower())
         name = re.sub(r'[^\w-]+', '_', base)[:60].strip('_') or 'upload'
         if ext not in EXTS:
             return self.send(400, {'error': 'use PNG, JPG or GeoTIFF'})
         path = os.path.join(SAMPLES, name + ext)
         with open(path, 'wb') as f:
             f.write(self.rfile.read(size))
+        side = os.path.join(SAMPLES, name + '.bands.json')   # band order chosen in the upload form (auto = from the file)
+        if q.get('bands') in ('rgb', 'bgr'):
+            json.dump({'order': q['bands']}, open(side, 'w'))
+        elif os.path.exists(side):
+            os.remove(side)
         for f in os.listdir(RESULTS):  # drop stale results from an earlier upload with this name
             if os.path.splitext(f)[0] in {name + sfx for sfx in SUFFIXES}:
                 os.remove(os.path.join(RESULTS, f))
@@ -359,13 +404,197 @@ class Handler(BaseHTTPRequestHandler):
             traceback.print_exc()
             return self.send(400, {'error': f'{type(e).__name__}: {e}'})
 
+    def scene_q(self):
+        q = dict(urllib.parse.parse_qsl(urllib.parse.urlsplit(self.path).query))
+        name = q.get('name', '')
+        path = scene_files().get(name)
+        if not path or status.get(name, {}).get('state') != 'done':
+            raise ValueError('unknown or unprocessed scene')
+        return q, name, path
+
+    def get_api(self):
+        """GET /api/export?name=&fmt=geojson|cityjson   building footprints / LOD1 solids
+               /api/field?name=                         points sent by the field page"""
+        route = urllib.parse.urlsplit(self.path).path
+        try:
+            q, name, path = self.scene_q()
+            if route == '/api/export':
+                fmt = q.get('fmt', 'geojson')
+                doc = tools.cityjson(name, path) if fmt == 'cityjson' else tools.geojson(name, path)
+                body = json.dumps(doc).encode()
+                self.send_response(200)
+                self.send_header('Content-Type', 'application/json')
+                self.send_header('Content-Disposition', f'attachment; filename="{name}_{"city.json" if fmt == "cityjson" else "footprints.geojson"}"')
+                self.send_header('Content-Length', str(len(body)))
+                self.end_headers()
+                return self.wfile.write(body)
+            if route == '/api/field':
+                f = os.path.join(RESULTS, name + '_field.json')
+                return self.send(200, json.load(open(f)) if os.path.exists(f) else [])
+        except Exception as e:
+            traceback.print_exc()
+            return self.send(400, {'error': f'{type(e).__name__}: {e}'})
+        self.send(404, {'error': 'not found'})
+
+    def tools_api(self):
+        """POST /api/change?name=&before=          before/after height change (name = the after scene)
+                /api/obsflood?name=&kind=&threshold=&file=   observed flood raster (body)
+                /api/mosaic                            {"names": [...], "name": "...", "grid": 512|1024}
+                /api/heightfix?name=                   {"fit": "trees"} | {"buildings": k, "trees": k} | {"clear": true}
+                /api/conformal?name=                   {"source": "raster|points|icesat2", "level": "0.90"} | {"clear": true}
+                /api/wms?name=                         {"url", "layers", "styles"}
+                /api/dem?name=&datum=&file=            a DEM GeoTIFF (body) to use as this scene's terrain | ?clear=1
+                /api/field?name=                       {"points": [{lat, lon, alt, acc, note, t}]} from the field page
+                /api/gnss?name=&datum=[&source=field]  GNSS points (CSV / GPX body, or the field page's) -> u, v, z"""
+        size = int(self.headers.get('Content-Length', 0))
+        if size > MAX_UPLOAD:
+            return self.send(400, {'error': 'file over 50 MB'})
+        body = self.rfile.read(size) if size else b''
+        route = urllib.parse.urlsplit(self.path).path
+        try:
+            if route == '/api/mosaic':
+                req = json.loads(body or b'{}')
+                names = [n for n in req.get('names', []) if status.get(n, {}).get('state') == 'done']
+                if len(names) < 2:
+                    raise ValueError('choose at least two processed scenes')
+                out = re.sub(r'[^\w-]+', '_', req.get('name') or 'mosaic')[:60].strip('_') or 'mosaic'
+                if out in scene_files() or out in status:
+                    raise ValueError(f'a scene called {out} already exists')
+                status[out] = {'state': 'running', 'progress': 0.1}
+                threading.Thread(target=build_mosaic, args=(out, names, int(req.get('grid', GRID))), daemon=True).start()
+                return self.send(200, {'name': out})
+            q, name, path = self.scene_q()
+            meta_f = os.path.join(RESULTS, name + '.json')
+            meta = json.load(open(meta_f))
+            fname = re.sub(r'[^\w.-]+', '_', q.get('file', 'upload'))[:80]
+            req = json.loads(body or b'{}') if route in ('/api/heightfix', '/api/conformal', '/api/wms', '/api/field') else None
+            if route == '/api/change':
+                before = q.get('before', '')
+                if before == name or status.get(before, {}).get('state') != 'done':
+                    raise ValueError('choose a different, processed scene as the before image')
+                res = tools.change(name, path, before, scene_files()[before])
+                json.dump(res, open(os.path.join(RESULTS, name + '_change.json'), 'w'))
+                return self.send(200, res)
+            if route == '/api/obsflood':
+                if not body:
+                    raise ValueError('no file')
+                os.makedirs(validate.REFERENCE, exist_ok=True)
+                ref = os.path.join(validate.REFERENCE, f'{name}__obs_{fname}')
+                open(ref, 'wb').write(body)
+                res = tools.observed_flood(name, path, ref, q.get('kind', 'auto'), q.get('threshold'))
+                meta['obsflood'] = res
+                json.dump(meta, open(meta_f, 'w'))
+                return self.send(200, res)
+            if route == '/api/heightfix':
+                if req.get('fit') == 'trees':
+                    return self.send(200, tools.fit_tree_scale(validate.Scene(name, path)))
+                sc = {'buildings': float(req.get('buildings', 1)), 'trees': float(req.get('trees', 1))}
+                if req.get('clear') or all(abs(v - 1) < 1e-6 for v in sc.values()):
+                    meta.pop('class_scale', None)
+                    for sfx in ('_height_fixed.tif', '_dsm_fixed.tif'):
+                        if os.path.exists(os.path.join(RESULTS, name + sfx)):
+                            os.remove(os.path.join(RESULTS, name + sfx))
+                    json.dump(meta, open(meta_f, 'w'))
+                    return self.send(200, {'cleared': True})
+                if not all(0.3 <= v <= 4 for v in sc.values()):
+                    raise ValueError('height scales must be between 0.3 and 4')
+                info = tools.apply_class_scale(name, path, sc, infer_height.save_tiff_with_geo_info)
+                meta['class_scale'] = dict(sc, source=req.get('source', {}), **info)
+                json.dump(meta, open(meta_f, 'w'))
+                return self.send(200, meta['class_scale'])
+            if route == '/api/conformal':
+                if req.get('clear'):
+                    meta.pop('conformal', None)
+                    json.dump(meta, open(meta_f, 'w'))
+                    return self.send(200, {'cleared': True})
+                val_f = os.path.join(RESULTS, name + '_validation.json')
+                saved = json.load(open(val_f)) if os.path.exists(val_f) else {}
+                c = (saved.get(req.get('source')) or {}).get('conformal')
+                lv = req.get('level', '0.90')
+                if not c or lv not in c['levels']:
+                    raise ValueError('run that validation first (it provides the calibration)')
+                meta['conformal'] = dict(c['levels'][lv], level=lv, u0=c['u0'], n=c['n'], source=req.get('source'))
+                json.dump(meta, open(meta_f, 'w'))
+                return self.send(200, meta['conformal'])
+            if route == '/api/wms':
+                res = tools.wms_overlay(name, path, req.get('url', ''), req.get('layers', ''), req.get('styles', ''))
+                meta['wms'] = res
+                json.dump(meta, open(meta_f, 'w'))
+                return self.send(200, res)
+            if route == '/api/dem':
+                if q.get('clear'):
+                    meta.pop('terrain_prefer', None)
+                else:
+                    if not body:
+                        raise ValueError('no file')
+                    base = os.path.splitext(fname)[0]
+                    if q.get('datum') == 'egm96' and 'egm96' not in base.lower():
+                        base += '_egm96'
+                    os.makedirs(terrain.USER_DEM_DIR, exist_ok=True)
+                    dem = os.path.join(terrain.USER_DEM_DIR, f'{name}__{base}.tif')
+                    open(dem, 'wb').write(body)
+                    with rasterio.open(dem) as src:
+                        if not src.crs:
+                            os.remove(dem)
+                            raise ValueError('the DEM has no coordinate system')
+                    meta['terrain_prefer'] = os.path.basename(dem)
+                json.dump(meta, open(meta_f, 'w'))
+                ensure_terrain(name, path, force=True)
+                return self.send(200, json.load(open(meta_f)).get('terrain', {}))
+            if route == '/api/field':
+                f = os.path.join(RESULTS, name + '_field.json')
+                pts = json.load(open(f)) if os.path.exists(f) else []
+                new = [p for p in req.get('points', []) if isinstance(p, dict) and 'lat' in p and 'lon' in p]
+                pts += new
+                json.dump(pts, open(f, 'w'))
+                return self.send(200, {'added': len(new), 'total': len(pts)})
+            if route == '/api/gnss':
+                sc = validate.Scene(name, path)
+                if q.get('source') == 'field':   # typed benchmark heights are sea level; phone / GNSS heights ellipsoidal
+                    f = os.path.join(RESULTS, name + '_field.json')
+                    raw = json.load(open(f)) if os.path.exists(f) else []
+                    pt = lambda p, z: {'lon': p['lon'], 'lat': p['lat'], 'z': float(z), 'note': p.get('note', '')}
+                    groups = [([pt(p, p['known']) for p in raw if p.get('known') is not None], 'egm2008'),
+                              ([pt(p, p['alt']) for p in raw if p.get('known') is None and p.get('alt') is not None], 'ellipsoid')]
+                else:
+                    groups = [(tools.parse_gnss(body.decode('utf-8-sig')), q.get('datum', 'egm2008'))]
+                out = {'points': [], 'outside': 0}
+                for pts, datum in groups:
+                    if pts:
+                        res = tools.gnss_points(sc, pts, datum)
+                        out['points'] += res['points']
+                        out['outside'] += res['outside']
+                if not out['points'] and not out['outside']:
+                    raise ValueError('no points with a height found')
+                return self.send(200, out)
+        except Exception as e:
+            traceback.print_exc()
+            return self.send(400, {'error': f'{type(e).__name__}: {e}'})
+        self.send(404, {'error': 'not found'})
+
     def log_message(self, *a):
         pass
 
 
+def lan_ip():
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+            s.connect(('10.255.255.255', 1))
+            return s.getsockname()[0]
+    except OSError:
+        return '127.0.0.1'
+
+
 if __name__ == '__main__':
+    ap = argparse.ArgumentParser(description='DepthWizard local server')
+    ap.add_argument('--port', type=int, default=8000)
+    ap.add_argument('--lan', action='store_true', help='also listen on the local network, so a phone on the same Wi-Fi '
+                    'can open the field page (anyone on that network can then reach the app)')
+    args = ap.parse_args()
     os.makedirs(RESULTS, exist_ok=True)
     enqueue_missing()
     threading.Thread(target=worker, daemon=True).start()
-    print('DepthWizard demo on http://127.0.0.1:8000', flush=True)
-    ThreadingHTTPServer(('127.0.0.1', 8000), Handler).serve_forever()
+    print(f'DepthWizard demo on http://127.0.0.1:{args.port}', flush=True)
+    if args.lan:
+        print(f'Field page for phones on this network: http://{lan_ip()}:{args.port}/field', flush=True)
+    ThreadingHTTPServer(('0.0.0.0' if args.lan else '127.0.0.1', args.port), Handler).serve_forever()

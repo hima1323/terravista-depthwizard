@@ -28,7 +28,7 @@
   .bar i { display: block; height: 100%; background: var(--accent); transition: width .4s; }
   #drop { margin: 10px; padding: 16px; border: 1.5px dashed var(--line); border-radius: 10px; text-align: center; color: var(--muted); font-size: 12.5px; cursor: pointer; }
   #drop.over, #drop:hover { border-color: var(--accent); color: var(--text); }
-  main { display: grid; grid-template-rows: auto 1fr; min-width: 0; min-height: 0; }
+  main { display: grid; grid-template-rows: auto auto 1fr; min-width: 0; min-height: 0; }
   header { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--line); }
   header h2 { margin: 0; font-size: 16px; }
   .ttl { margin-right: auto; min-width: 0; }
@@ -102,7 +102,41 @@
   #hint b { color: var(--text); }
   body.clean { grid-template-columns: 1fr; }   /* #clean: presentation mode, 3D / map only */
   .clean main { grid-template-rows: 1fr; }
-  .clean aside, .clean header, .clean .controls, .clean .cards, .clean #hint { display: none !important; }
+  .clean aside, .clean header, .clean .controls, .clean .cards, .clean #hint, .clean .toolbar { display: none !important; }
+  /* toolbar: every tool of the current mode, one click away */
+  .toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 18px; border-bottom: 1px solid var(--line); background: var(--panel); }
+  .toolbar .tgroup { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); margin-right: 4px; }
+  .tool { display: inline-flex; gap: 6px; align-items: center; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 999px; padding: 4px 12px; font: inherit; font-size: 12.5px; cursor: pointer; user-select: none; white-space: nowrap; }
+  .tool:hover { border-color: var(--accent); }
+  .tool.on, .tool:has(input:checked) { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .tool input[type=checkbox] { display: none; }
+  .tool.ghost { background: none; color: var(--muted); }
+  .tool kbd { font: 10.5px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; color: var(--muted); }
+  .toolbar .spacer { flex: 1; }
+  .floodcard h3 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .floodcard h3 .x { background: none; border: 0; color: var(--muted); font-size: 16px; line-height: 1; padding: 0 2px; cursor: pointer; }
+  .floodcard h3 .x:hover { color: var(--text); }
+  .floodcard .help { color: var(--muted); font-size: 11.5px; margin: 0 0 6px; line-height: 1.4; }
+  .floodcard .help b { color: var(--text); font-weight: 600; }
+  .floodcard input[type=text] { width: 100%; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; font: inherit; }
+  .floodcard input[type=datetime-local] { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 5px; font: inherit; font-size: 11.5px; }
+  .floodcard a { color: var(--accent); }
+  .floodcard .ok { color: var(--ok); }
+  .floodcard .grad { height: 8px; border-radius: 3px; margin: 4px 0; }
+  .chk { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px; margin: 4px 0; }
+  #palette { position: fixed; inset: 0; background: rgba(5,8,12,.6); display: flex; justify-content: center; align-items: flex-start; padding-top: 12vh; z-index: 50; }
+  #palette .box { width: min(560px, calc(100vw - 32px)); background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 20px 60px rgba(0,0,0,.5); overflow: hidden; }
+  #palette input { width: 100%; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--text); font: inherit; font-size: 16px; padding: 14px 16px; outline: none; }
+  #palette ul { list-style: none; margin: 0; padding: 6px; max-height: 56vh; overflow-y: auto; }
+  #palette li { display: grid; grid-template-columns: 1fr auto; gap: 0 10px; padding: 8px 10px; border-radius: 8px; cursor: pointer; }
+  #palette li.sel, #palette li:hover { background: var(--panel-2); }
+  #palette li b { font-weight: 600; }
+  #palette li span { color: var(--muted); font-size: 12px; grid-column: 1 / 3; }
+  #palette li i { font-style: normal; font-size: 11px; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 0 8px; align-self: center; }
+  #palette .foot { padding: 8px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+  #bandsel { margin: -2px 10px 12px; font-size: 12px; color: var(--muted); display: flex; gap: 8px; align-items: center; white-space: nowrap; }
+  #bandsel select { flex: 1; min-width: 0; font-size: 12px; }
+  #wmsimg { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 6px; pointer-events: none; }
   @media (max-width: 760px) { body { grid-template-columns: 1fr; grid-template-rows: 42vh 1fr; } aside { border-right: 0; border-bottom: 1px solid var(--line); } }
 </style>
 <script type="importmap">
@@ -119,6 +153,8 @@
   <label id="drop">Drop a satellite image here, or click to upload<br><small>PNG · JPG · GeoTIFF (GeoTIFF adds true scale + absolute heights above sea level)</small>
     <input id="file" type="file" accept=".png,.jpg,.jpeg,.tif,.tiff" hidden>
   </label>
+  <label id="bandsel" title="Which bands hold red, green and blue. Auto reads the file's band labels; 4-band products without labels (Cartosat-3 MX, PlanetScope) are taken as blue, green, red, NIR. 16-bit images are stretched to 8 bit.">Band order
+    <select id="bands"><option value="auto">auto</option><option value="rgb">R, G, B</option><option value="bgr">B, G, R (+NIR): Cartosat, multispectral</option></select></label>
 </aside>
 <main>
   <header>
@@ -129,9 +165,39 @@
       <button data-m="disaster" title="Flood scenarios, rain timeline, routes, helipads and relief camps">Disaster tools</button></div>
     <div class="tabs" id="views"><button data-v="v2d" class="on">2D compare</button><button data-v="v3d">3D view</button></div>
   </header>
+  <nav class="toolbar" id="toolbar" aria-label="Tools">
+    <span class="tgroup" data-mode="explore">Tools</span>
+    <button class="tool" data-mode="explore" data-tool="loscard" data-kw="viewshed visibility watch tower siren antenna mast camera" title="What can be seen from a point: watch posts, sirens, radio masts, cameras">👁 Line of sight</button>
+    <button class="tool" data-mode="explore" data-tool="volcard" data-kw="cut fill stockpile debris pond tank capacity area measure" title="Draw an outline and get its area and volume: debris, stockpiles, pond capacity">📦 Volume</button>
+    <button class="tool" data-mode="explore" data-tool="dronecard" data-kw="uav waypoints kml qgroundcontrol mission flight survey" title="Drone waypoints that stay clear of roofs and trees; export KML, QGroundControl or CSV">✈ Drone plan</button>
+    <button class="tool" data-mode="explore" data-tool="solarcard" data-kw="pv rooftop energy kwh shading sun panels" title="Solar energy of every roof per year, with shading from taller buildings and trees">☀ Rooftop solar</button>
+    <button class="tool" data-mode="explore" data-tool="wmscard" data-kw="wms bhuvan isro openstreetmap osm basemap roads boundaries layer" title="Lay a web map (OpenStreetMap, ISRO Bhuvan or any WMS) over the scene">🗺 Map overlay</button>
+    <button class="tool" data-mode="explore" data-tool="mosaiccard" data-kw="merge join tiles large area district" title="Join neighbouring GeoTIFF scenes into one larger scene">🧩 Mosaic</button>
+    <span class="tgroup" data-mode="validate">Tools</span>
+    <button class="tool" data-mode="validate" data-tool="valcard" data-kw="lidar dsm dtm ndsm rmse mae icesat reference accuracy" title="Compare our heights with LiDAR, a DSM, surveyed points or NASA ICESat-2">📊 Compare with reference</button>
+    <button class="tool" data-mode="validate" data-tool="gcpcard" data-kw="gcp survey benchmark gnss gps field calibrate" title="Calibrate with points of known height; import GNSS points or the field app's">📍 Control points</button>
+    <button class="tool" data-mode="validate" data-tool="shadowcard" data-kw="shadow sun elevation azimuth building height check" title="Measure building heights from their shadows and check the model">🌗 Shadow heights</button>
+    <button class="tool" data-mode="validate" data-tool="fixcard" data-kw="tall buildings trees canopy under-estimate scale icesat correction" title="Scale building and tree heights (from shadows or ICESat-2 canopy heights)">🌲 Fix tall objects</button>
+    <button class="tool" data-mode="validate" data-tool="errcard" data-kw="uncertainty conformal confidence error bar interval" title="Turn the ± spread into calibrated error bars (68 / 90 / 95 %)">± Calibrated error</button>
+    <button class="tool" data-mode="validate" data-tool="demcard" data-kw="cartodem srtm dem terrain bhuvan elevation model upload" title="Use your own DEM (e.g. ISRO CartoDEM, SRTM) as the terrain">⛰ Terrain source</button>
+    <span class="tgroup" data-mode="disaster">Tools</span>
+    <label class="tool" data-mode="disaster" data-kw="water level inundation" title="Flood scenario at a water level: flooded ground and buildings"><input id="flood" type="checkbox"> 🌊 Flood</label>
+    <button class="tool cflood" id="timebtn" data-mode="disaster" data-kw="rain forecast hours river rise" hidden title="How the flood develops if rain continues or the river keeps rising">⏱ Timeline</button>
+    <button class="tool" data-mode="disaster" data-tool="flowcard" data-kw="breach dam embankment flow shallow water simulation hydrodynamic" title="Water flowing from a breach or river over time (2D shallow-water simulation)">💧 Flowing water</button>
+    <button class="tool" id="routebtn" data-mode="disaster" data-kw="path navigation access" title="Find a route between two points that avoids buildings, steep ground and deep water">⤳ Route</button>
+    <button class="tool" id="sitebtn" data-mode="disaster" data-kw="helipad helicopter camp shelter landing" title="Find flat, open, dry places for a helicopter to land or a relief camp">🚁 Relief sites</button>
+    <button class="tool" data-mode="disaster" data-tool="evaccard" data-kw="evacuation shelter assignment camp capacity" title="Send each building's residents to the nearest relief camp with space">🧭 Evacuation plan</button>
+    <button class="tool" data-mode="disaster" data-tool="peoplecard" data-kw="population exposure residents affected" title="Estimated residents in buildings hit by each hazard">👥 People at risk</button>
+    <button class="tool" data-mode="disaster" data-tool="dmgcard" data-kw="earthquake collapse change detection before after debris" title="Compare before / after images: collapsed and damaged buildings, debris, lost canopy">🏚 Damage</button>
+    <button class="tool" data-mode="disaster" data-tool="slidecard" data-kw="landslide susceptibility hazard zonation bis slope rain" title="Landslide risk from slope, land cover, relief and rain">⛰ Landslide risk</button>
+    <button class="tool" data-mode="disaster" data-tool="obscard" data-kw="sentinel radar sar observed real flood extent csi" title="Check or fit the flood scenario against a real satellite flood map">🛰 Observed flood</button>
+    <span class="spacer"></span>
+    <button class="tool ghost" id="findbtn" title="Search every tool in every mode">🔍 Find a tool <kbd>Ctrl K</kbd></button>
+    <button class="tool ghost" id="reportbtn" title="A printable situation report (save as PDF) with the map and the results of the open tools">📄 Report</button>
+  </nav>
   <div class="stage">
     <div id="v2d" class="view on">
-      <div class="imgwrap" id="wrap"><img id="photo" alt=""><canvas id="heat"></canvas><canvas id="ovl"></canvas><div id="tip"></div></div>
+      <div class="imgwrap" id="wrap"><img id="photo" alt=""><img id="wmsimg" alt="" hidden><canvas id="heat"></canvas><canvas id="ovl"></canvas><div id="tip"></div></div>
     </div>
     <div id="v3d" class="view"><div id="pin"></div><div id="hint" hidden></div></div>
     <div class="empty view" id="vwait"></div>
@@ -149,22 +215,20 @@
         <button id="recbtn" title="Fly the route and save it as a video file">● Record video</button></span>
       <label id="corrwrap" data-mode="explore" data-need="corr" hidden title="Height correction learned on US LiDAR (DFC2019); not yet verified on Indian cities"><input id="corr" type="checkbox"> Bias correction</label>
       <label data-mode="validate">Show <select id="vlayer"><option value="err">Error vs reference</option><option value="height">Our height</option><option value="none">Photo only</option></select></label>
-      <label data-mode="disaster"><input id="flood" type="checkbox"> Flood</label>
-      <button id="routebtn" data-mode="disaster" title="Find a route between two points that avoids buildings, steep ground and deep water">⤳ Route</button>
-      <button id="sitebtn" data-mode="disaster" title="Find flat, open, dry places for a helicopter to land or a relief camp">🚁 Relief sites</button>
       <label data-mode="explore validate" title="GeoTIFFs open in QGIS / ArcGIS; the 3D model (true metres) in Blender or any glTF viewer">Download <select id="dl"><option value="">…</option><option value="glb">3D model (.glb)</option>
         <option value="_dsm.tif">DSM, m a.s.l. (.tif)</option><option value="_dtm.tif">Terrain DTM (.tif)</option>
         <option value="_height.tif">Height above ground (.tif)</option><option value="_uncertainty.tif">Uncertainty ± (.tif)</option>
         <option value="_dsm_gcp.tif">DSM calibrated with control points (.tif)</option>
+        <option value="_height_fixed.tif">Height with tall-object fixes (.tif)</option>
+        <option value="api:geojson">Building footprints + heights (.geojson)</option><option value="api:cityjson">3D buildings, CityJSON LOD1 (.json)</option>
         <option value="_buildings.json">Building blocks (.json)</option></select></label>
       <label class="cflood" data-mode="disaster" hidden>Water level <input id="depth" type="range" min="0" max="15" step="any" value="3"><span id="depthv">3.0 m</span></label>
       <label class="cflood" data-mode="disaster" hidden title="All low ground: everything below the water level floods. Scene edges: water comes in from outside the image (river, sea) and floods only ground it can flow to. Points I click: water spreads from the points you place.">Water from
         <select id="fsrc"><option value="all">all low ground</option><option value="edges">scene edges</option><option value="pick">points I click</option></select></label>
-      <button class="cflood" id="timebtn" data-mode="disaster" hidden title="How the flood develops if rain continues or the river keeps rising">⏱ Timeline</button>
     </div>
     <div class="cards" id="cards">
       <div class="floodcard" id="valcard" hidden>
-        <h3>Validate against reference data</h3>
+        <h3>Validate against reference data <button class="x" title="Close">×</button></h3>
         <div class="frm">
           <label title="A GeoTIFF / TIFF raster (LiDAR DSM, nDSM or DTM, any coordinate system), or a CSV of surveyed points with lon,lat,z (WGS84) or col,row,z (image pixels)">Reference <input id="vfile" type="file" accept=".tif,.tiff,.csv,.txt"></label>
           <label title="What the reference raster measures (CSV points are always surface heights)">Type <select id="vkind"><option value="dsm">Surface DSM, m above sea level</option><option value="ndsm">Height above ground (nDSM)</option><option value="dtm">Bare ground (DTM)</option></select></label>
@@ -176,16 +240,24 @@
         <div id="vout"></div>
       </div>
       <div class="floodcard" id="gcpcard" hidden>
-        <h3>Calibrate with ground control points</h3>
+        <h3>Calibrate with ground control points <button class="x" title="Close">×</button></h3>
         <div class="msg">Click points of known elevation (survey marks, benchmarks, GNSS points) and enter their height in metres above sea level. 1 point fixes the level; 2+ points that differ in height also fix the height scale; 4+ also correct a tilt. Works for PNG/JPG too: they then get absolute heights.</div>
         <div class="btns"><button id="gadd">＋ Add points</button><button id="gfit" disabled>Fit &amp; apply</button><button id="gclear">Clear</button></div>
         <div id="glist"></div>
         <label id="gonwrap" hidden><input id="gcpon" type="checkbox" checked> Use the calibrated heights in every view</label>
         <div id="gout"></div>
+        <h4>Import GNSS / GPS points</h4>
+        <div class="frm">
+          <label title="CSV with lat, lon and alt (or ele / z) columns, or a GPX file of waypoints">File <input id="gnssfile" type="file" accept=".csv,.txt,.gpx"></label>
+          <label>Heights are <select id="gnssdatum"><option value="ellipsoid">GNSS / GPS, above the ellipsoid</option><option value="egm96">sea level, EGM96 (most handheld GPS)</option><option value="egm2008">sea level, EGM2008</option></select></label>
+        </div>
+        <div class="btns"><button id="gnssload">Import file</button><button id="gfield" title="Points recorded with the phone page (open it on a phone with: python app.py --lan)">Load field-app points</button>
+          <a href="/field" target="_blank" title="A phone page that records GPS positions in the field">📱 Open field app</a></div>
+        <div class="msg" id="gnssout"></div>
       </div>
       <div class="floodcard" id="floodcard" hidden></div>
       <div class="floodcard" id="timecard" hidden>
-        <h3>Rain &amp; rise timeline</h3>
+        <h3>Rain &amp; rise timeline <button class="x" title="Close">×</button></h3>
         <div class="frm">
           <label>Rain <input id="train" type="number" min="0" max="300" step="1" value="15"> mm/h for <input id="thours" type="number" min="0" max="384" step="1" value="12"> h</label>
           <label><button id="tfc" title="Hourly rain forecast for this location from Open-Meteo (needs internet and a GeoTIFF scene)">Use rain forecast</button><span id="tfcinfo"></span></label>
@@ -201,7 +273,7 @@
         <div id="tout"></div>
       </div>
       <div class="floodcard" id="routecard" hidden>
-        <h3>Route finder</h3>
+        <h3>Route finder <button class="x" title="Close">×</button></h3>
         <div class="frm">
           <label>Travel <select id="rmode"><option value="foot">On foot</option><option value="car">Car</option></select>
             <span title="Water deeper than this blocks the route">max water <input id="rdepth" type="number" min="0" max="3" step="0.05" value="0.5"> m</span></label>
@@ -211,7 +283,7 @@
         <div id="rout" class="msg"></div>
       </div>
       <div class="floodcard" id="sitecard" hidden>
-        <h3>Helipad &amp; relief camp finder</h3>
+        <h3>Helipad &amp; relief camp finder <button class="x" title="Close">×</button></h3>
         <div class="frm">
           <label title="Rule of thumb (ICAO): a landing area at least 1.5 × the helicopter's overall length with rotors turning: about 24 m for an ALH Dhruv, about 38 m for a Mi-17. Confirm with the air wing.">Helipad clear circle <input id="spad" type="number" min="10" max="100" step="1" value="25"> m</label>
           <label>Camp area at least <input id="scamp" type="number" min="100" step="100" value="1000"> m²</label>
@@ -221,9 +293,188 @@
         </div>
         <div id="sout"></div>
       </div>
+      <div class="floodcard" id="loscard" hidden>
+        <h3>Line of sight <button class="x" title="Close">×</button></h3>
+        <div class="help">What can be seen from a point. <b>1.</b> Set the heights <b>2.</b> click <b>Place observers</b> and click the map <b>3.</b> green = visible, dark = hidden.</div>
+        <div class="frm">
+          <label title="Height of the eye or antenna above the roof / ground it stands on">Observer height <input id="losh" type="number" min="0" step="1" value="10"> m</label>
+          <label title="1.7 m = a person standing; 0 = the ground itself">Target height <input id="lost" type="number" min="0" step="0.1" value="1.7"> m</label>
+          <label>Range <input id="losr" type="number" min="10" step="50" value="1000"> m</label>
+        </div>
+        <div class="btns"><button id="losadd">＋ Place observers</button><button id="losclear">Clear</button></div>
+        <div id="losout"></div>
+      </div>
+      <div class="floodcard" id="volcard" hidden>
+        <h3>Volume &amp; area <button class="x" title="Close">×</button></h3>
+        <div class="help">Draw an outline around a debris pile, stockpile, pond or group of buildings. <b>✎ Draw outline</b>, click the corners, then <b>✓ Done</b>.</div>
+        <div class="frm">
+          <label>Measure against <select id="volbase"><option value="edge">the ground along the outline (piles, debris)</option><option value="ground">bare ground (everything above it)</option><option value="level">a fixed level (pond / tank capacity)</option></select></label>
+          <label id="vollevwrap" hidden>Level <input id="vollev" type="number" step="0.5" value="0"> m</label>
+        </div>
+        <div class="btns"><button id="voldraw">✎ Draw outline</button><button id="volclear">Clear</button></div>
+        <div id="volout"></div>
+      </div>
+      <div class="floodcard" id="dronecard" hidden>
+        <h3>Drone flight plan <button class="x" title="Close">×</button></h3>
+        <div class="help"><b>1.</b> Draw a path (2D or 3D), or find a route in Disaster tools <b>2.</b> check the heights <b>3.</b> export for the drone app.</div>
+        <div class="frm">
+          <label>Follow <select id="drsrc"><option value="path">my drawn path</option><option value="route">the route A → B</option></select></label>
+          <label title="Height kept above the tallest roof, tree or ground near the path">Clearance <input id="drclr" type="number" min="5" step="5" value="30"> m</label>
+          <label title="How far to each side of the path obstacles are looked for">Look around <input id="drbuf" type="number" min="0" step="5" value="15"> m</label>
+          <label>Waypoint every <input id="drstep" type="number" min="5" step="5" value="25"> m</label>
+          <label>Speed <input id="drspeed" type="number" min="1" step="1" value="8"> m/s</label>
+          <label title="India, Drone Rules 2021: up to 400 ft (about 120 m) above ground in green zones; check the Digital Sky airspace map">Height limit <input id="drmax" type="number" min="10" step="10" value="120"> m above ground</label>
+        </div>
+        <div class="btns"><button id="drdraw">✎ Draw path</button><button id="drkml">⬇ KML</button><button id="drplan">⬇ QGroundControl</button><button id="drcsv">⬇ CSV</button></div>
+        <div id="drout"></div>
+      </div>
+      <div class="floodcard" id="solarcard" hidden>
+        <h3>Rooftop solar <button class="x" title="Close">×</button></h3>
+        <div class="help">Yearly solar energy of every roof. Shading from taller buildings and trees is traced along the sun's path through the year.</div>
+        <div class="frm">
+          <label title="Global horizontal irradiation. Most of India gets 1600–2200 kWh/m² a year (NIWE / NREL solar atlases).">Sunshine <input id="solghi" type="number" min="500" step="50" value="1900"> kWh/m² a year</label>
+          <label>Panel efficiency <input id="soleff" type="number" min="5" max="30" step="1" value="20"> %</label>
+          <label title="Share of the roof that can take panels (tanks, stairs and edges excluded)">Usable roof <input id="soluse" type="number" min="10" max="100" step="5" value="70"> %</label>
+          <label title="Inverter, wiring, heat and dust losses: 0.75–0.8 is typical">Performance ratio <input id="solpr" type="number" min="0.4" max="1" step="0.01" value="0.75"></label>
+          <label>Tariff ₹ <input id="soltar" type="number" min="0" step="0.5" value="7"> per kWh</label>
+        </div>
+        <div class="btns"><button id="solrun">☀ Calculate</button><button id="solcsv" disabled>⬇ CSV per building</button></div>
+        <div id="solout"></div>
+      </div>
+      <div class="floodcard" id="wmscard" hidden>
+        <h3>Map overlay (WMS) <button class="x" title="Close">×</button></h3>
+        <div class="help">Lay roads, boundaries or land use from a web map service over the scene: OpenStreetMap, ISRO Bhuvan or any other WMS. Needs internet once, then it is saved.</div>
+        <div class="frm">
+          <label>Service <select id="wmspre"><option value="osm">OpenStreetMap (terrestris WMS)</option><option value="custom">Another WMS address…</option></select></label>
+          <label id="wmsurlwrap" hidden>Address <input id="wmsurl" type="text" placeholder="https://…/wms"></label>
+          <label>Layers <input id="wmslay" type="text" value="OSM-WMS"></label>
+          <label>Opacity <input id="wmsop" type="range" min="0" max="1" step="0.05" value="0.6"></label>
+        </div>
+        <div class="btns"><button id="wmsload">Load overlay</button><button id="wmsoff">Hide</button></div>
+        <div id="wmsout" class="msg"></div>
+      </div>
+      <div class="floodcard" id="mosaiccard" hidden>
+        <h3>Mosaic: join scenes <button class="x" title="Close">×</button></h3>
+        <div class="help">Joins neighbouring GeoTIFF scenes into one larger scene, from their saved heights (no new model run).</div>
+        <div id="moslist" class="chk"></div>
+        <div class="frm">
+          <label>Name <input id="mosname" type="text" value="mosaic"></label>
+          <label title="Grid sent to the viewer; finer shows more detail on large areas but is slower">Detail <select id="mosgrid"><option value="512">standard (512 grid)</option><option value="1024" selected>high (1024 grid)</option></select></label>
+        </div>
+        <div class="btns"><button id="mosrun">🧩 Build mosaic</button></div>
+        <div id="mosout" class="msg"></div>
+      </div>
+      <div class="floodcard" id="shadowcard" hidden>
+        <h3>Building heights from shadows <button class="x" title="Close">×</button></h3>
+        <div class="help">Height = shadow length × tan(sun elevation). Take the sun elevation and azimuth from the image's metadata, or compute them from its acquisition time. Assumes a near-vertical view.</div>
+        <div class="frm">
+          <label>Sun elevation <input id="shel" type="number" min="1" max="90" step="0.1" value="45">°</label>
+          <label title="Clockwise from north: 90 = east, 180 = south">Sun azimuth <input id="shaz" type="number" min="0" max="360" step="0.1" value="135">°</label>
+          <label>or from the time (UTC) <input id="shtime" type="datetime-local"> <button id="shsun">Compute</button></label>
+        </div>
+        <div class="btns"><button id="shpick">📏 Measure a shadow</button><button id="shauto">🤖 Measure all buildings</button><button id="shclear">Clear</button></div>
+        <div id="shout"></div>
+      </div>
+      <div class="floodcard" id="fixcard" hidden>
+        <h3>Fix tall objects <button class="x" title="Close">×</button></h3>
+        <div class="help">The model tends to under-estimate tall buildings and trees. Scale them using the shadow tool (buildings) or NASA ICESat-2 canopy heights (trees), or set the factors yourself.</div>
+        <div class="frm">
+          <label>Buildings × <input id="fixb" type="number" min="0.5" max="3" step="0.05" value="1"></label>
+          <label>Trees × <input id="fixt" type="number" min="0.5" max="3" step="0.05" value="1"> <button id="fixfit" title="Top-of-canopy laser photons over the model's tree pixels (needs internet and a GeoTIFF scene)">Fit from ICESat-2</button></label>
+        </div>
+        <div class="btns"><button id="fixapply">Apply</button><button id="fixreset">Reset</button></div>
+        <label id="fixonwrap" hidden><input id="fixon" type="checkbox" checked> Use the fixed heights in every view</label>
+        <div id="fixout"></div>
+      </div>
+      <div class="floodcard" id="errcard" hidden>
+        <h3>Calibrated error bars <button class="x" title="Close">×</button></h3>
+        <div class="help">The ± spread of the model ranks errors but is not in true metres. A validation you ran calibrates it (split conformal): then “± 3.1 m (90 %)” means 9 in 10 true heights lie within it.</div>
+        <div class="frm">
+          <label>Calibrate with <select id="errsrc"></select></label>
+          <label>Confidence <select id="errlev"><option value="0.68">68 %</option><option value="0.90" selected>90 %</option><option value="0.95">95 %</option></select></label>
+        </div>
+        <div class="btns"><button id="erruse">Use these error bars</button><button id="erroff">Back to the raw spread</button></div>
+        <div id="errout"></div>
+      </div>
+      <div class="floodcard" id="demcard" hidden>
+        <h3>Terrain source (DEM) <button class="x" title="Close">×</button></h3>
+        <div class="help">Use your own elevation model instead of Copernicus GLO-30, e.g. ISRO CartoDEM (from Bhuvan) or SRTM. It must cover the whole scene.</div>
+        <div id="demnow" class="msg"></div>
+        <div class="frm">
+          <label>DEM file <input id="demfile" type="file" accept=".tif,.tiff"></label>
+          <label>Its heights are <select id="demdatum"><option value="egm96">sea level, EGM96 (CartoDEM, SRTM)</option><option value="egm2008">sea level, EGM2008 (Copernicus)</option></select></label>
+        </div>
+        <div class="btns"><button id="demuse">Use this DEM</button><button id="demreset">Back to the default</button></div>
+        <div id="demout" class="msg"></div>
+      </div>
+      <div class="floodcard" id="flowcard" hidden>
+        <h3>Flowing water (2D) <button class="x" title="Close">×</button></h3>
+        <div class="help">Water spreading over time from a breach, river or drain outlet: a 2D shallow-water simulation on the terrain. <b>1.</b> Place inflow points <b>2.</b> ▶ Run <b>3.</b> drag the time slider.</div>
+        <div class="frm">
+          <label title="Discharge entering at each point (a small breach: 10–50 m³/s)">Inflow per point <input id="flq" type="number" min="0" step="5" value="40"> m³/s</label>
+          <label>Rain <input id="flrain" type="number" min="0" step="5" value="0"> mm/h</label>
+          <label>Simulate <input id="flhours" type="number" min="0.25" max="24" step="0.25" value="3"> hours</label>
+        </div>
+        <div class="btns"><button id="flpick">＋ Place inflow points</button><button id="flrun">▶ Run</button><button id="flclear">Clear</button></div>
+        <label class="tslide">Time <input id="flt" type="range" min="0" max="0" step="1" value="0"><span id="fltv">–</span></label>
+        <label><input id="flarr" type="checkbox"> Show “time until wet” map</label>
+        <div id="flout"></div>
+      </div>
+      <div class="floodcard" id="evaccard" hidden>
+        <h3>Evacuation plan <button class="x" title="Close">×</button></h3>
+        <div class="help">Sends each building's residents to the nearest relief camp that still has space, along routes that avoid deep water. Uses the camps from <b>🚁 Relief sites</b>.</div>
+        <div class="frm">
+          <label>Who leaves <select id="evwho"><option value="flood">buildings with water inside</option><option value="slide">buildings at high landslide risk</option><option value="all">everyone</option></select></label>
+          <label>Travel <select id="evmode"><option value="foot">on foot</option><option value="car">by car</option></select></label>
+        </div>
+        <div class="btns"><button id="evrun">🧭 Make the plan</button></div>
+        <div id="evout"></div>
+      </div>
+      <div class="floodcard" id="peoplecard" hidden>
+        <h3>People at risk <button class="x" title="Close">×</button></h3>
+        <div class="help">Residents per building ≈ floors × footprint × occupied share ÷ floor space per person, counted for each hazard tool you use.</div>
+        <div class="frm">
+          <label title="Indian cities: roughly 8–15 m² of floor space per person; use the census figure for the ward if you have it">Floor space per person <input id="ppm2" type="number" min="2" step="1" value="10"> m²</label>
+          <label title="Share of floor area lived in (shops, offices and empty flats excluded)">Occupied <input id="ppocc" type="number" min="0" max="100" step="5" value="80"> %</label>
+        </div>
+        <div id="ppout"></div>
+      </div>
+      <div class="floodcard" id="dmgcard" hidden>
+        <h3>Damage: before / after <button class="x" title="Close">×</button></h3>
+        <div class="help"><b>1.</b> Open the after-event scene (this one) <b>2.</b> choose the before image <b>3.</b> Compare. Buildings that lost height are marked collapsed or damaged.</div>
+        <div class="frm">
+          <label>Before image <select id="dmgbefore"></select></label>
+          <label title="Share of its height a building lost">Collapsed if lost ≥ <input id="dmgcol" type="number" min="5" max="100" step="5" value="50"> %</label>
+          <label>Damaged if lost ≥ <input id="dmgdam" type="number" min="5" max="100" step="5" value="20"> %</label>
+          <label title="Share of the lost building volume that becomes rubble: commonly a quarter to a half">Debris share <input id="dmgdeb" type="number" min="5" max="100" step="5" value="30"> %</label>
+        </div>
+        <div class="btns"><button id="dmgrun">🏚 Compare</button></div>
+        <div id="dmgout"></div>
+      </div>
+      <div class="floodcard" id="slidecard" hidden>
+        <h3>Landslide risk (screening) <button class="x" title="Close">×</button></h3>
+        <div class="help">Rates each place from terrain slope, land cover and local relief (ratings after BIS IS 14496 Part 2), raised for heavy rain. Not a full hazard zonation: rock type, faults and groundwater are not included.</div>
+        <div class="frm">
+          <label>Rain in 24 h <input id="slrain" type="number" min="0" step="5" value="70"> mm <button id="slfc" title="Highest 24-hour rain of the flood timeline, or of the rain forecast">From timeline / forecast</button></label>
+        </div>
+        <div id="slout"></div>
+      </div>
+      <div class="floodcard" id="obscard" hidden>
+        <h3>Observed flood (satellite) <button class="x" title="Close">×</button></h3>
+        <div class="help">Load a real flood map, a Sentinel-1 radar image or any water mask (GeoTIFF), to check the flood scenario against it or fit its water level.</div>
+        <div class="frm">
+          <label>File <input id="obsfile" type="file" accept=".tif,.tiff"></label>
+          <label>It contains <select id="obskind"><option value="auto">detect automatically</option><option value="mask">a water mask (water = 1)</option><option value="db">radar backscatter, dB</option><option value="linear">radar backscatter, linear</option></select></label>
+          <label title="Calm water reflects little radar: Sentinel-1 VV below about −18 dB. Empty = found automatically">Water below <input id="obsthr" type="number" step="0.5" placeholder="auto"> dB</label>
+        </div>
+        <div class="btns"><button id="obsrun">Load &amp; compare</button><button id="obsfit" disabled>🎯 Fit the water level</button></div>
+        <div id="obsout"></div>
+      </div>
     </div>
   </div>
 </main>
+<div id="palette" hidden><div class="box"><input id="palq" type="text" placeholder="Find a tool… e.g. flood, drone, shadow, solar" autocomplete="off"><ul id="pall"></ul>
+  <div class="foot">↑ ↓ to choose · Enter to open · Esc to close · opens the right mode for you</div></div></div>
 
 <script type="module">
 import * as THREE from 'three';
@@ -354,6 +605,7 @@ async function load(name, m) {
   updateFlood();
   toolsSceneLoaded();
   renderValidation(); renderGcp();
+  newToolsSceneLoaded();
 }
 // terrain + height scale used by every view: the model's terrain, or that terrain calibrated with control points
 // (z = ground + a + bx·u + by·v + s·height, fitted on the server). Without terrain (PNG/JPG) ground = 0.
@@ -377,6 +629,7 @@ function applyTerrain() {
   for (const o of document.querySelectorAll('option[value=slope]')) o.hidden = o.disabled = !dtm;   // need terrain
   for (const o of document.querySelectorAll('#dl option[value^="_d"]')) o.hidden = o.disabled = !data.dtmRaw;
   const g = $('dl').querySelector('option[value="_dsm_gcp.tif"]'); g.hidden = g.disabled = !m.gcp;
+  const fx = $('dl').querySelector('option[value="_height_fixed.tif"]'); fx.hidden = fx.disabled = !m.class_scale;
   for (const [id, dflt] of [['layer', 'height'], ['tex3d', 'photo']]) if ($(id).value === 'slope' && !dtm) $(id).value = dflt;
   $('depth').max = Math.ceil(data.gmax - data.gmin + 15);
   for (const b of data.buildings) b.ground_use = c ? (b.ground_m ?? 0) + c.a + c.bx * (b.cx - 0.5) + c.by * (b.cy - 0.5) : b.ground_m;
@@ -392,10 +645,14 @@ function terrainLabel() {
 function laserShift() { const la = data.meta.terrain && data.meta.terrain.laser; return la && la.offset_m != null ? -la.offset_m : null; }
 function corrOn() { return $('corr').checked && !!data.gridCorr; }
 function setGrid() {
-  const on = corrOn(), m = data.meta, k = data.hscale ?? 1, src = on ? data.gridCorr : data.gridRaw;
+  const on = corrOn(), m = data.meta, k = data.hscale ?? 1, cs = classScale(), lc = data.lc;
+  let src = on ? data.gridCorr : data.gridRaw;
+  if (cs) src = Float32Array.from(src, (v, i) => v * (lc[i] === 7 ? cs.buildings : lc[i] === 4 ? cs.trees : 1));   // tall-object fixes
+  data.gridClass = src;
   data.grid = k === 1 ? src : Float32Array.from(src, v => v * k);
+  data.gridMax = data.grid.reduce((a, v) => Math.max(a, v), 0);
   for (const b of data.buildings) {
-    b.height_m = (on && b.height_corr_m != null ? b.height_corr_m : b.height_raw_m) * k;
+    b.height_m = (on && b.height_corr_m != null ? b.height_corr_m : b.height_raw_m) * k * (cs ? cs.buildings : 1);
     b.floors = Math.max(1, Math.round(b.height_m / m.floor_m));
   }
   data.heat = colourCanvas(data.grid, m.grid_w, m.grid_h, turbo, data.vmax);  // same scale either way
@@ -403,8 +660,8 @@ function setGrid() {
 function renderStats() {
   const m = data.meta, c = corrOn() ? m.corrected : m;
   $('stats').innerHTML = [
-    ['Tallest', `${(c.max * (data.hscale ?? 1)).toFixed(1)} m`], ['99th pct', `${(c.p99 * (data.hscale ?? 1)).toFixed(1)} m`],
-    ['Built-up (>3 m)', `${m.built_pct.toFixed(0)}%`], ['Avg uncertainty', `± ${m.unc_mean.toFixed(2)} m`], ['Building blocks', m.buildings],
+    ['Tallest', `${(classScale() ? data.gridMax : c.max * (data.hscale ?? 1)).toFixed(1)} m`], ...(classScale() ? [] : [['99th pct', `${(c.p99 * (data.hscale ?? 1)).toFixed(1)} m`]]),
+    ['Built-up (>3 m)', `${m.built_pct.toFixed(0)}%`], ['Avg uncertainty', m.conformal ? pm(m.unc_mean) : `± ${m.unc_mean.toFixed(2)} m`], ['Building blocks', m.buildings],
     ...(data.dtm ? [['Ground', `${data.gmin.toFixed(0)}–${data.gmax.toFixed(0)} m a.s.l.`]] : []),
     ['GSD', `${m.gsd.toFixed(2)} m${m.gsd_assumed ? ' (assumed)' : ''}`]
   ].map(([k, v]) => `<span class="chip">${k} <b>${v}</b></span>`).join('');
@@ -414,7 +671,9 @@ function renderStats() {
                 : 'Model estimate of height above ground. ')
     + (cal ? `Calibrated with ${cal.n} control point${cal.n > 1 ? 's' : ''}: level ${cal.a >= 0 ? '+' : ''}${cal.a.toFixed(2)} m`
          + (cal.s !== 1 ? `, heights ×${cal.s.toFixed(2)}` : '') + (cal.terms.includes('bx') ? ', tilt corrected' : '') + '. ' : '')
-    + '± = spread of 4 flipped predictions (model self-consistency), not a calibrated error bar. '
+    + (classScale() ? `Tall-object fixes: buildings ×${classScale().buildings.toFixed(2)}, trees ×${classScale().trees.toFixed(2)}. ` : '')
+    + (m.conformal ? `± = calibrated ${Math.round(+m.conformal.level * 100)} % error bar (from the ${VKEYS[m.conformal.source] || m.conformal.source} check). `
+                   : '± = spread of 4 flipped predictions (model self-consistency), not a calibrated error bar. ')
     + (data.dtmRaw ? `Absolute heights in m above mean sea level (EGM2008); terrain: ${terrainLabel()}, cleaned with the model's land cover`
          + (laserShift() != null ? `, levelled ${laserShift().toFixed(1)} m to match ${m.terrain.laser.ground_photons} NASA ICESat-2 laser ground points.`
                                  : '; no ICESat-2 laser points in this scene.')
@@ -438,11 +697,11 @@ function blockReached(b, L) { return $('fsrc').value === 'all' || L > data.block
 function blockDepth(b, L) { return blockReached(b, L) ? Math.max(0, L - blockGround(b)) : 0; }
 function blockState(b, L) { const g = blockGround(b); return !blockReached(b, L) ? 'dry' : L > g + b.height_m ? 'sub' : L > g ? 'part' : 'dry'; }
 function pointText(u, v, sep) {
-  const h = Math.max(0, heightAt(u, v)), un = uncAt(u, v), extra = floodText(u, v, sep) + valText(u, v, sep);
-  if (!data.dtm) return `${h.toFixed(1)} ± ${un.toFixed(1)} m above ground` + extra;
+  const h = Math.max(0, heightAt(u, v)), un = uncAt(u, v), extra = floodText(u, v, sep) + valText(u, v, sep) + toolText(u, v, sep);
+  if (!data.dtm) return `${h.toFixed(1)} ${pm(un)} above ground` + extra;
   const g = groundAt(u, v);
   const sl = sampleAt(data.slope, u, v);
-  return `${(g + h).toFixed(1)} m a.s.l.${sep}ground ${g.toFixed(1)} m + height ${h.toFixed(1)} ± ${un.toFixed(1)} m`
+  return `${(g + h).toFixed(1)} m a.s.l.${sep}ground ${g.toFixed(1)} m + height ${h.toFixed(1)} ${pm(un)}`
     + `${sep}terrain slope ${sl.toFixed(0)}° (${slopeClass(sl)[1]})` + extra;
 }
 function buildingAt(u, v) {   // nearest grid cell → building record or null
@@ -452,7 +711,7 @@ function buildingAt(u, v) {   // nearest grid cell → building record or null
   return id > 0 ? data.buildings[id - 1] : null;
 }
 function buildingText(b, sep) {
-  let t = `Block ${b.height_m.toFixed(1)} ± ${b.unc_m.toFixed(1)} m tall · ${Math.round(b.area_m2)} m² · ~${b.floors} floor${b.floors > 1 ? 's' : ''}`;
+  let t = `Block ${b.height_m.toFixed(1)} ${pm(b.unc_m)} tall · ${Math.round(b.area_m2)} m² · ~${b.floors} floor${b.floors > 1 ? 's' : ''}`;
   if (data.dtm) t += `${sep}roof ${(blockGround(b) + b.height_m).toFixed(1)} m a.s.l.`;
   if ($('flood').checked) {
     const L = waterLevel(), st = blockState(b, L);
@@ -461,7 +720,7 @@ function buildingText(b, sep) {
     if (data.tl) { const a = data.tl.bArr[b.id];
       t += sep + (a === 0 ? 'Timeline: water inside from the start' : a < NEVER ? `Timeline: water reaches the ground floor ${fmtWhen(a)}` : 'Timeline: stays dry'); }
   }
-  return t;
+  return t + toolBuildingText(b, sep);
 }
 function cellAt(u, v) {      // u,v in 0..1 → nearest grid cell index
   const { grid_w: W, grid_h: H } = data.meta;
@@ -509,8 +768,12 @@ $('wrap').onmousemove = e => {
 $('wrap').onmouseleave = () => $('tip').style.display = 'none';
 $('wrap').onclick = e => {   // place route points / water sources on the 2D map
   if (!data) return;
-  const r = e.currentTarget.getBoundingClientRect();
-  onPick((e.clientX - r.left) / r.width, (e.clientY - r.top) / r.height);
+  const r = e.currentTarget.getBoundingClientRect(), u = (e.clientX - r.left) / r.width, v = (e.clientY - r.top) / r.height;
+  if (onPick(u, v)) return;
+  if (nav.drawing) {          // the flythrough / drone path can be drawn on the 2D map too
+    nav.path.push(new THREE.Vector2((u - 0.5) * sceneW(), (v - 0.5) * sceneH()));
+    drawRoute(); drawOverlay(); showHint(); toolPathChanged();
+  }
 };
 
 // ---------- 3D ----------
@@ -533,6 +796,7 @@ const water = new THREE.Mesh(new THREE.BufferGeometry(),
 water.visible = false; water.renderOrder = 1; water.frustumCulled = false; scene3.add(water);
 const marks = new THREE.Group(); scene3.add(marks);   // route, A / B, water sources
 function waterHeights(pos, k) {
+  if (flowShown()) return flowHeights(pos, k);
   const L = waterLevel(), g = groundGrid(), y0 = (L - data.gmin) * k;
   for (let i = 0; i < pos.count; i++) pos.setY(i, data.reach[i] < L ? y0 : (g[i] - data.gmin - 1) * k);
   pos.needsUpdate = true;
@@ -583,7 +847,8 @@ function greyWalls(sh) {
     '#include <map_fragment>\ndiffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.74, 0.72, 0.68), smoothstep(0.45, 0.8, vSteep));');
 }
 $('exag').oninput = e => { $('exagv').textContent = e.target.value; applyExag(); };
-function surfaceImage() {
+function surfaceImage() { return composeLayers(baseSurface()); }
+function baseSurface() {
   if (mode === 'validate') return $('vlayer').value === 'err' && errTexture() || ($('vlayer').value === 'none' ? data.photo : data.heat);
   if ($('flood').checked && data.floodTex) return data.floodTex;
   return { photo: data.photo, heat: data.heat, unc: data.uncCv, slope: data.slopeCv }[$('tex3d').value];
@@ -604,7 +869,7 @@ renderer.domElement.addEventListener('pointerup', e => {
   const W = data.meta.width * data.meta.gsd, H = data.meta.height * data.meta.gsd;
   const hu = hit.point.x / W + 0.5, hv = hit.point.z / H + 0.5;
   if (onPick(hu, hv)) return;
-  if (nav.drawing) { nav.path.push(new THREE.Vector2(hit.point.x, hit.point.z)); drawRoute(); return showHint(); }
+  if (nav.drawing) { nav.path.push(new THREE.Vector2(hit.point.x, hit.point.z)); drawRoute(); drawOverlay(); toolPathChanged(); return showHint(); }
 
   if (!marker) { marker = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), new THREE.MeshBasicMaterial({ color: 0x3d9be9 })); scene3.add(marker); }
   marker.scale.setScalar(Math.max(W, H) / 250);
@@ -749,7 +1014,8 @@ function togglePath() {
   if (nav.drawing) { nav.path = []; clearPin(); }
   $('pathbtn').classList.toggle('on', nav.drawing);
   $('pathbtn').textContent = nav.drawing ? '✓ Done' : '✎ Draw path';
-  drawRoute(); showHint();
+  $('drdraw').classList.toggle('on', nav.drawing); $('drdraw').textContent = nav.drawing ? '✓ Done' : '✎ Draw path';
+  drawRoute(); drawOverlay(); showHint(); toolPathChanged();
 }
 function playPath(record) {
   if (nav.play) return stopPath();
@@ -862,6 +1128,7 @@ $('dl').onchange = async e => {
   const v = e.target.value;
   e.target.value = ''; e.target.blur();
   if (!data || !v) return;
+  if (v.startsWith('api:')) return download(`/api/export?name=${encodeURIComponent(data.name)}&fmt=${v.slice(4)}`, `${data.name}_${v === 'api:cityjson' ? 'city.json' : 'footprints.geojson'}`);
   if (v !== 'glb') return download(`/results/${data.name}${v}`, `${data.name}${v}`);
   e.target.options[1].textContent = 'building 3D model…';
   try { download(URL.createObjectURL(await exportGLB()), `${data.name}.glb`); }
@@ -926,7 +1193,7 @@ function renderFlood() {
     : mode === 'edges' ? 'Connected model: water comes in at the scene edges and floods only ground it can flow to; low spots behind higher ground stay dry (no drainage).'
     : `Connected model: water spreads from the ${nSrc} point${nSrc === 1 ? '' : 's'} you placed and floods only ground it can flow to (no drainage).`;
   const cellM2 = (m.width * m.gsd / W) * (m.height * m.gsd / H), total = data.grid.length;
-  $('floodcard').innerHTML = `<h3>Flood scenario</h3>
+  $('floodcard').innerHTML = `<h3>Flood scenario <button class="x" title="Close">×</button></h3>
     <div class="big">${data.dtm ? L.toFixed(1) + ' m <span>water level above sea level</span>' : r.toFixed(1) + ' m <span>of water above ground</span>'}</div>
     ${data.dtm ? `<div class="row"><span>Rise above lowest ground</span><b>${r.toFixed(1)} m</b></div>` : ''}
     <div class="row"><span><i class="sw" style="background:#2f7fe0"></i>Ground under water</span><b>${(100 * wetGround / total).toFixed(0)}% · ${(wetGround * cellM2 / 1e4).toFixed(1)} ha</b></div>
@@ -938,16 +1205,19 @@ function renderFlood() {
     ${mode === 'pick' ? `<div class="btns" style="margin-top:8px"><button id="fpick" class="${pick.mode === 'src' ? 'on' : ''}">${pick.mode === 'src' ? '✓ Done placing' : '＋ Place water sources'}</button>
       <button id="fclear" ${nSrc ? '' : 'disabled'}>Clear sources</button></div>
       ${nSrc ? '' : '<div class="msg warn">Click “Place water sources”, then click the map where water comes in (a river, a canal, a breached embankment).</div>'}` : ''}
+    ${peopleFloodRow(L)}
     <small>${nAll} building blocks from the model's land-cover head (attached buildings count as one), ~${m.floor_m} m per floor. ${model} `
     + (data.dtm ? `Terrain: ${terrainLabel()} (30 m, about ±2–4 m)${laserShift() != null ? ', levelled to ICESat-2 laser points' : ''}.`
                 : 'No terrain for this image: flat ground and one uniform water depth.') + ' Heights carry ± model uncertainty. Hover or click a point to see the water level at which it floods.</small>';
   drawOverlay();
+  floodChanged();
 }
 function updateFlood() {
   const on = $('flood').checked;
   $('floodcard').hidden = !on || !data;
   $('layer').disabled = on; $('tex3d').disabled = on;
-  water.visible = on;
+  if (on && !$('flowcard').hidden) toggleTool('flowcard', false);   // one water model at a time
+  water.visible = on || flowShown();
   if (!on) {
     if (pick.mode === 'src') setPick(null);
     if (!$('timecard').hidden && data) { data.tl = null; $('depth').value = data.tlStart; }
@@ -1078,11 +1348,14 @@ function setPick(mode) {
   $('wrap').style.cursor = mode ? 'copy' : '';
   showHint(mode === 'src' ? 'Click where water comes in (river, canal, breached embankment) · <b>✓ Done placing</b> when finished'
     : mode === 'gcp' ? 'Click points of known elevation, then type their heights in the card · <b>✓ Done adding</b> when finished'
+    : TOOL_HINTS[mode] ? TOOL_HINTS[mode]()
     : mode ? `Click the scene to place <b>${mode}</b>` : undefined);
+  syncPickButtons();
   routeMsg();
 }
 function onPick(u, v) {        // → true if the click was used by a tool
   if (!pick.mode || !data || u < 0 || u > 1 || v < 0 || v > 1) return false;
+  if (toolPick(u, v)) return true;
   const i = cellAt(u, v), R = data.route;
   if (pick.mode === 'src') { data.sources.push(i); reachChanged(); return true; }
   if (pick.mode === 'gcp') {
@@ -1101,11 +1374,12 @@ function onPick(u, v) {        // → true if the click was used by a tool
 function layoutCards() {
   const any = !$('cards').hidden && [...$('cards').children].some(c => !c.hidden);
   document.querySelector('.stage').classList.toggle('cardson', any);
+  for (const b of document.querySelectorAll('#toolbar [data-tool]')) b.classList.toggle('on', !$(b.dataset.tool).hidden);
 }
 
 // ----- route finder: A* on the grid (8-connected), cost = distance × land cover × slope × water depth -----
-function travelCost(L) {       // per cell: cost factor (1 = dry paved road, Infinity = impassable) and water depth at level L
-  const N = data.grid.length, tr = TRAVEL[$('rmode').value], maxD = Math.max(0, +$('rdepth').value || 0), g = groundGrid();
+function travelCost(L, how = $('rmode').value, limit = +$('rdepth').value) {   // per cell: cost factor (1 = dry paved road, Infinity = impassable) and water depth at level L
+  const N = data.grid.length, tr = TRAVEL[how], maxD = Math.max(0, limit || 0), g = groundGrid();
   const f = new Float32Array(N), depth = new Float32Array(N);
   for (let i = 0; i < N; i++) {
     const lc = data.lc ? data.lc[i] : 2;
@@ -1245,7 +1519,8 @@ function drawOverlay() {
   const ctx = c.getContext('2d');
   ctx.clearRect(0, 0, c.width, c.height);
   const xy = i => [(i % W + 0.5) * s, (Math.floor(i / W) + 0.5) * s];
-  if (mode === 'validate') return drawValOverlay(ctx, c, W, H);
+  if (mode === 'validate') { drawValOverlay(ctx, c, W, H); return toolOverlay(ctx, c, W, H, xy); }
+  toolRasters(ctx, c);
   const R = data.route, routeOn = !$('routecard').hidden, S = !$('sitecard').hidden && data.sites;
   const label = (x, y, txt, col) => {
     ctx.font = 'bold 17px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1290,6 +1565,7 @@ function drawOverlay() {
     if (R.a != null) dot(R.a, '#2e9e5b', 'A');
     if (R.kind === 'ab' && R.b != null) dot(R.b, '#d64545', 'B');
   }
+  toolOverlay(ctx, c, W, H, xy);
 }
 function drawMarks3D() {
   for (const o of marks.children) { o.geometry.dispose(); o.material.dispose(); }
@@ -1304,6 +1580,7 @@ function drawMarks3D() {
     const [[x, z]] = routeCells([i], 1), b = new THREE.Mesh(new THREE.SphereGeometry(r, 16, 12), new THREE.MeshBasicMaterial({ color }));
     b.position.set(x, at(x, z) + r, z); marks.add(b);
   };
+  toolMarks3D(at, r, k);
   if (mode === 'validate') { for (const p of data.gcpPts) ball(cellAt(p.u, p.v), 0xff7ad9); return; }
   if ($('flood').checked && $('fsrc').value === 'pick') for (const i of data.sources) ball(i, 0x2f7fe0);
   const S = !$('sitecard').hidden && data.sites;
@@ -1672,7 +1949,7 @@ $('sout').onclick = e => {      // "Route here": the site becomes route point B
 let mode = 'explore';
 function updateControls() {    // a control shows when its mode (data-mode), view (.c2d / .c3d) and needs all match
   const view = document.querySelector('#views .on').dataset.v, flood = $('flood').checked;
-  for (const el of $('controls').children) {
+  for (const el of [...$('controls').children, ...$('toolbar').children]) {
     const modes = el.dataset.mode ? el.dataset.mode.split(' ') : null;
     el.hidden = (modes && !modes.includes(mode)) || (el.classList.contains('c2d') && view !== 'v2d')
       || (el.classList.contains('c3d') && view !== 'v3d') || (el.classList.contains('cflood') && !flood)
@@ -1694,6 +1971,8 @@ function setMode(m) {
     if ($('flood').checked) { $('flood').checked = false; updateFlood(); }
   }
   $('valcard').hidden = $('gcpcard').hidden = m !== 'validate';
+  for (const b of document.querySelectorAll('#toolbar [data-tool]'))   // a mode's own tools close when you leave it
+    if (b.dataset.mode !== m && !$(b.dataset.tool).hidden && !['valcard', 'gcpcard'].includes(b.dataset.tool)) toggleTool(b.dataset.tool, false);
   updateControls(); layoutCards();
   if (!data) return;
   if (m === 'validate') { renderValidation(); renderGcp(); }
@@ -1850,7 +2129,7 @@ async function runValidation(url, body, label) {
     }
     vmsg(`Done: ${VKEYS[j.key]}.`);
   } catch (e) { vmsg(`<span class="warn">${e.message}</span>`); }
-  finally { $('vrun').disabled = false; renderValidation(); }
+  finally { $('vrun').disabled = false; renderValidation(); renderErr(); }
 }
 $('vrun').onclick = () => {
   const f = $('vfile').files[0];
@@ -1866,7 +2145,7 @@ $('vlayer').onchange = e => { e.target.blur(); if (!data) return; updateControls
 
 // ---------- calibrate with ground control points ----------
 function modelHeightAt(u, v) {  // uncalibrated model value at a point: terrain + height (relative without terrain)
-  const g = corrOn() ? data.gridCorr : data.gridRaw;
+  const g = data.gridClass || (corrOn() ? data.gridCorr : data.gridRaw);
   return (data.dtmRaw ? sampleAt(data.dtmRaw, u, v) : 0) + Math.max(0, sampleAt(g, u, v));
 }
 function renderGcp() {
@@ -1927,6 +2206,1312 @@ $('gclear').onclick = async () => {
 };
 $('gcpon').onchange = () => data && rebuildScene();
 
+// =====================================================================================================
+// Tools in the toolbar. Each tool is a card the toolbar opens (toggleTool); its state for the current scene lives
+// in T (reset per scene), its map layer in rasterLayers() / toolOverlay() / toolMarks3D(), hover text in toolText().
+// =====================================================================================================
+let T = {};
+const CARD_BTN = { routecard: 'routebtn', sitecard: 'sitebtn', timecard: 'timebtn' };
+const PICK_OWNER = { los: 'loscard', vol: 'volcard', shadow: 'shadowcard', flowsrc: 'flowcard' };
+const TOOL_OPEN = {}, TOOL_CLOSE = {};
+const fmtN = (v, d = 0) => (+v).toLocaleString('en-IN', { maximumFractionDigits: d, minimumFractionDigits: d });
+const fmtM3 = v => v >= 1e6 ? `${(v / 1e6).toFixed(2)} million m³` : `${fmtN(Math.round(v))} m³`;
+const fmtLen = v => v < 1000 ? `${Math.round(v)} m` : `${(v / 1000).toFixed(2)} km`;
+const fmtHa = m2 => m2 < 1e4 ? `${fmtN(Math.round(m2))} m²` : `${(m2 / 1e4).toFixed(1)} ha`;
+const row = (k, v, title) => `<div class="row"${title ? ` title="${title}"` : ''}><span>${k}</span><b>${v}</b></div>`;
+const kpi = (v, l, t = '') => `<div class="kpi" title="${t}"><b>${v}</b><span>${l}</span></div>`;
+const median = a => { if (!a.length) return NaN; const s = Float64Array.from(a).sort(); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+const clampI = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+function gridInfo() { const m = data.meta, W = m.grid_w, H = m.grid_h; return { m, W, H, N: W * H, dx: m.width * m.gsd / W, dy: m.height * m.gsd / H }; }
+function surfaceGrid() { const g = groundGrid(), s = new Float32Array(g.length); for (let i = 0; i < g.length; i++) s[i] = g[i] + Math.max(0, data.grid[i]); return s; }
+function cellUV(i) { const { W, H } = gridInfo(), x = i % W; return [(x + 0.5) / W, (Math.floor(i / W) + 0.5) / H]; }
+function cellOfUV(u, v) { const { W, H } = gridInfo(); return clampI(Math.floor(v * H), 0, H - 1) * W + clampI(Math.floor(u * W), 0, W - 1); }
+function lonlatAt(u, v) {      // bilinear between the image corners (exact enough within one scene)
+  const c = data.meta.corners_lonlat;
+  if (!c) return null;
+  const [tl, tr, br, bl] = c, top = [tl[0] + (tr[0] - tl[0]) * u, tl[1] + (tr[1] - tl[1]) * u], bot = [bl[0] + (br[0] - bl[0]) * u, bl[1] + (br[1] - bl[1]) * u];
+  return [top[0] + (bot[0] - top[0]) * v, top[1] + (bot[1] - top[1]) * v];
+}
+function blockCells() {        // building id -> its grid cells
+  if (data._bc) return data._bc;
+  const bc = data._bc = Array.from({ length: data.buildings.length + 1 }, () => []);
+  for (let i = 0; i < data.bid.length; i++) if (data.bid[i] > 0) bc[data.bid[i]].push(i);
+  return bc;
+}
+function blockRims() {         // building id -> cells just outside it (where people come out)
+  if (data._rim) return data._rim;
+  const { W, H } = gridInfo(), bc = blockCells();
+  data._rim = bc.map((cells, id) => {
+    const s = new Set();
+    for (const i of cells) { const x = i % W, y = (i - x) / W;
+      for (let d = 0; d < 4; d++) { const nx = x + NX[d], ny = y + NY[d];
+        if (nx >= 0 && ny >= 0 && nx < W && ny < H && data.bid[ny * W + nx] !== id) s.add(ny * W + nx); } }
+    return [...s];
+  });
+  return data._rim;
+}
+function downloadText(text, name, type = 'text/plain') { download(URL.createObjectURL(new Blob([text], { type })), name); }
+function classScale() {
+  const c = data && data.meta.class_scale;
+  return c && data.lc && $('fixon').checked ? { buildings: +c.buildings || 1, trees: +c.trees || 1 } : null;
+}
+function pm(u) {               // "± x m": the raw 4-flip spread, or a calibrated error bar once one is chosen
+  const c = data && data.meta.conformal;
+  return c ? `± ${(c.k * (u + c.u0)).toFixed(1)} m (${Math.round(+c.level * 100)} %)` : `± ${u.toFixed(1)} m`;
+}
+
+// ----- opening / closing tools, toolbar, close buttons
+function toggleTool(id, on) {
+  const card = $(id);
+  on = on ?? card.hidden;
+  if (on === !card.hidden) return;
+  card.hidden = !on;
+  layoutCards();
+  if (!on && pick.mode && PICK_OWNER[pick.mode] === id) setPick(null);
+  if (on) { if (data) TOOL_OPEN[id]?.(); card.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+  else if (data) TOOL_CLOSE[id]?.();
+  layersChanged();
+}
+function layersChanged() { if (!data) return; drawOverlay(); drawMarks3D(); refreshSurface(); }
+$('toolbar').addEventListener('click', e => {
+  const b = e.target.closest('[data-tool]');
+  if (!b) return;
+  b.blur(); toggleTool(b.dataset.tool);
+});
+$('cards').addEventListener('click', e => {
+  if (!e.target.classList.contains('x')) return;
+  const id = e.target.closest('.floodcard').id;
+  if (id === 'floodcard') { $('flood').checked = false; return updateFlood(); }
+  if (CARD_BTN[id]) return $(CARD_BTN[id]).click();
+  toggleTool(id, false);
+});
+const TOOL_HINTS = {
+  los: () => 'Click places for observers (tower, post, siren) · <b>✓ Done</b> in the card when finished',
+  vol: () => `Click the corners of the outline (<b>${T.vol ? T.vol.pts.length : 0}</b> so far) · <b>✓ Done</b> closes it`,
+  shadow: () => T.shadow && T.shadow.a ? 'Now click the <b>far end</b> of the shadow' : 'Click where a building <b>meets its shadow</b>, then the far end of the shadow',
+  flowsrc: () => 'Click where water comes in (breach, river, drain outlet) · <b>✓ Done</b> when finished',
+};
+function syncPickButtons() {
+  const set = (id, m, on, off) => { const b = $(id); b.classList.toggle('on', pick.mode === m); b.textContent = pick.mode === m ? on : off; };
+  set('losadd', 'los', '✓ Done', '＋ Place observers'); set('voldraw', 'vol', '✓ Done', '✎ Draw outline');
+  set('shpick', 'shadow', '✓ Done measuring', '📏 Measure a shadow'); set('flpick', 'flowsrc', '✓ Done', '＋ Place inflow points');
+}
+function toolPick(u, v) {
+  if (pick.mode === 'los') { T.los.obs.push(cellOfUV(u, v)); computeLOS(); return true; }
+  if (pick.mode === 'vol') { T.vol.pts.push([u, v]); renderVolume(); drawOverlay(); drawMarks3D(); showHint(TOOL_HINTS.vol()); return true; }
+  if (pick.mode === 'shadow') { shadowClick(u, v); return true; }
+  if (pick.mode === 'flowsrc') { T.flow.src.push([u, v]); renderFlow(); drawOverlay(); drawMarks3D(); return true; }
+  return false;
+}
+function toolPathChanged() { if (data && !$('dronecard').hidden) renderDrone(); }
+
+// ----- map layers of the open tools
+function rasterLayers() {
+  if (!data) return [];
+  const on = id => !$(id).hidden, L = [];
+  for (const [id, k] of [['slidecard', 'slide'], ['dmgcard', 'dmg'], ['flowcard', 'flow'], ['obscard', 'obs'], ['loscard', 'los'], ['solarcard', 'solar'], ['evaccard', 'evac']])
+    if (on(id) && T[k] && T[k].cv) L.push(T[k].cv);
+  return L;
+}
+function toolRasters(ctx, c) {
+  for (const cv of rasterLayers()) { ctx.imageSmoothingEnabled = !!cv.smooth; ctx.drawImage(cv, 0, 0, c.width, c.height); }
+  ctx.imageSmoothingEnabled = true;
+}
+function composeLayers(base) {  // 3D texture: the surface with the WMS map and the tool layers on top
+  if (!data || !T.los) return base;
+  const L = rasterLayers(), wms = T.wms && T.wms.on && T.wms.img;
+  if (!L.length && !wms) return base;
+  const w = base.naturalWidth || base.width, h = base.naturalHeight || base.height;
+  const cv = T.texCv || (T.texCv = document.createElement('canvas'));
+  if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+  const c = cv.getContext('2d');
+  c.globalAlpha = 1; c.drawImage(base, 0, 0, w, h);
+  if (wms) { c.globalAlpha = +$('wmsop').value; c.drawImage(T.wms.img, 0, 0, w, h); }
+  for (const l of L) { c.imageSmoothingEnabled = !!l.smooth; c.globalAlpha = 0.85; c.drawImage(l, 0, 0, w, h); }
+  c.globalAlpha = 1; c.imageSmoothingEnabled = true;
+  return cv;
+}
+function toolOverlay(ctx, c, W, H) {   // vector marks on the 2D map
+  if (!data || !T.los) return;
+  const P = (u, v) => [u * c.width, v * c.height], on = id => !$(id).hidden;
+  const line = (pts, w, col, close, dash) => {
+    if (pts.length < 2) return;
+    ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); if (close) ctx.closePath();
+    ctx.setLineDash(dash || []); ctx.lineJoin = ctx.lineCap = 'round';
+    ctx.lineWidth = w + 3; ctx.strokeStyle = 'rgba(0,0,0,.6)'; ctx.stroke(); ctx.lineWidth = w; ctx.strokeStyle = col; ctx.stroke(); ctx.setLineDash([]);
+  };
+  const dot = (x, y, r, col, txt) => {
+    ctx.beginPath(); ctx.arc(x, y, r, 0, 2 * Math.PI); ctx.fillStyle = col; ctx.fill(); ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; ctx.stroke();
+    if (txt) { ctx.fillStyle = '#111'; ctx.font = `bold ${Math.round(r * 1.1)}px sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(txt, x, y + 0.5); }
+  };
+  if (nav.path.length) line(nav.path.map(p => P(...uvOf(p.x, p.y))), 3, '#ffb020', false, [10, 6]);
+  if (nav.drawing) nav.path.forEach(p => dot(...P(...uvOf(p.x, p.y)), 6, '#ffb020'));
+  if (on('dronecard') && T.drone) T.drone.wps.forEach((w, k) => dot(...P(w.u, w.v), 7, w.agl > T.drone.lim ? '#e5484d' : '#ffb020', k === 0 ? '⌂' : ''));
+  if (on('loscard')) T.los.obs.forEach(i => { const [u, v] = cellUV(i); dot(...P(u, v), 13, '#4fe08a', '👁'); });
+  if (on('volcard') && T.vol.pts.length) {
+    const pts = T.vol.pts.map(([u, v]) => P(u, v));
+    if (pts.length > 2 && pick.mode !== 'vol') { ctx.beginPath(); pts.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fillStyle = 'rgba(255,176,32,.18)'; ctx.fill(); }
+    line(pts, 3, '#ffb020', pick.mode !== 'vol'); pts.forEach(([x, y]) => dot(x, y, 5, '#ffb020'));
+  }
+  if (on('shadowcard')) {
+    for (const m of T.shadow.meas) { const a = P(...m.a), b = P(...m.b); line([a, b], 3, '#ff7ad9'); dot(...a, 5, '#ff7ad9'); dot(...b, 5, '#fff'); }
+    if (T.shadow.a) dot(...P(...T.shadow.a), 6, '#ff7ad9');
+    if (T.shadow.auto) for (const s of T.shadow.auto) { const b = data.buildings[s.id - 1]; if (b) { const [x, y] = P(b.cx, b.cy);
+      ctx.font = 'bold 15px sans-serif'; ctx.textAlign = 'center'; ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(0,0,0,.75)';
+      const t = `${s.H.toFixed(0)} m`; ctx.strokeText(t, x, y); ctx.fillStyle = '#ff7ad9'; ctx.fillText(t, x, y); } }
+  }
+  if (on('flowcard')) T.flow.src.forEach(([u, v]) => dot(...P(u, v), 12, '#2f7fe0', '≋'));
+}
+function toolMarks3D(at, r, k) {
+  if (!data || !T.los) return;
+  const on = id => !$(id).hidden, add = o => marks.add(o);
+  const ball = (x, z, y, color, s = 1) => { const b = new THREE.Mesh(new THREE.SphereGeometry(r * s, 16, 12), new THREE.MeshBasicMaterial({ color })); b.position.set(x, y, z); add(b); };
+  const xz = (u, v) => [(u - 0.5) * sceneW(), (v - 0.5) * sceneH()];
+  if (on('loscard')) for (const i of T.los.obs) { const [x, z] = xz(...cellUV(i)); ball(x, z, at(x, z) + (+$('losh').value || 0) * k, 0x4fe08a, 1.2); }
+  if (on('flowcard')) for (const [u, v] of T.flow.src) { const [x, z] = xz(u, v); ball(x, z, at(x, z) + r, 0x2f7fe0); }
+  if (on('dronecard') && T.drone && T.drone.wps.length > 1) {
+    const pts = T.drone.wps.map(w => { const [x, z] = xz(w.u, w.v); return new THREE.Vector3(x, (w.alt - data.gmin) * k, z); });
+    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffb020 })));
+    T.drone.wps.forEach((w, j) => ball(pts[j].x, pts[j].z, pts[j].y, w.agl > T.drone.lim ? 0xe5484d : 0xffb020, 0.6));
+  }
+  if (on('volcard') && T.vol.pts.length > 1) {
+    const pts = T.vol.pts.map(([u, v]) => { const [x, z] = xz(u, v); return new THREE.Vector3(x, at(x, z) + r * 0.5, z); });
+    if (pick.mode !== 'vol') pts.push(pts[0].clone());
+    add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), new THREE.LineBasicMaterial({ color: 0xffb020 })));
+  }
+}
+function toolText(u, v, sep) {  // hover / click text from the open tools
+  if (!T.los) return '';
+  const on = id => !$(id).hidden, i = cellOfUV(u, v);
+  let t = '';
+  if (on('loscard') && T.los.vis) t += sep + ['out of range', 'hidden from the observers', 'visible from an observer'][T.los.vis[i]];
+  if (on('slidecard') && T.slide && T.slide.cls) { const c = T.slide.cls[i]; if (c >= 0) t += `${sep}landslide risk: ${SLIDE_CLS[c][1]} (score ${T.slide.score[i].toFixed(1)})`; }
+  if (on('dmgcard') && T.dmg && T.dmg.dh) {
+    const bb = T.dmg.bidb[i], rb = bb > 0 && T.dmg.byId.get(bb);
+    if (rb) t += `${sep}before: ${rb.before_m.toFixed(1)} m → after ${rb.after_m.toFixed(1)} m (${T.dmg.cls.get(bb)})`;
+    else if (Number.isFinite(T.dmg.dh[i]) && Math.abs(T.dmg.dh[i]) >= 1) t += `${sep}height change ${T.dmg.dh[i] > 0 ? '+' : ''}${T.dmg.dh[i].toFixed(1)} m`;
+  }
+  if (on('flowcard') && T.flow.sim) { const d = flowDepthAt(u, v), a = flowArrivalAt(u, v);
+    t += `${sep}flowing water: ${d > 0.05 ? d.toFixed(2) + ' m deep' : 'dry'} at ${fmtClock(T.flow.k)}${a < Infinity ? ` · wet after ${fmtDur(a)}` : ''}`; }
+  if (on('obscard') && T.obs && T.obs.grid) { const o = T.obs.grid[i]; if (Number.isFinite(o)) t += `${sep}satellite: ${o > 0.5 ? 'water' : 'dry'}`; }
+  return t;
+}
+function toolBuildingText(b, sep) {
+  if (!T.los) return '';
+  let t = '';
+  if (mode === 'disaster' || !$('peoplecard').hidden) t += `${sep}~${fmtN(Math.round(residents(b)))} residents (estimate)`;
+  if (!$('evaccard').hidden && T.evac && T.evac.who) { const a = T.evac.who.get(b.id);
+    if (a) t += sep + (a.camp != null ? `evacuate to C${a.camp + 1}, ≈ ${Math.round(a.min)} min` : a.full ? 'no camp space left (grey)' : 'no dry route: needs boat or air rescue'); }
+  if (!$('solarcard').hidden && T.solar) { const s = T.solar.byId.get(b.id); if (s) t += `${sep}solar ≈ ${fmtN(s.kWh / 1000, 1)} MWh/yr (${s.kWp.toFixed(1)} kWp, ${Math.round(s.shade * 100)} % shaded)`; }
+  return t;
+}
+
+// ===================================================== EXPLORE ==========================================
+// ----- line of sight (viewshed): rays from each observer to the edge of its range, running maximum of the
+// elevation angle of the surface (terrain + heights); a cell is visible if the target on it rises above it
+function computeLOS() {
+  if (!T.los.obs.length) { T.los.vis = T.los.cv = null; renderLOS(); return layersChanged(); }
+  const { W, H, N, dx, dy } = gridInfo(), Z = surfaceGrid();
+  const hO = Math.max(0, +$('losh').value || 0), hT = Math.max(0, +$('lost').value || 0), R = Math.max(10, +$('losr').value || 1000);
+  const vis = new Uint8Array(N);       // 0 out of range, 1 hidden, 2 visible
+  for (const o of T.los.obs) {
+    const ox = o % W, oy = (o - ox) / W, zo = Z[o] + hO, rx = Math.ceil(R / dx), ry = Math.ceil(R / dy);
+    const x0 = Math.max(0, ox - rx), x1 = Math.min(W - 1, ox + rx), y0 = Math.max(0, oy - ry), y1 = Math.min(H - 1, oy + ry);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (!vis[y * W + x] && Math.hypot((x - ox) * dx, (y - oy) * dy) <= R) vis[y * W + x] = 1;
+    vis[o] = 2;
+    const ray = (tx, ty) => {
+      const n = Math.max(Math.abs(tx - ox), Math.abs(ty - oy));
+      let maxS = -Infinity;
+      for (let s = 1; s <= n; s++) {
+        const x = Math.round(ox + (tx - ox) * s / n), y = Math.round(oy + (ty - oy) * s / n), i = y * W + x, d = Math.hypot((x - ox) * dx, (y - oy) * dy);
+        if (d > R) break;
+        if ((Z[i] + hT - zo) / d >= maxS) vis[i] = 2;
+        const gs = (Z[i] - zo) / d;
+        if (gs > maxS) maxS = gs;
+      }
+    };
+    for (let x = x0; x <= x1; x++) { ray(x, y0); ray(x, y1); }
+    for (let y = y0; y <= y1; y++) { ray(x0, y); ray(x1, y); }
+  }
+  const cv = Object.assign(document.createElement('canvas'), { width: W, height: H }), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+  let inR = 0, seen = 0, far = 0;
+  const seenB = new Set(), inB = new Set(), o0 = T.los.obs[0], ox = o0 % W, oy = (o0 - ox) / W;
+  for (let i = 0; i < N; i++) {
+    if (!vis[i]) continue;
+    inR++; if (data.bid[i] > 0) inB.add(data.bid[i]);
+    if (vis[i] === 2) { seen++; if (data.bid[i] > 0) seenB.add(data.bid[i]); const x = i % W; far = Math.max(far, Math.hypot((x - ox) * dx, ((i - x) / W - oy) * dy)); img.data.set([79, 224, 138, 120], i * 4); }
+    else img.data.set([10, 12, 20, 165], i * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  Object.assign(T.los, { vis, cv, inR, seen, far, seenB: seenB.size, inB: inB.size, cell: dx * dy });
+  renderLOS(); layersChanged();
+}
+function renderLOS() {
+  const L = T.los;
+  if (!L.obs.length) return void ($('losout').innerHTML = '<div class="msg">No observers yet.</div>');
+  $('losout').innerHTML = `<div class="kpis">${kpi(Math.round(100 * L.seen / Math.max(1, L.inR)) + ' %', 'of the range visible')}${kpi(fmtHa(L.seen * L.cell), 'visible area')}`
+    + `${kpi(`${L.seenB} / ${L.inB}`, 'buildings seen', 'Building blocks with any visible roof cell, out of those in range')}</div>`
+    + row('Observers', `${L.obs.length} at ${$('losh').value} m above the surface`) + row('Farthest visible point (observer 1)', fmtLen(L.far))
+    + '<small>Green = visible, dark = hidden by terrain, buildings or trees. Uses the model\'s heights (± their uncertainty) and the 30 m terrain; earth curvature ignored (under 0.1 m within 1 km).</small>';
+}
+TOOL_OPEN.loscard = () => { if (!T.los.obs.length) setPick('los'); computeLOS(); };
+for (const id of ['losh', 'lost', 'losr']) $(id).oninput = () => { clearTimeout(T.losT); T.losT = setTimeout(computeLOS, 200); };
+$('losadd').onclick = () => setPick(pick.mode === 'los' ? null : 'los');
+$('losclear').onclick = () => { T.los.obs = []; computeLOS(); };
+
+// ----- volume & area inside a drawn outline
+function computeVolume() {
+  const P = T.vol.pts;
+  if (P.length < 3) return null;
+  const { W, H, dx, dy } = gridInfo(), A = dx * dy, S = surfaceGrid(), g = groundGrid(), how = $('volbase').value;
+  const xs = P.map(p => p[0] * W), ys = P.map(p => p[1] * H);
+  const inside = (px, py) => { let c = false; for (let a = 0, b = P.length - 1; a < P.length; b = a++)
+    if ((ys[a] > py) !== (ys[b] > py) && px < (xs[b] - xs[a]) * (py - ys[a]) / (ys[b] - ys[a]) + xs[a]) c = !c; return c; };
+  const edge = [];
+  let perim = 0;
+  for (let a = 0; a < P.length; a++) {
+    const b = (a + 1) % P.length, len = Math.hypot((P[b][0] - P[a][0]) * sceneW(), (P[b][1] - P[a][1]) * sceneH()), n = Math.max(2, Math.ceil(len / Math.min(dx, dy)));
+    perim += len;
+    for (let k = 0; k < n; k++) { const u = P[a][0] + (P[b][0] - P[a][0]) * k / n, v = P[a][1] + (P[b][1] - P[a][1]) * k / n; edge.push(S[cellOfUV(u, v)]); }
+  }
+  const base = how === 'edge' ? median(edge) : how === 'level' ? +$('vollev').value || 0 : null;
+  let n = 0, above = 0, below = 0, top = -Infinity;
+  const x0 = Math.max(0, Math.floor(Math.min(...xs))), x1 = Math.min(W - 1, Math.ceil(Math.max(...xs))), y0 = Math.max(0, Math.floor(Math.min(...ys))), y1 = Math.min(H - 1, Math.ceil(Math.max(...ys)));
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!inside(x + 0.5, y + 0.5)) continue;
+    const i = y * W + x, d = S[i] - (base ?? g[i]);
+    n++; if (d > 0) above += d * A; else below -= d * A; top = Math.max(top, d);
+  }
+  return { n, area: n * A, perim, above, below, base, top, how };
+}
+function renderVolume() {
+  const r = T.vol.res = computeVolume(), how = $('volbase').value;
+  $('vollevwrap').hidden = how !== 'level';
+  if (!r) return void ($('volout').innerHTML = `<div class="msg">${T.vol.pts.length ? `${T.vol.pts.length} corner${T.vol.pts.length > 1 ? 's' : ''}: add at least 3.` : 'No outline yet.'}</div>`);
+  const ref = how === 'edge' ? `the ground along the outline (${r.base.toFixed(1)} m${data.dtm ? ' a.s.l.' : ''})` : how === 'level' ? `the level ${r.base.toFixed(1)} m` : 'bare ground';
+  $('volout').innerHTML = `<div class="kpis">${kpi(fmtM3(r.above), 'above')}${how !== 'ground' ? kpi(fmtM3(r.below), how === 'level' ? 'capacity below' : 'below') : ''}${kpi(fmtHa(r.area), 'area')}</div>`
+    + row('Measured against', ref) + row('Highest point above it', `${Math.max(0, r.top).toFixed(1)} m`) + row('Outline length', fmtLen(r.perim))
+    + (r.above > 20 ? row('Truck trips to remove (10 m³ each)', `≈ ${fmtN(Math.ceil(r.above / 10))}`) : '')
+    + (how === 'level' && r.below > 0 ? row('Water it can hold up to that level', `≈ ${fmtN(r.below / 1000, 1)} million litres`) : '')
+    + `<small>From the surface model (terrain + the model's heights) on cells of ${Math.sqrt(gridInfo().dx * gridInfo().dy).toFixed(1)} m. Heights carry the model's uncertainty, so treat volumes as ± 20–30 %.</small>`;
+}
+TOOL_OPEN.volcard = () => { if (!T.vol.pts.length) setPick('vol'); renderVolume(); };
+$('voldraw').onclick = () => { if (pick.mode === 'vol') setPick(null); else { if (T.vol.pts.length > 2) T.vol.pts = []; setPick('vol'); } renderVolume(); layersChanged(); };
+$('volclear').onclick = () => { T.vol.pts = []; setPick('vol'); renderVolume(); layersChanged(); };
+$('volbase').onchange = $('vollev').oninput = () => renderVolume();
+
+// ----- drone flight plan
+function dronePolyline() {
+  if ($('drsrc').value === 'route') { const r = data.route.res; return r ? routeCells(r.path, 1) : []; }
+  return nav.path.map(p => [p.x, p.y]);
+}
+function computeDrone() {
+  const line = dronePolyline();
+  if (line.length < 2) return T.drone = null;
+  const { W, H, dx, dy } = gridInfo(), S = surfaceGrid(), g = groundGrid();
+  const clr = Math.max(0, +$('drclr').value || 30), buf = Math.max(0, +$('drbuf').value || 0), step = Math.max(5, +$('drstep').value || 25);
+  const speed = Math.max(1, +$('drspeed').value || 8), lim = +$('drmax').value || 120;
+  const pts = [line[0]];
+  let len = 0, carry = 0;
+  for (let k = 1; k < line.length; k++) {
+    const [ax, az] = line[k - 1], [bx, bz] = line[k], seg = Math.hypot(bx - ax, bz - az);
+    let t = step - carry;
+    while (t < seg) { pts.push([ax + (bx - ax) * t / seg, az + (bz - az) * t / seg]); t += step; }
+    carry = seg - (t - step); len += seg;
+  }
+  pts.push(line.at(-1));
+  const rx = Math.ceil(buf / dx), ry = Math.ceil(buf / dy);
+  const wps = pts.map(([x, z]) => {
+    const [u, v] = uvOf(x, z), cx = clampI(Math.floor(u * W), 0, W - 1), cy = clampI(Math.floor(v * H), 0, H - 1);
+    let top = S[cy * W + cx];
+    for (let yy = Math.max(0, cy - ry); yy <= Math.min(H - 1, cy + ry); yy++) for (let xx = Math.max(0, cx - rx); xx <= Math.min(W - 1, cx + rx); xx++)
+      if (Math.hypot((xx - cx) * dx, (yy - cy) * dy) <= buf) top = Math.max(top, S[yy * W + xx]);
+    const ground = g[cy * W + cx], alt = top + clr;
+    return { x, z, u, v, top, ground, alt, agl: alt - ground, ll: lonlatAt(u, v) };
+  });
+  const home = wps[0].ground;
+  for (const w of wps) w.rel = w.alt - home;
+  return T.drone = { wps, len, time: len / speed, speed, lim, home, maxAgl: Math.max(...wps.map(w => w.agl)), over: wps.filter(w => w.agl > lim).length };
+}
+function renderDrone() {
+  const D = computeDrone(), geo = !!data.meta.corners_lonlat;
+  for (const id of ['drkml', 'drplan']) $(id).disabled = !D || !geo;
+  $('drcsv').disabled = !D;
+  if (!D) {
+    $('drout').innerHTML = `<div class="msg">${$('drsrc').value === 'route' ? 'No route yet: find one with <b>⤳ Route</b> in Disaster tools, or switch to “my drawn path”.'
+      : 'Click <b>✎ Draw path</b> and click points on the map (2D or 3D), then <b>✓ Done</b>.'}</div>`;
+  } else {
+    $('drout').innerHTML = `<div class="kpis">${kpi(D.wps.length, 'waypoints')}${kpi(fmtLen(D.len), 'distance')}${kpi(`${Math.ceil(D.time / 60)} min`, 'flight time', `at ${D.speed} m/s, without take-off and landing`)}</div>`
+      + row('Highest above ground', `${Math.round(D.maxAgl)} m`) + row('Highest above take-off', `${Math.round(Math.max(...D.wps.map(w => w.rel)))} m`)
+      + (data.dtm ? row('Take-off ground level', `${D.home.toFixed(0)} m a.s.l.`) : '')
+      + (D.over ? `<div class="msg warn">${D.over} waypoint${D.over > 1 ? 's are' : ' is'} above the ${D.lim} m limit (red): lower the clearance, or get airspace permission.</div>` : '<div class="msg ok">All waypoints within the height limit.</div>')
+      + (geo ? '' : '<div class="msg warn">No georeferencing: only the CSV (local metres) can be exported.</div>')
+      + `<small>Altitude at each waypoint = the tallest roof, tree or ground within ${$('drbuf').value} m, plus ${$('drclr').value} m. Heights come from one satellite image (± their uncertainty) and miss wires, masts and new construction: keep a visual line of sight and check the Digital Sky airspace map.</small>`;
+  }
+  layersChanged();
+}
+function droneKML() {
+  const D = T.drone, abs = !!data.dtm, mode = abs ? 'absolute' : 'relativeToGround', c = w => `${w.ll[0].toFixed(7)},${w.ll[1].toFixed(7)},${(abs ? w.alt : w.agl).toFixed(1)}`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>${data.name} drone plan (DepthWizard)</name>
+<Style id="p"><LineStyle><color>ff20b0ff</color><width>3</width></LineStyle></Style>
+<Placemark><name>Flight path</name><styleUrl>#p</styleUrl><LineString><altitudeMode>${mode}</altitudeMode><coordinates>${D.wps.map(c).join(' ')}</coordinates></LineString></Placemark>
+${D.wps.map((w, k) => `<Placemark><name>WP${k + 1}</name><description>${w.agl.toFixed(0)} m above ground</description><Point><altitudeMode>${mode}</altitudeMode><coordinates>${c(w)}</coordinates></Point></Placemark>`).join('\n')}
+</Document></kml>`;
+}
+function dronePlan() {      // QGroundControl mission: take-off, waypoints (altitude relative to the take-off point), return to launch
+  const D = T.drone, it = (k, cmd, p, alt) => ({ type: 'SimpleItem', autoContinue: true, command: cmd, doJumpId: k, frame: 3, params: p, Altitude: alt, AltitudeMode: 1, AMSLAltAboveTerrain: null });
+  const w0 = D.wps[0], items = [it(1, 22, [0, 0, 0, null, w0.ll[1], w0.ll[0], +w0.rel.toFixed(1)], +w0.rel.toFixed(1))];
+  D.wps.forEach((w, k) => items.push(it(k + 2, 16, [0, 0, 0, null, w.ll[1], w.ll[0], +w.rel.toFixed(1)], +w.rel.toFixed(1))));
+  items.push(it(D.wps.length + 2, 20, [0, 0, 0, 0, 0, 0, 0], 0));
+  return JSON.stringify({ fileType: 'Plan', version: 1, groundStation: 'QGroundControl', geoFence: { circles: [], polygons: [], version: 2 }, rallyPoints: { points: [], version: 2 },
+    mission: { version: 2, firmwareType: 12, vehicleType: 2, cruiseSpeed: D.speed, hoverSpeed: D.speed, globalPlanAltitudeMode: 1,
+               plannedHomePosition: [w0.ll[1], w0.ll[0], +D.home.toFixed(1)], items } }, null, 1);
+}
+function droneCSV() {
+  return 'wp,lat,lon,alt_m_above_sea_level,alt_m_above_takeoff,alt_m_above_ground,x_m,y_m\n' + T.drone.wps.map((w, k) =>
+    [k + 1, w.ll ? w.ll[1].toFixed(7) : '', w.ll ? w.ll[0].toFixed(7) : '', data.dtm ? w.alt.toFixed(1) : '', w.rel.toFixed(1), w.agl.toFixed(1), w.x.toFixed(1), (-w.z).toFixed(1)].join(',')).join('\n');
+}
+TOOL_OPEN.dronecard = renderDrone;
+$('drdraw').onclick = () => { if ($('drsrc').value !== 'path') $('drsrc').value = 'path'; togglePath(); renderDrone(); };
+for (const id of ['drsrc', 'drclr', 'drbuf', 'drstep', 'drspeed', 'drmax']) $(id).oninput = $(id).onchange = renderDrone;
+$('drkml').onclick = () => T.drone && downloadText(droneKML(), `${data.name}_drone.kml`, 'application/vnd.google-earth.kml+xml');
+$('drplan').onclick = () => T.drone && downloadText(dronePlan(), `${data.name}_drone.plan`, 'application/json');
+$('drcsv').onclick = () => T.drone && downloadText(droneCSV(), `${data.name}_drone.csv`, 'text/csv');
+
+// ----- rooftop solar: annual yield per roof, shading traced along the sun's path (21st of each month, hourly)
+function sunPath(lat) {
+  const out = [], rad = Math.PI / 180, phi = lat * rad;
+  for (let mth = 0; mth < 12; mth++) {
+    const n = 21 + Math.round(30.42 * mth), dec = 23.44 * rad * Math.sin(2 * Math.PI * (284 + n) / 365);
+    for (let hr = 5.5; hr <= 18.5; hr += 1) {
+      const ha = 15 * (hr - 12) * rad, se = Math.sin(phi) * Math.sin(dec) + Math.cos(phi) * Math.cos(dec) * Math.cos(ha), el = Math.asin(se);
+      if (el < 5 * rad) continue;
+      const az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(phi) - Math.sin(phi) * Math.cos(ha));
+      out.push({ el, az: (az + 2 * Math.PI) % (2 * Math.PI), w: se });   // weight: sunlight on a flat roof ∝ sin(elevation)
+    }
+  }
+  return out;
+}
+function sunPos(date, lat, lon) {   // sun elevation and azimuth (degrees, azimuth clockwise from north) at a UTC time
+  const rad = Math.PI / 180, d = date.getTime() / 864e5 - 10957.5;   // days since J2000.0
+  const g = (357.529 + 0.98560028 * d) * rad, q = 280.459 + 0.98564736 * d;
+  const L = (q + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad, e = (23.439 - 3.6e-7 * d) * rad;
+  const ra = Math.atan2(Math.cos(e) * Math.sin(L), Math.cos(L)), dec = Math.asin(Math.sin(e) * Math.sin(L));
+  const gmst = ((18.697374558 + 24.06570982441908 * d) % 24 + 24) % 24, ha = (gmst * 15 + lon) * rad - ra, la = lat * rad;
+  const el = Math.asin(Math.sin(la) * Math.sin(dec) + Math.cos(la) * Math.cos(dec) * Math.cos(ha));
+  const az = Math.atan2(-Math.sin(ha), Math.tan(dec) * Math.cos(la) - Math.sin(la) * Math.cos(ha));
+  return { el: el / rad, az: ((az / rad) % 360 + 360) % 360 };
+}
+function computeSolar() {
+  const { W, H, dx, dy } = gridInfo(), S = surfaceGrid(), cells = blockCells(), ll = lonlatAt(0.5, 0.5), lat = ll ? ll[1] : 23;
+  const sun = sunPath(lat), zmax = S.reduce((a, v) => Math.max(a, v), -Infinity), step = Math.min(dx, dy);
+  const ghi = +$('solghi').value || 1900, eff = (+$('soleff').value || 20) / 100, use = (+$('soluse').value || 70) / 100, pr = +$('solpr').value || 0.75;
+  const ns = data.buildings.length > 300 ? 3 : 6, res = [];
+  for (const b of data.buildings) {
+    const c = cells[b.id];
+    if (!c || !c.length) continue;
+    let tw = 0, bw = 0;
+    for (let j = 0; j < ns; j++) {
+      const s = c[Math.floor((j + 0.5) * c.length / ns)], x0 = s % W, y0 = (s - x0) / W, z0 = S[s] + 0.3;
+      for (const p of sun) {
+        const tanE = Math.tan(p.el), maxT = Math.min(300, (zmax - z0) / tanE), sx = Math.sin(p.az) / dx, sy = -Math.cos(p.az) / dy;
+        let blk = false;
+        for (let t = step; t <= maxT; t += step) {
+          const xi = Math.round(x0 + sx * t), yi = Math.round(y0 + sy * t);
+          if (xi < 0 || yi < 0 || xi >= W || yi >= H) break;
+          const q = yi * W + xi;
+          if (data.bid[q] === b.id) continue;
+          if (S[q] > z0 + t * tanE) { blk = true; break; }
+        }
+        tw += p.w; if (blk) bw += p.w;
+      }
+    }
+    const shade = tw ? bw / tw : 0, panel = b.area_m2 * use;
+    res.push({ id: b.id, area: b.area_m2, shade, kWp: panel * eff, kWh: panel * ghi * eff * pr * (1 - 0.85 * shade) });   // ~15 % of the light is diffuse
+  }
+  const cv = Object.assign(document.createElement('canvas'), { width: W, height: H }), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+  const spec = r => r.kWh / r.area, smax = Math.max(1e-6, ...res.map(spec));
+  for (const r of res) { const col = inferno(0.25 + 0.75 * spec(r) / smax); for (const i of cells[r.id]) img.data.set([...col, 225], i * 4); }
+  ctx.putImageData(img, 0, 0);
+  return T.solar = { res, byId: new Map(res.map(r => [r.id, r])), cv, lat, latKnown: !!ll, n: sun.length, smax };
+}
+function renderSolar() {
+  const S = T.solar;
+  $('solcsv').disabled = !S;
+  if (!S) return void ($('solout').innerHTML = '<div class="msg">Press <b>☀ Calculate</b>.</div>');
+  const sum = k => S.res.reduce((a, r) => a + r[k], 0), mwh = sum('kWh') / 1000, top = [...S.res].sort((a, b) => b.kWh - a.kWh).slice(0, 5);
+  $('solout').innerHTML = `<div class="kpis">${kpi(fmtN(sum('kWp'), 0) + ' kWp', 'could be installed')}${kpi(fmtN(mwh, 0) + ' MWh', 'a year')}`
+    + `${kpi('₹' + fmtN(mwh * 1000 * (+$('soltar').value || 0) / 1e5, 1) + ' L', 'a year', 'Value at the tariff, in lakh rupees')}</div>`
+    + row('CO₂ avoided', `≈ ${fmtN(mwh * 0.72, 0)} t a year`, 'CEA grid emission factor, about 0.72 t CO₂ per MWh')
+    + row('Roofs with less than 20 % shading', `${S.res.filter(r => r.shade < 0.2).length} of ${S.res.length}`)
+    + `<h4>Best roofs</h4>` + top.map(r => row(`Block ${r.id} · ${Math.round(r.area)} m² · ${Math.round(r.shade * 100)} % shaded`, `${fmtN(r.kWh / 1000, 1)} MWh/yr`)).join('')
+    + `<div class="grad" style="background:linear-gradient(90deg,rgb(${inferno(0.25)}),rgb(${inferno(1)}))"></div><div class="keys"><span>less per m²</span><span style="margin-left:auto">more per m² (${fmtN(S.smax, 0)} kWh/m²)</span></div>`
+    + `<small>Flat roofs assumed; shading traced on ${S.n} sun positions for latitude ${S.lat.toFixed(1)}°${S.latKnown ? '' : ' (assumed: no georeferencing)'}; diffuse light kept under shade. `
+    + 'Tanks, stairwells and setbacks reduce the usable area: survey before installing.</small>';
+}
+TOOL_OPEN.solarcard = renderSolar;
+TOOL_CLOSE.solarcard = () => {};
+$('solrun').onclick = () => { $('solout').innerHTML = '<div class="msg">Tracing shadows…</div>'; setTimeout(() => { computeSolar(); renderSolar(); layersChanged(); }, 30); };
+for (const id of ['solghi', 'soleff', 'soluse', 'solpr', 'soltar']) $(id).oninput = () => { if (T.solar) { clearTimeout(T.solT); T.solT = setTimeout(() => { computeSolar(); renderSolar(); layersChanged(); }, 300); } };
+$('solcsv').onclick = () => T.solar && downloadText('block,roof_m2,shaded_pct,kWp,kWh_per_year\n'
+  + T.solar.res.map(r => [r.id, Math.round(r.area), Math.round(r.shade * 100), r.kWp.toFixed(1), Math.round(r.kWh)].join(',')).join('\n'), `${data.name}_solar.csv`, 'text/csv');
+
+// ----- WMS map overlay
+const WMS_OSM = 'https://ows.terrestris.de/osm/service';
+async function showWms(url) {
+  const img = new Image(); img.src = `${url}?t=${Date.now()}`;
+  await img.decode();
+  T.wms = { on: true, img, url };
+  $('wmsimg').src = img.src; $('wmsimg').hidden = false; $('wmsimg').style.opacity = $('wmsop').value;
+  refreshSurface();
+}
+function hideWms() { if (T.wms) T.wms.on = false; $('wmsimg').hidden = true; refreshSurface(); }
+function renderWms() {
+  $('wmsurlwrap').hidden = $('wmspre').value !== 'custom';
+  const saved = data.meta.wms, geo = !!data.meta.corners_lonlat;
+  $('wmsload').disabled = !geo;
+  $('wmsout').innerHTML = !geo ? '<span class="warn">Needs a georeferenced (GeoTIFF) scene.</span>'
+    : T.wms && T.wms.on ? `Showing ${T.wms.layers || (saved && saved.layers) || 'the overlay'}. Also on the 3D surface.`
+    : saved ? `A saved overlay (${saved.layers}) exists: <b>Load overlay</b> refreshes it, or <a href="#" id="wmsshow">show the saved one</a>.` : 'Pick a service and press <b>Load overlay</b>.';
+  const s = $('wmsshow'); if (s) s.onclick = e => { e.preventDefault(); showWms(saved.url).then(renderWms); };
+}
+TOOL_OPEN.wmscard = renderWms;
+$('wmspre').onchange = () => { if ($('wmspre').value === 'osm') $('wmslay').value = 'OSM-WMS'; renderWms(); };
+$('wmsop').oninput = () => { $('wmsimg').style.opacity = $('wmsop').value; clearTimeout(T.wmsT); T.wmsT = setTimeout(refreshSurface, 150); };
+$('wmsoff').onclick = () => { hideWms(); renderWms(); };
+$('wmsload').onclick = async () => {
+  const url = $('wmspre').value === 'osm' ? WMS_OSM : $('wmsurl').value.trim(), name = data.name;
+  $('wmsout').textContent = 'Fetching the map…';
+  try {
+    const r = await fetch(`/api/wms?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify({ url, layers: $('wmslay').value.trim() }) }), j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    if (data.name !== name) return;
+    data.meta.wms = j; await showWms(j.url); T.wms.layers = j.layers; renderWms();
+  } catch (e) { $('wmsout').innerHTML = `<span class="warn">${e.message}</span>`; }
+};
+
+// ----- mosaic
+function renderMosaic() {
+  const ok = scenes.filter(s => s.state === 'done' && s.meta && s.meta.corners_lonlat);
+  $('moslist').innerHTML = ok.map(s => `<label><input type="checkbox" value="${s.name}" ${s.name === data.name ? 'checked' : ''}> ${s.name.replaceAll('_', ' ')}</label>`).join('')
+    || '<div class="msg">No georeferenced scenes yet.</div>';
+}
+TOOL_OPEN.mosaiccard = renderMosaic;
+$('mosrun').onclick = async () => {
+  const names = [...$('moslist').querySelectorAll('input:checked')].map(i => i.value);
+  if (names.length < 2) return void ($('mosout').innerHTML = '<span class="warn">Tick at least two neighbouring scenes.</span>');
+  const r = await fetch('/api/mosaic', { method: 'POST', body: JSON.stringify({ names, name: $('mosname').value, grid: +$('mosgrid').value }) }), j = await r.json();
+  $('mosout').innerHTML = r.ok ? `Building <b>${j.name}</b>… it appears in the scene list on the left when ready.` : `<span class="warn">${j.error}</span>`;
+};
+
+// ===================================================== VALIDATE =========================================
+// ----- building heights from shadows
+function sunDir() { const az = (+$('shaz').value || 0) * Math.PI / 180; return { ex: -Math.sin(az), ny: -Math.cos(az) }; }   // where shadows fall (east, north)
+function nearBuilding(u, v, r = 3) {
+  const { W, H } = gridInfo(), x0 = Math.floor(u * W), y0 = Math.floor(v * H);
+  let best = 0, bd = Infinity;
+  for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+    const x = x0 + dx, y = y0 + dy;
+    if (x < 0 || y < 0 || x >= W || y >= H) continue;
+    const id = data.bid[y * W + x];
+    if (id > 0 && dx * dx + dy * dy < bd) { bd = dx * dx + dy * dy; best = id; }
+  }
+  return best ? data.buildings[best - 1] : null;
+}
+function modelBlockHeight(b) { return b.height_m / (data.hscale || 1) / ((classScale() || {}).buildings || 1); }   // before any fix
+function shadowClick(u, v) {
+  const S = T.shadow;
+  if (!S.a) { S.a = [u, v]; showHint(TOOL_HINTS.shadow()); return drawOverlay(); }
+  const a = S.a, ex = (u - a[0]) * sceneW(), ny = -(v - a[1]) * sceneH(), d = sunDir();
+  let L = ex * d.ex + ny * d.ny;   // length along the direction shadows fall
+  if (L <= 0) L = Math.hypot(ex, ny);
+  const b = nearBuilding(...a);
+  S.meas.push({ a, b: [u, v], L, H: L * Math.tan((+$('shel').value || 45) * Math.PI / 180), id: b ? b.id : null });
+  S.a = null;
+  renderShadow(); drawOverlay(); showHint(TOOL_HINTS.shadow());
+}
+function photoLum() {          // photo luminance, at most 2048 px on its long side
+  if (T.lum) return T.lum;
+  const p = data.photo, k = Math.min(1, 2048 / Math.max(p.naturalWidth, p.naturalHeight)), w = Math.round(p.naturalWidth * k), h = Math.round(p.naturalHeight * k);
+  const c = Object.assign(document.createElement('canvas'), { width: w, height: h }).getContext('2d', { willReadFrequently: true });
+  c.drawImage(p, 0, 0, w, h);
+  const d = c.getImageData(0, 0, w, h).data, lum = new Float32Array(w * h);
+  for (let i = 0; i < w * h; i++) lum[i] = 0.299 * d[4 * i] + 0.587 * d[4 * i + 1] + 0.114 * d[4 * i + 2];
+  return T.lum = { lum, w, h, px: data.meta.width * data.meta.gsd / w };
+}
+function otsuThreshold(v) {
+  const hist = new Float64Array(256);
+  for (let i = 0; i < v.length; i += 3) hist[Math.min(255, Math.max(0, Math.round(v[i])))]++;
+  let tot = 0, sum = 0; for (let k = 0; k < 256; k++) { tot += hist[k]; sum += k * hist[k]; }
+  let w0 = 0, s0 = 0, best = 0, th = 128;
+  for (let k = 0; k < 256; k++) { w0 += hist[k]; s0 += k * hist[k]; if (!w0 || w0 === tot) continue;
+    const m0 = s0 / w0, m1 = (sum - s0) / (tot - w0), b = w0 * (tot - w0) * (m0 - m1) ** 2; if (b > best) { best = b; th = k; } }
+  return th;
+}
+function autoShadows() {       // for every block: walk from its shadow-side edge across the dark shadow pixels of the photo
+  const { lum, w, h, px } = photoLum(), { W, H } = gridInfo(), d = sunDir(), sx = d.ex, sy = -d.ny, nrm = Math.hypot(sx, sy) || 1;
+  const ux = sx / nrm, uy = sy / nrm, tanE = Math.tan((+$('shel').value || 45) * Math.PI / 180);
+  const sample = []; for (let i = 0; i < lum.length; i += 7) sample.push(lum[i]);
+  const thr = Math.min(otsuThreshold(lum), 0.6 * median(sample));
+  const bidAt = (X, Y) => data.bid[Math.min(H - 1, Math.floor(Y * H / h)) * W + Math.min(W - 1, Math.floor(X * W / w))];
+  const out = [], cells = blockCells();
+  for (const b of data.buildings) {
+    const runs = [];
+    for (const i of cells[b.id]) {
+      const x = i % W, y = (i - x) / W, nx = Math.round(x + ux * 1.5), ny = Math.round(y + uy * 1.5);
+      if (nx >= 0 && ny >= 0 && nx < W && ny < H && data.bid[ny * W + nx] === b.id) continue;   // not on the shadow side
+      const X = (x + 0.5) * w / W, Y = (y + 0.5) * h / H;
+      let t = 0;
+      while (t < 3 * w / W && bidAt(X + ux * t, Y + uy * t) === b.id) t++;                    // leave the roof
+      let run = 0, gap = 0, lead = 0, trunc = false;
+      for (; ; t++) {
+        const X2 = X + ux * t, Y2 = Y + uy * t;
+        if (X2 < 0 || Y2 < 0 || X2 >= w || Y2 >= h) { trunc = true; break; }
+        const id = bidAt(X2, Y2);
+        if (id > 0 && id !== b.id) { trunc = true; break; }                                     // falls on another building
+        if (lum[Math.floor(Y2) * w + Math.floor(X2)] < thr) { run += gap + 1; gap = 0; }
+        else if (!run) { if (++lead > 3) break; }
+        else if (++gap > 2) break;
+      }
+      if (!trunc && run >= 2) runs.push(run * px);
+    }
+    if (runs.length >= 3) { const L = median(runs); out.push({ id: b.id, L, H: L * tanE, n: runs.length }); }
+  }
+  return out;
+}
+function shadowRatio() {       // median shadow height / model height over buildings ≥ 5 m (manual measures win)
+  const by = new Map();
+  for (const s of T.shadow.auto || []) by.set(s.id, s.H);
+  for (const m of T.shadow.meas) if (m.id) by.set(m.id, m.H);
+  const r = [];
+  for (const [id, Hs] of by) { const mh = modelBlockHeight(data.buildings[id - 1]); if (Hs >= 5 && mh >= 2) r.push(Hs / mh); }
+  return r.length ? { k: median(r), n: r.length } : null;
+}
+function renderShadow() {
+  const S = T.shadow, rows = [];
+  for (const m of S.meas) { const b = m.id && data.buildings[m.id - 1];
+    rows.push(`<tr><td>${b ? 'Block ' + b.id : 'no block'} ✋</td><td>${b ? modelBlockHeight(b).toFixed(1) : '–'}</td><td>${m.H.toFixed(1)}</td><td>${b ? (m.H / Math.max(0.1, modelBlockHeight(b))).toFixed(2) : '–'}</td></tr>`); }
+  for (const s of (S.auto || []).slice(0, 12)) { const b = data.buildings[s.id - 1];
+    rows.push(`<tr><td>Block ${s.id}</td><td>${modelBlockHeight(b).toFixed(1)}</td><td>${s.H.toFixed(1)}</td><td>${(s.H / Math.max(0.1, modelBlockHeight(b))).toFixed(2)}</td></tr>`); }
+  const R = shadowRatio();
+  $('shout').innerHTML = (S.auto ? `<div class="msg">Automatic: ${S.auto.length} of ${data.buildings.length} blocks had a clear shadow.</div>` : '')
+    + (rows.length ? `<table><tr><th>Building</th><th>model m</th><th>shadow m</th><th>ratio</th></tr>${rows.join('')}</table>` : '<div class="msg">No measurements yet.</div>')
+    + (R ? `<div class="big" style="font-size:17px;margin-top:8px">×${R.k.toFixed(2)} <span>shadow ÷ model, median of ${R.n} building${R.n > 1 ? 's' : ''} ≥ 5 m</span></div>`
+         + `<div class="btns"><button id="shuse">Use ×${R.k.toFixed(2)} for all buildings</button></div>` : '')
+    + '<small>Shadows that fall on another building or leave the image are skipped. Shadow length is measured along the direction the sun throws it; for an off-nadir image the building lean adds error.</small>';
+  const u = $('shuse');
+  if (u) u.onclick = () => { $('fixb').value = R.k.toFixed(2); toggleTool('fixcard', true); applyFix({ buildings_from: `shadows of ${R.n} buildings` }); };
+}
+TOOL_OPEN.shadowcard = renderShadow;
+$('shpick').onclick = () => { T.shadow.a = null; setPick(pick.mode === 'shadow' ? null : 'shadow'); drawOverlay(); };
+$('shauto').onclick = () => { $('shout').innerHTML = '<div class="msg">Measuring shadows…</div>'; setTimeout(() => { T.shadow.auto = autoShadows(); renderShadow(); drawOverlay(); }, 30); };
+$('shclear').onclick = () => { Object.assign(T.shadow, { meas: [], auto: null, a: null }); renderShadow(); drawOverlay(); };
+$('shsun').onclick = () => {
+  const ll = lonlatAt(0.5, 0.5), t = $('shtime').value;
+  if (!ll) return void ($('shout').innerHTML = '<div class="msg warn">Needs a georeferenced scene; enter the sun angles from the image metadata instead.</div>');
+  if (!t) return void ($('shout').innerHTML = '<div class="msg warn">Enter the acquisition time (UTC) first.</div>');
+  const s = sunPos(new Date(t + 'Z'), ll[1], ll[0]);
+  if (s.el <= 0) return void ($('shout').innerHTML = '<div class="msg warn">The sun is below the horizon at that time: check it is in UTC.</div>');
+  $('shel').value = s.el.toFixed(1); $('shaz').value = s.az.toFixed(1);
+  for (const m of T.shadow.meas) m.H = m.L * Math.tan(s.el * Math.PI / 180);
+  T.shadow.auto = null; renderShadow();
+};
+$('shel').oninput = $('shaz').oninput = () => { const k = Math.tan((+$('shel').value || 45) * Math.PI / 180); for (const m of T.shadow.meas) m.H = m.L * k; T.shadow.auto = null; renderShadow(); };
+
+// ----- tall-object fixes (per-class height scale, stored on the server)
+async function applyFix(source) {
+  const name = data.name, body = { buildings: +$('fixb').value || 1, trees: +$('fixt').value || 1, source: Object.assign({}, T.fixSource || {}, source || {}) };
+  $('fixout').innerHTML = '<div class="msg">Applying…</div>';
+  const r = await fetch(`/api/heightfix?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify(body) }), j = await r.json();
+  if (data.name !== name) return;
+  if (!r.ok) return void ($('fixout').innerHTML = `<div class="msg warn">${j.error}</div>`);
+  if (j.cleared) delete data.meta.class_scale; else data.meta.class_scale = j;
+  $('fixon').checked = true; T.fixSource = body.source;
+  rebuildScene(); heightsChanged(); renderFix();
+}
+function renderFix() {
+  const c = data.meta.class_scale, f = T.fixFit;
+  $('fixonwrap').hidden = !c;
+  $('fixfit').disabled = !data.dtmRaw || !data.meta.corners_lonlat;
+  if (!data.lc) return void ($('fixout').innerHTML = '<div class="msg warn">This scene has no land-cover grid; re-process it to use fixes.</div>');
+  $('fixout').innerHTML = (c ? row('Active', `buildings ×${(+c.buildings).toFixed(2)} · trees ×${(+c.trees).toFixed(2)}`) : '<div class="msg">No fix applied: the model\'s own heights are used.</div>')
+    + (f ? `<h4>ICESat-2 canopy fit</h4>${row('Top-of-canopy photons over trees', f.n)}${row('Canopy height: laser vs model (median)', `${f.canopy_median_m} m vs ${f.model_median_m} m`)}`
+         + row('Tree error at the photons', `${f.mae_before} → ${f.mae_after} m with ×${f.k}`) : '')
+    + '<small>Applied to every view, the tools, validation and the “Height with tall-object fixes” download. Re-run Compare in this mode to check the effect.</small>';
+}
+TOOL_OPEN.fixcard = () => { const c = data.meta.class_scale; $('fixb').value = c ? c.buildings : 1; $('fixt').value = c ? c.trees : 1; renderFix(); };
+$('fixapply').onclick = () => applyFix();
+$('fixreset').onclick = () => { $('fixb').value = 1; $('fixt').value = 1; T.fixFit = null; T.fixSource = {}; applyFix(); };
+$('fixon').onchange = () => { rebuildScene(); heightsChanged(); renderFix(); };
+$('fixfit').onclick = async () => {
+  const name = data.name;
+  $('fixout').innerHTML = '<div class="msg">Fetching ICESat-2 canopy photons (first time can take ~30 s)…</div>';
+  const r = await fetch(`/api/heightfix?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify({ fit: 'trees' }) }), j = await r.json();
+  if (data.name !== name) return;
+  if (!r.ok) { renderFix(); return void ($('fixout').innerHTML += `<div class="msg warn">${j.error}</div>`); }
+  T.fixFit = j; T.fixSource = Object.assign(T.fixSource || {}, { trees_from: `ICESat-2, ${j.n} canopy photons` });
+  $('fixt').value = j.k; renderFix();
+  $('fixout').innerHTML += `<div class="msg">Press <b>Apply</b> to use trees ×${j.k}.</div>`;
+};
+function heightsChanged() {    // heights changed (fixes, calibration): refresh the tools that use them
+  if (!T.los) return;
+  data._bc = data._rim = null;
+  if (T.los.obs.length) computeLOS();
+  if (!$('volcard').hidden) renderVolume();
+  if (!$('dronecard').hidden) renderDrone();
+  if (T.solar) { computeSolar(); renderSolar(); }
+  if (!$('shadowcard').hidden) renderShadow();
+  if (!$('peoplecard').hidden) renderPeople();
+  layersChanged();
+}
+
+// ----- calibrated error bars
+function renderErr() {
+  if (!data || $('errcard').hidden) return;
+  const srcs = Object.keys(VKEYS).filter(k => data.val[k] && data.val[k].conformal), cur = data.meta.conformal, prev = $('errsrc').value;
+  $('errsrc').innerHTML = srcs.map(k => `<option value="${k}">${VKEYS[k]}</option>`).join('');
+  if (srcs.includes(prev)) $('errsrc').value = prev;
+  $('erruse').disabled = !srcs.length; $('erroff').disabled = !cur;
+  const c = srcs.length && data.val[$('errsrc').value].conformal;
+  $('errout').innerHTML = (cur ? `<div class="msg ok">In use: ${Math.round(+cur.level * 100)} % error bars from ${VKEYS[cur.source] || cur.source} (k = ${cur.k.toFixed(2)}).</div>` : '')
+    + (!srcs.length ? '<div class="msg warn">Run a check in <b>📊 Compare with reference</b> first (a raster, 30+ surveyed points or ICESat-2).</div>'
+      : `<table><tr><th>Confidence</th><th>× (spread + ${c.u0} m)</th><th>typical</th><th>check</th></tr>${Object.entries(c.levels).map(([lv, x]) =>
+        `<tr><td>${Math.round(+lv * 100)} %</td><td>${x.k.toFixed(2)}</td><td>± ${x.median_band_m.toFixed(1)} m</td><td title="Share of a held-out half that fell inside a band fitted on the other half">${x.coverage_check_pct.toFixed(0)} %</td></tr>`).join('')}</table>`
+        + `<small>${fmtN(c.n)} values compared. Error bar = k × (4-flip spread + ${c.u0} m). “check” fits k on one half of the values and counts how many of the other half fall inside: it should be close to the confidence.</small>`);
+}
+TOOL_OPEN.errcard = renderErr;
+$('errsrc').onchange = renderErr;
+$('erruse').onclick = async () => {
+  const name = data.name, r = await fetch(`/api/conformal?name=${encodeURIComponent(name)}`, { method: 'POST', body: JSON.stringify({ source: $('errsrc').value, level: $('errlev').value }) }), j = await r.json();
+  if (data.name !== name) return;
+  if (!r.ok) return void ($('errout').innerHTML = `<div class="msg warn">${j.error}</div>`);
+  data.meta.conformal = j; renderStats(); refreshPin(); renderErr();
+};
+$('erroff').onclick = async () => {
+  await fetch(`/api/conformal?name=${encodeURIComponent(data.name)}`, { method: 'POST', body: JSON.stringify({ clear: true }) });
+  delete data.meta.conformal; renderStats(); refreshPin(); renderErr();
+};
+
+// ----- terrain source (user DEM)
+function renderDem() {
+  const t = data.meta.terrain || {};
+  $('demnow').innerHTML = t.source ? `Now: <b>${t.source}</b>${t.laser && t.laser.offset_m != null ? `, levelled to ICESat-2 (${(-t.laser.offset_m).toFixed(1)} m)` : ''}.`
+    : t.error ? `<span class="warn">${t.error}</span>` : 'This image has no georeferencing, so it has no terrain.';
+  $('demuse').disabled = $('demreset').disabled = !data.meta.corners_lonlat;
+}
+TOOL_OPEN.demcard = renderDem;
+async function demRequest(qs, body, label) {
+  const name = data.name;
+  $('demout').textContent = label;
+  try {
+    const r = await fetch(`/api/dem?name=${encodeURIComponent(name)}${qs}`, { method: 'POST', body }), j = await r.json();
+    if (!r.ok) throw new Error(j.error);
+    $('demout').innerHTML = j.error ? `<span class="warn">${j.error}</span>` : `Terrain rebuilt from <b>${j.source}</b>. Reloading…`;
+    await poll();
+    if (current === name) { data = null; await select(name); }
+  } catch (e) { $('demout').innerHTML = `<span class="warn">${e.message}</span>`; }
+}
+$('demuse').onclick = () => { const f = $('demfile').files[0]; if (!f) return void ($('demout').innerHTML = '<span class="warn">Choose a DEM GeoTIFF first.</span>');
+  demRequest(`&datum=${$('demdatum').value}&file=${encodeURIComponent(f.name)}`, f, `Rebuilding the terrain from ${f.name}…`); };
+$('demreset').onclick = () => demRequest('&clear=1', '', 'Rebuilding the default terrain…');
+
+// ----- GNSS / field points into the control-point list
+async function importGnss(qs, body) {
+  const name = data.name;
+  $('gnssout').textContent = 'Reading points…';
+  const r = await fetch(`/api/gnss?name=${encodeURIComponent(name)}${qs}`, { method: 'POST', body }), j = await r.json();
+  if (data.name !== name) return;
+  if (!r.ok) return void ($('gnssout').innerHTML = `<span class="warn">${j.error}</span>`);
+  for (const p of j.points) data.gcpPts.push({ u: p.u, v: p.v, z: +p.z.toFixed(2) });
+  renderGcp(); drawOverlay(); drawMarks3D();
+  $('gnssout').innerHTML = `${j.points.length} point${j.points.length === 1 ? '' : 's'} added${j.outside ? `, ${j.outside} outside the scene skipped` : ''}. `
+    + 'Heights converted to m above sea level (EGM2008). Phone GPS heights are only good to about ±10 m: prefer a survey GNSS receiver. Then <b>Fit &amp; apply</b>.';
+}
+$('gnssload').onclick = () => { const f = $('gnssfile').files[0]; if (!f) return void ($('gnssout').innerHTML = '<span class="warn">Choose a CSV or GPX file.</span>');
+  importGnss(`&datum=${$('gnssdatum').value}`, f); };
+$('gfield').onclick = () => importGnss('&source=field', '');
+
+// ===================================================== DISASTER =========================================
+// ----- people at risk
+function residents(b) {
+  const per = Math.max(1, +$('ppm2').value || 10), occ = clampI(+$('ppocc').value || 0, 0, 100) / 100;
+  return b.area_m2 * (b.floors || 1) * occ / per;
+}
+function peopleFloodRow(L) {
+  if (!data.buildings.length) return '';
+  let wet = 0, sub = 0, onFlooded = 0;
+  for (const b of data.buildings) {
+    const st = blockState(b, L);
+    if (st === 'dry') continue;
+    const p = residents(b);
+    wet += p; if (st === 'sub') sub += p;
+    onFlooded += p * Math.min(1, Math.ceil(blockDepth(b, L) / data.meta.floor_m) / Math.max(1, b.floors));
+  }
+  return row('People in buildings with water', `≈ ${fmtN(Math.round(wet))}`, 'Estimate: floors × footprint ÷ floor space per person (People at risk tool)')
+    + (wet ? row('… on flooded floors / fully submerged', `≈ ${fmtN(Math.round(onFlooded))} / ${fmtN(Math.round(sub))}`) : '');
+}
+function renderPeople() {
+  if (!data || $('peoplecard').hidden) return;
+  const all = data.buildings.reduce((a, b) => a + residents(b), 0), out = [row('Residents in the scene', `≈ ${fmtN(Math.round(all))}`)];
+  const sum = f => { let n = 0, p = 0; for (const b of data.buildings) if (f(b)) { n++; p += residents(b); } return [n, p]; };
+  const line = (k, [n, p]) => row(k, `${fmtN(Math.round(p))} people · ${n} bldg`);
+  let any = false;
+  if ($('flood').checked) { any = true; const L = waterLevel();
+    out.push('<h4>Flood (now)</h4>', line('Water inside', sum(b => blockState(b, L) !== 'dry')), line('Fully submerged', sum(b => blockState(b, L) === 'sub')));
+    if (data.tl) out.push(line(`Wet within ${data.tl.days} days (timeline)`, sum(b => data.tl.bArr[b.id] < NEVER))); }
+  if (T.flow.sim && !$('flowcard').hidden) { any = true; const wet = flowWetBlocks(); out.push('<h4>Flowing water</h4>', line(`Wet by ${fmtClock(T.flow.k)}`, sum(b => wet.has(b.id)))); }
+  if (T.slide && T.slide.bcls) { any = true; out.push('<h4>Landslide risk</h4>', line('Very high', sum(b => T.slide.bcls[b.id] === 3)), line('High', sum(b => T.slide.bcls[b.id] === 2))); }
+  if (T.dmg && T.dmg.cls) { any = true; const r = c => { let n = 0, p = 0; for (const b of T.dmg.res.buildings) if (T.dmg.cls.get(b.id) === c) { n++; p += residents(b); } return [n, p]; };
+    out.push('<h4>Damage (before → after)</h4>', line('In collapsed buildings', r('collapsed')), line('In damaged buildings', r('damaged'))); }
+  if (!any) out.push('<div class="msg">Turn on <b>🌊 Flood</b>, <b>💧 Flowing water</b>, <b>⛰ Landslide risk</b> or <b>🏚 Damage</b> to count the people each one affects.</div>');
+  $('ppout').innerHTML = out.join('') + `<small>${data.buildings.length} building blocks, ~${data.meta.floor_m} m per floor. Attached buildings count as one block. A planning estimate, not a census.</small>`;
+}
+TOOL_OPEN.peoplecard = renderPeople;
+$('ppm2').oninput = $('ppocc').oninput = () => { renderPeople(); if ($('flood').checked) renderFlood(); };
+function floodChanged() {      // the level flood changed: refresh what depends on it
+  if (!T.los) return;
+  renderPeople();
+  if (T.obs && T.obs.grid && !$('obscard').hidden) renderObs();
+  if (T.evac && !$('evaccard').hidden) { T.evac = null; renderEvac(); }
+}
+
+// ----- evacuation plan: Dijkstra from every camp over the route costs, then a greedy, capacity-aware assignment
+const CAMP_COLORS = [[79, 224, 138], [61, 165, 255], [255, 212, 0], [255, 122, 217], [255, 159, 67]];
+function costField(src, f, W, H, dx, dy) {
+  const N = W * H, dist = new Float64Array(N).fill(Infinity), heap = new MinHeap(), dd = Math.hypot(dx, dy);
+  dist[src] = 0; heap.push(0, src);
+  while (heap.n) {
+    const i = heap.pop(), k = heap.key;
+    if (k > dist[i]) continue;
+    const x = i % W, y = (i - x) / W;
+    for (let d = 0; d < 8; d++) {
+      const nx = x + NX[d], ny = y + NY[d];
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const j = ny * W + nx;
+      if (!(f[j] < Infinity)) continue;
+      if (d >= 4 && !(f[y * W + nx] < Infinity && f[ny * W + x] < Infinity)) continue;
+      const c = k + (d < 4 ? (NX[d] ? dx : dy) : dd) * (f[i] + f[j]) / 2;
+      if (c < dist[j]) { dist[j] = c; heap.push(c, j); }
+    }
+  }
+  return dist;
+}
+function evacPlan() {
+  const S = data.sites, { W, H, N, dx, dy } = gridInfo(), how = $('evmode').value, who = $('evwho').value, L = curLevel();
+  if (!S || !S.camps.length) return { error: 'camps' };
+  if (who === 'flood' && !$('flood').checked) return { error: 'flood' };
+  if (who === 'slide' && !(T.slide && T.slide.bcls)) return { error: 'slide' };
+  const { f } = travelCost(L, how, TRAVEL[how].depth), speed = TRAVEL[how].speed, rims = blockRims();
+  const fields = S.camps.map(c => { const s = nearestOpen(c.cell, f); return s < 0 ? null : costField(s, f, W, H, dx, dy); });
+  const leave = data.buildings.filter(b => who === 'all' || (who === 'flood' ? blockState(b, L) !== 'dry' : T.slide.bcls[b.id] >= 2));
+  const items = leave.map(b => {
+    const t = fields.map(F => { if (!F) return Infinity; let m = Infinity; for (const i of rims[b.id]) if (F[i] < m) m = F[i]; return m / speed / 60; });
+    return { b, p: residents(b), t, best: Math.min(...t) };
+  }).sort((a, b) => a.best - b.best);
+  const left = S.camps.map(c => c.people), load = S.camps.map(() => 0), far = S.camps.map(() => 0), whoMap = new Map();
+  let unreach = 0, unreachB = 0, full = 0;
+  for (const it of items) {
+    if (!(it.best < Infinity)) { unreach += it.p; unreachB++; whoMap.set(it.b.id, { camp: null }); continue; }
+    const order = it.t.map((t, k) => [t, k]).filter(([t]) => t < Infinity).sort((a, b) => a[0] - b[0]);
+    let p = it.p, first = null;
+    for (const [t, k] of order) {
+      if (p <= 0) break;
+      const take = Math.min(p, left[k]);
+      if (take <= 0) continue;
+      left[k] -= take; load[k] += take; p -= take; far[k] = Math.max(far[k], t);
+      if (first == null) first = { camp: k, min: t };
+    }
+    if (p > 0) full += p;
+    whoMap.set(it.b.id, first || { camp: null, full: true });
+  }
+  const cv = Object.assign(document.createElement('canvas'), { width: W, height: H }), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H), cells = blockCells();
+  for (const [id, a] of whoMap) for (const i of cells[id]) img.data.set(a.camp != null ? [...CAMP_COLORS[a.camp % 5], 225] : a.full ? [140, 140, 150, 235] : [229, 72, 77, 235], i * 4);
+  ctx.putImageData(img, 0, 0);
+  return { who: whoMap, load, far, cap: S.camps.map(c => c.people), unreach, unreachB, full, n: items.length, total: items.reduce((a, b) => a + b.p, 0), cv, how };
+}
+function renderEvac() {
+  const E = T.evac;
+  if (!E) return void ($('evout').innerHTML = '<div class="msg">Press <b>🧭 Make the plan</b>.</div>');
+  if (E.error) return void ($('evout').innerHTML = `<div class="msg warn">${{ camps: 'No relief camps yet: open <b>🚁 Relief sites</b> first (it finds the camps), then make the plan again.',
+    flood: 'Turn on <b>🌊 Flood</b> and set the water level first, or choose “everyone”.', slide: 'Open <b>⛰ Landslide risk</b> first, or choose another group.' }[E.error]}</div>`);
+  const maxT = Math.max(0, ...E.far);
+  $('evout').innerHTML = `<div class="kpis">${kpi(fmtN(Math.round(E.total)), 'people leave')}${kpi(E.n, 'buildings')}${kpi(`${Math.ceil(maxT)} min`, 'longest trip', E.how === 'car' ? 'by car' : 'on foot')}</div>`
+    + E.load.map((p, k) => `<div class="row"><span><i class="sw" style="background:rgb(${CAMP_COLORS[k % 5]})"></i>Camp C${k + 1}</span><b>${fmtN(Math.round(p))} / ${fmtN(E.cap[k])} · up to ${Math.ceil(E.far[k])} min</b></div>`).join('')
+    + (E.unreach ? `<div class="msg warn">${fmtN(Math.round(E.unreach))} people in ${E.unreachB} building${E.unreachB > 1 ? 's' : ''} (red) have no route through water shallower than ${TRAVEL[E.how].depth} m: they need boats or helicopters${data.sites.pads.length ? ` (helipads H1–H${data.sites.pads.length})` : ''}.</div>` : '')
+    + (E.full ? `<div class="msg warn">${fmtN(Math.round(E.full))} people do not fit in the camps: find more camp space (lower the minimum camp area).</div>` : '<div class="msg ok">Everyone who can reach a camp has a place.</div>')
+    + '<small>Buildings are coloured by their camp. Times are effort-weighted (roads fastest, water and slopes slower). Hover a building to see its camp. A plan to check on the ground, not an order.</small>';
+}
+TOOL_OPEN.evaccard = () => { if ($('sitecard').hidden && mode === 'disaster') $('sitebtn').click(); renderEvac(); };
+TOOL_CLOSE.evaccard = () => {};
+$('evrun').onclick = () => { $('evout').innerHTML = '<div class="msg">Planning…</div>'; setTimeout(() => { T.evac = evacPlan(); renderEvac(); layersChanged(); }, 30); };
+$('evwho').onchange = $('evmode').onchange = () => { T.evac = null; renderEvac(); layersChanged(); };
+
+// ----- damage from before / after images
+function renderDmgSelect() {
+  const others = scenes.filter(s => s.state === 'done' && s.name !== data.name), prev = $('dmgbefore').value;
+  $('dmgbefore').innerHTML = others.map(s => `<option value="${s.name}">${s.name.replaceAll('_', ' ')}</option>`).join('');
+  const guess = others.find(s => /before|pre/i.test(s.name));
+  if (others.some(s => s.name === prev)) $('dmgbefore').value = prev; else if (guess) $('dmgbefore').value = guess.name;
+  $('dmgrun').disabled = !others.length;
+}
+function classifyDamage() {
+  const D = T.dmg, col = (+$('dmgcol').value || 50) / 100, dam = (+$('dmgdam').value || 20) / 100, { W, H, N } = gridInfo();
+  D.cls = new Map();
+  for (const b of D.res.buildings) {
+    const lost = b.before_m - b.after_m, f = lost / Math.max(0.1, b.before_m);
+    D.cls.set(b.id, f >= col && lost >= 2 ? 'collapsed' : f >= dam && lost >= 1 ? 'damaged' : 'intact');
+  }
+  const COL = { collapsed: [229, 72, 77, 235], damaged: [245, 165, 36, 225], intact: [79, 224, 138, 110] }, newIds = new Set(D.res.new.map(b => b.id));
+  const cv = Object.assign(document.createElement('canvas'), { width: W, height: H }), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+  for (let i = 0; i < N; i++) {
+    const bb = D.bidb[i];
+    if (bb > 0 && D.cls.has(bb)) img.data.set(COL[D.cls.get(bb)], i * 4);
+    else if (newIds.has(data.bid[i])) img.data.set([167, 112, 255, 225], i * 4);
+    else if (data.bid[i] === 0 && D.dh[i] < -3) img.data.set([150, 90, 40, 190], i * 4);   // trees / objects gone
+  }
+  ctx.putImageData(img, 0, 0);
+  D.cv = cv;
+}
+function renderDmg() {
+  const D = T.dmg;
+  if (!D || !D.res) return void ($('dmgout').innerHTML = D && D.err ? `<div class="msg warn">${D.err}</div>` : '<div class="msg">Choose the before image and press <b>Compare</b>.</div>');
+  const R = D.res, by = c => R.buildings.filter(b => D.cls.get(b.id) === c), col = by('collapsed'), dam = by('damaged');
+  const lostVol = [...col, ...dam].reduce((a, b) => a + Math.max(0, b.before_m - b.after_m) * b.area_m2, 0), debris = lostVol * (+$('dmgdeb').value || 30) / 100;
+  const ppl = [...col, ...dam].reduce((a, b) => a + residents(b), 0), sh = R.shift;
+  $('dmgout').innerHTML = `<div class="kpis">${kpi(col.length, 'collapsed')}${kpi(dam.length, 'damaged')}${kpi(by('intact').length, 'intact')}</div>`
+    + `<div class="keys"><span><i class="sw" style="background:#e5484d"></i>collapsed</span><span><i class="sw" style="background:#f5a524"></i>damaged</span><span><i class="sw" style="background:#4fe08a"></i>intact</span><span><i class="sw" style="background:#a770ff"></i>new</span><span><i class="sw" style="background:#965a28"></i>trees / objects gone</span></div>`
+    + row('People living in collapsed or damaged buildings', `≈ ${fmtN(Math.round(ppl))}`)
+    + row('Debris to clear', `≈ ${fmtM3(debris)} · ${fmtN(Math.ceil(debris / 10))} truck trips`, `${$('dmgdeb').value} % of the ${fmtM3(lostVol)} of building volume lost`)
+    + (R.new.length ? row('New structures (tents, sheds, rebuilt)', R.new.length) : '')
+    + (R.canopy ? row('Tree canopy lost', `${fmtHa(R.canopy.lost_m2)} of ${fmtHa(R.canopy.before_m2)}`, 'Landslide scars, cyclone or fire damage, felling') : '')
+    + row('Height lost outside buildings', fmtM3(R.ground_lost_m3))
+    + `<small>Before: ${R.before.replaceAll('_', ' ')}, ${R.matched}${sh ? `; aligned by moving it ${Math.abs(sh.dx_m).toFixed(1)} m ${sh.dx_m >= 0 ? 'east' : 'west'}, ${Math.abs(sh.dy_m).toFixed(1)} m ${sh.dy_m >= 0 ? 'south' : 'north'}` : ''}. `
+    + `${R.notes.join(' ')} Height change of each building = after − before median. Both images go through the same model, so its biases mostly cancel, but shadows, clouds and very different view angles add false changes: confirm on the ground.</small>`;
+}
+TOOL_OPEN.dmgcard = () => { renderDmgSelect(); renderDmg(); };
+$('dmgrun').onclick = async () => {
+  const name = data.name, before = $('dmgbefore').value;
+  $('dmgout').innerHTML = '<div class="msg">Comparing…</div>';
+  try {
+    const r = await fetch(`/api/change?name=${encodeURIComponent(name)}&before=${encodeURIComponent(before)}`, { method: 'POST' }), res = await r.json();
+    if (!r.ok) throw new Error(res.error);
+    const [dh, bidb] = await Promise.all(['_dh', '_bidb'].map(s => fetch(`/results/${name}${s}.f32?t=${Date.now()}`).then(x => x.arrayBuffer()).then(b => new Float32Array(b))));
+    if (data.name !== name) return;
+    T.dmg = { res, dh, bidb, byId: new Map(res.buildings.map(b => [b.id, b])) };
+    classifyDamage();
+  } catch (e) { T.dmg = { err: e.message }; }
+  renderDmg(); renderPeople(); layersChanged();
+};
+for (const id of ['dmgcol', 'dmgdam', 'dmgdeb']) $(id).oninput = () => { if (T.dmg && T.dmg.res) { classifyDamage(); renderDmg(); renderPeople(); layersChanged(); } };
+
+// ----- landslide risk (screening): BIS IS 14496 (Part 2) style ratings for slope, land cover and relative relief,
+// summed and raised for heavy rain (IMD 24-hour classes)
+const SLIDE_SLOPE = [[15, 0.5], [25, 0.8], [35, 1.2], [45, 1.7], [Infinity, 2.0]];
+const SLIDE_LC = [2.0, 1.2, 0.8, 0.8, 0.8, null, 0.65, 0.8];   // bare, grass/scrub, developed, road, trees, water (none), fields, buildings
+const SLIDE_CLS = [[2.2, 'low', [46, 160, 67]], [3.2, 'moderate', [255, 214, 10]], [4.2, 'high', [247, 127, 0]], [Infinity, 'very high', [214, 40, 40]]];
+const rainFactor = mm => mm >= 204.5 ? 1.5 : mm >= 115.6 ? 1.3 : mm >= 64.5 ? 1.15 : 1;
+function computeSlide() {
+  if (!data.dtm) return T.slide = { none: true };
+  const { W, H, N, dx } = gridInfo(), g = data.dtm, rain = Math.max(0, +$('slrain').value || 0), f = rainFactor(rain);
+  const bs = Math.max(1, Math.round(50 / dx)), BW = Math.ceil(W / bs), BH = Math.ceil(H / bs);
+  const lo = new Float32Array(BW * BH).fill(Infinity), hi = new Float32Array(BW * BH).fill(-Infinity);
+  for (let i = 0; i < N; i++) { const x = i % W, k = Math.floor((i - x) / W / bs) * BW + Math.floor(x / bs); lo[k] = Math.min(lo[k], g[i]); hi[k] = Math.max(hi[k], g[i]); }
+  const rel = new Float32Array(BW * BH);
+  for (let by = 0; by < BH; by++) for (let bx = 0; bx < BW; bx++) {
+    let a = Infinity, b = -Infinity;
+    for (let yy = Math.max(0, by - 1); yy <= Math.min(BH - 1, by + 1); yy++) for (let xx = Math.max(0, bx - 1); xx <= Math.min(BW - 1, bx + 1); xx++) { a = Math.min(a, lo[yy * BW + xx]); b = Math.max(b, hi[yy * BW + xx]); }
+    rel[by * BW + bx] = b - a;
+  }
+  const score = new Float32Array(N), cls = new Int8Array(N), count = [0, 0, 0, 0];
+  const cv = Object.assign(document.createElement('canvas'), { width: W, height: H }), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+  for (let i = 0; i < N; i++) {
+    const lcr = SLIDE_LC[data.lc ? data.lc[i] : 2];
+    if (lcr == null) { cls[i] = -1; continue; }
+    const x = i % W, r = rel[Math.floor((i - x) / W / bs) * BW + Math.floor(x / bs)], s = data.slope[i];
+    const sc = score[i] = (SLIDE_SLOPE.find(([t]) => s <= t)[1] + lcr + (r < 25 ? 0.3 : r < 75 ? 0.6 : 1.0)) * f;
+    const c = cls[i] = SLIDE_CLS.findIndex(([t]) => sc < t);
+    count[c]++;
+    if (c >= 1) img.data.set([...SLIDE_CLS[c][2], c === 1 ? 90 : 150], i * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  const bcls = new Int8Array(data.buildings.length + 1).fill(-1), cells = blockCells();   // a building takes the worst class next to it
+  for (const b of data.buildings) { let m = -1; for (const i of blockRims()[b.id]) m = Math.max(m, cls[i]); for (const i of cells[b.id]) m = Math.max(m, cls[i]); bcls[b.id] = m; }
+  return T.slide = { score, cls, count, cv, bcls, f, rain, cell: gridInfo().dx * gridInfo().dy };
+}
+function renderSlide() {
+  const S = T.slide;
+  if (!S || S.none) return void ($('slout').innerHTML = '<div class="msg warn">Needs terrain: a GeoTIFF scene (slope comes from the terrain model).</div>');
+  const tot = S.count.reduce((a, b) => a + b, 0) || 1, nb = c => data.buildings.filter(b => S.bcls[b.id] === c).length;
+  $('slout').innerHTML = SLIDE_CLS.map(([, name, col], c) => `<div class="row"><span><i class="sw" style="background:rgb(${col})"></i>${name}</span><b>${Math.round(100 * S.count[c] / tot)} % · ${fmtHa(S.count[c] * S.cell)}${c >= 2 ? ` · ${nb(c)} bldg` : ''}</b></div>`).join('')
+    + row('Rain factor', `×${S.f} (${S.rain} mm in 24 h: IMD ${imdClass(S.rain)})`)
+    + (T.dmg && T.dmg.res && T.dmg.res.canopy && T.dmg.res.canopy.lost_m2 ? `<div class="msg warn">${fmtHa(T.dmg.res.canopy.lost_m2)} of tree canopy was lost between the before and after images: check those areas for fresh slide scars.</div>` : '')
+    + '<small>Ratings: slope (≤15° 0.5 … >45° 2.0), land cover (bare 2.0, scrub 1.2, built / trees 0.8, fields 0.65) and relief within ~150 m (0.3 / 0.6 / 1.0), summed and multiplied by the rain factor. '
+    + 'Slope is from the 30 m terrain, so cuts and retaining walls are not seen. Use it to decide where to look, together with GSI / NDMA landslide maps.</small>';
+}
+TOOL_OPEN.slidecard = () => { computeSlide(); renderSlide(); renderPeople(); };
+TOOL_CLOSE.slidecard = () => { T.slide = null; renderPeople(); };
+$('slrain').oninput = () => { clearTimeout(T.slT); T.slT = setTimeout(() => { computeSlide(); renderSlide(); renderPeople(); layersChanged(); }, 200); };
+$('slfc').onclick = () => {
+  let mm = null;
+  if (data.tl) { let run = 0; mm = 0; for (let h = 0; h < data.tl.T; h++) { run += data.tl.P[h] - (h >= 24 ? data.tl.P[h - 24] : 0); mm = Math.max(mm, run); } }
+  else if (data.forecast) mm = data.forecast.mm.slice(0, 24).reduce((a, b) => a + b, 0);
+  if (mm == null) return void ($('slout').insertAdjacentHTML('afterbegin', '<div class="msg warn">Open the flood ⏱ Timeline (or load its rain forecast) first.</div>'));
+  $('slrain').value = Math.round(mm); $('slrain').oninput();
+};
+
+// ----- observed flood (Sentinel-1 / water mask) vs the scenario
+function obsMetrics(L) {
+  const o = T.obs.grid, r = data.reach;
+  let hit = 0, miss = 0, fa = 0, n = 0;
+  for (let i = 0; i < o.length; i++) {
+    if (!Number.isFinite(o[i]) || data.bid[i] > 0) continue;
+    n++;
+    const s = r[i] < L, w = o[i] > 0.5;
+    if (s && w) hit++; else if (w) miss++; else if (s) fa++;
+  }
+  return { hit, miss, fa, n, csi: hit / Math.max(1, hit + miss + fa), pod: hit / Math.max(1, hit + miss), far: fa / Math.max(1, hit + fa) };
+}
+function renderObs() {
+  const O = T.obs;
+  $('obsfit').disabled = !(O && O.grid);
+  if (!O || !O.grid) return void ($('obsout').innerHTML = O && O.err ? `<div class="msg warn">${O.err}</div>` : '<div class="msg">Choose a GeoTIFF and press <b>Load &amp; compare</b>.</div>');
+  const { W, H, N } = gridInfo(), cell = gridInfo().dx * gridInfo().dy, on = $('flood').checked, L = waterLevel();
+  const cv = O.cv || (O.cv = Object.assign(document.createElement('canvas'), { width: W, height: H })), ctx = cv.getContext('2d'), img = ctx.createImageData(W, H);
+  let m = null;
+  if (on) m = obsMetrics(L);
+  for (let i = 0; i < N; i++) {
+    const o = O.grid[i];
+    if (!Number.isFinite(o) || data.bid[i] > 0) continue;
+    const w = o > 0.5, s = on && data.reach[i] < L;
+    const c = !on ? (w ? [0, 220, 255, 150] : null) : s && w ? [47, 127, 224, 170] : w ? [214, 51, 132, 200] : s ? [245, 197, 24, 190] : null;
+    if (c) img.data.set(c, i * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  const r = O.res;
+  $('obsout').innerHTML = row('Observed water', `${r.water_pct.toFixed(0)} % of the covered area`) + row('Read as', `${r.kind === 'db' ? `radar backscatter, water below ${r.threshold_db.toFixed(1)} dB` : 'a water mask'}; ${r.matched}`)
+    + (on ? `<div class="kpis">${kpi(m.csi.toFixed(2), 'CSI', 'Critical success index: hits ÷ (hits + misses + false alarms); 1 = perfect')}${kpi(Math.round(100 * m.pod) + ' %', 'of real water found', 'Probability of detection')}${kpi(Math.round(100 * m.far) + ' %', 'false alarms', 'Share of simulated water that was dry in the satellite image')}</div>`
+       + `<div class="keys"><span><i class="sw" style="background:#2f7fe0"></i>both (${fmtHa(m.hit * cell)})</span><span><i class="sw" style="background:#d63384"></i>missed (${fmtHa(m.miss * cell)})</span><span><i class="sw" style="background:#f5c518"></i>false alarm (${fmtHa(m.fa * cell)})</span></div>`
+       : '<div class="msg">Turn on <b>🌊 Flood</b> to compare with the scenario (cyan = observed water).</div>')
+    + (O.fit ? row('Best fitting water level', `+${O.fit.rise.toFixed(1)} m · CSI ${O.fit.csi.toFixed(2)}`) : '')
+    + '<small>Building pixels are left out (radar sees walls, not water, there). Permanent rivers and ponds count as water in both. Radar misses water under trees and between tall buildings.</small>';
+}
+TOOL_OPEN.obscard = renderObs;
+$('obsrun').onclick = async () => {
+  const f = $('obsfile').files[0], name = data.name;
+  if (!f) return void ($('obsout').innerHTML = '<div class="msg warn">Choose a GeoTIFF first.</div>');
+  $('obsout').innerHTML = '<div class="msg">Reading the flood map…</div>';
+  try { await loadObs(f, f.name); } catch (e) { if (data.name === name) { T.obs = { err: e.message }; renderObs(); } }
+};
+async function loadObs(body, fname) {
+  const name = data.name, thr = $('obsthr').value;
+  const r = await fetch(`/api/obsflood?name=${encodeURIComponent(name)}&kind=${$('obskind').value}&file=${encodeURIComponent(fname)}${thr !== '' ? `&threshold=${thr}` : ''}`, { method: 'POST', body }), res = await r.json();
+  if (!r.ok) throw new Error(res.error);
+  const grid = new Float32Array(await (await fetch(`/results/${name}_obsflood.f32?t=${Date.now()}`)).arrayBuffer());
+  if (data.name !== name) return;
+  T.obs = { res, grid };
+  renderObs(); layersChanged();
+}
+function fitObsLevel() {
+  const top = +$('depth').max;
+  let best = { csi: -1, rise: 0 };
+  for (let rr = 0; rr <= top; rr += 0.1) { const m = obsMetrics(data.gmin + rr); if (m.csi > best.csi) best = { csi: m.csi, rise: rr }; }
+  return best;
+}
+$('obsfit').onclick = () => {
+  if (!$('flood').checked) { $('flood').checked = true; updateFlood(); }
+  const b = T.obs.fit = fitObsLevel();
+  $('depth').value = b.rise; data.tlStart = b.rise; updateFlood(); renderObs(); layersChanged();
+};
+
+// ----- flowing water: local-inertial shallow-water model (Bates et al. 2010, as in LISFLOOD-FP) on a coarser grid
+const MANNING = [0.03, 0.035, 0.02, 0.016, 0.1, 0.025, 0.035, 0.02];
+const fmtDur = s => s < 3600 ? `${Math.round(s / 60)} min` : `${(s / 3600).toFixed(1)} h`;
+function fmtClock(k) { const F = T.flow.sim; return F ? `+${fmtDur(F.times[Math.min(k, F.times.length - 1)])}` : '–'; }
+function flowSetup(hours) {
+  const { W, H, dx, dy } = gridInfo(), L = Math.max(W * dx, H * dy);
+  // cells per side so a run stays a few seconds: steps × cells² ≈ T·√(g·2 m)/0.7 · n³ / L
+  const n = clampI(Math.round(Math.cbrt(5e7 * 0.7 * L / (hours * 3600 * Math.sqrt(9.81 * 2)))), 40, 150);
+  const f = Math.max(1, Math.ceil(Math.max(W, H) / n)), Wc = Math.ceil(W / f), Hc = Math.ceil(H / f), Nc = Wc * Hc, g = groundGrid();
+  const z = new Float64Array(Nc), cnt = new Float64Array(Nc), bld = new Float64Array(Nc), nn = new Float64Array(Nc);
+  for (let i = 0; i < W * H; i++) {
+    const x = i % W, c = Math.floor((i - x) / W / f) * Wc + Math.floor(x / f);
+    z[c] += g[i]; cnt[c]++; if (data.bid[i] > 0) bld[c]++; nn[c] += MANNING[data.lc ? data.lc[i] : 2];
+  }
+  const solid = new Uint8Array(Nc), man = new Float64Array(Nc);
+  for (let c = 0; c < Nc; c++) { z[c] /= cnt[c]; man[c] = nn[c] / cnt[c]; solid[c] = bld[c] / cnt[c] > 0.5 ? 1 : 0; }
+  const brim = new Map(), rims = blockRims();   // coarse cells around each building
+  for (const b of data.buildings) brim.set(b.id, [...new Set(rims[b.id].map(i => { const x = i % W; return Math.floor((i - x) / W / f) * Wc + Math.floor(x / f); }))].filter(c => !solid[c]));
+  return { f, Wc, Hc, Nc, z, solid, man, dxc: dx * f, dyc: dy * f, brim };
+}
+function flowStart() {
+  const hours = clampI(+$('flhours').value || 3, 0.25, 24), G = flowSetup(hours), { Wc, Hc, Nc, solid } = G;
+  const src = T.flow.src.map(([u, v]) => {
+    let c = clampI(Math.floor(v * Hc), 0, Hc - 1) * Wc + clampI(Math.floor(u * Wc), 0, Wc - 1);
+    if (solid[c]) { let best = -1, bd = Infinity; for (let k = 0; k < Nc; k++) if (!solid[k]) { const d = (k % Wc - c % Wc) ** 2 + (Math.floor(k / Wc) - Math.floor(c / Wc)) ** 2; if (d < bd) { bd = d; best = k; } } c = best; }
+    return c;
+  }).filter(c => c >= 0);
+  const Tend = hours * 3600, every = Tend <= 3 * 3600 ? 300 : Tend <= 12 * 3600 ? 900 : 1800;
+  const F = T.flow.sim = { G, h: new Float64Array(Nc), qx: new Float64Array((Wc + 1) * Hc), qy: new Float64Array(Wc * (Hc + 1)), t: 0, Tend, every, next: every,
+    src, Q: Math.max(0, +$('flq').value || 0), rain: Math.max(0, +$('flrain').value || 0) / 1000 / 3600, arrival: new Float32Array(Nc).fill(Infinity),
+    snaps: [new Float32Array(Nc)], times: [0], vin: 0, vout: 0, done: false, steps: 0 };
+  T.flow.k = 0;
+  return F;
+}
+function flowStep(F) {
+  const { Wc, Hc, Nc, z, solid, man, dxc, dyc } = F.G, h = F.h, qx = F.qx, qy = F.qy, g = 9.81;
+  let hm = 0.01;
+  for (let c = 0; c < Nc; c++) if (h[c] > hm) hm = h[c];
+  const dt = Math.min(5, 0.7 * Math.min(dxc, dyc) / Math.sqrt(g * hm), F.Tend - F.t);
+  const face = (q0, a, b, d) => {             // discharge per metre of face between cells a → b
+    if (solid[a] || solid[b]) return 0;
+    const ea = z[a] + h[a], eb = z[b] + h[b], hf = Math.max(ea, eb) - Math.max(z[a], z[b]);
+    if (hf < 1e-3) return 0;
+    const n = (man[a] + man[b]) / 2, qmax = hf * Math.sqrt(g * hf);   // Froude ≤ 1: keeps steep slopes stable
+    return clampI((q0 - g * hf * dt * (eb - ea) / d) / (1 + g * dt * n * n * Math.abs(q0) / Math.pow(hf, 7 / 3)), -qmax, qmax);
+  };
+  const outfall = c => solid[c] || h[c] < 0.01 ? 0 : 0.5 * h[c] * Math.sqrt(g * h[c]);   // water leaves at the scene edges
+  for (let y = 0; y < Hc; y++) for (let i = 0; i <= Wc; i++) {
+    const f = y * (Wc + 1) + i;
+    qx[f] = i === 0 ? -outfall(y * Wc) : i === Wc ? outfall(y * Wc + Wc - 1) : face(qx[f], y * Wc + i - 1, y * Wc + i, dxc);
+  }
+  for (let j = 0; j <= Hc; j++) for (let x = 0; x < Wc; x++) {
+    const f = j * Wc + x;
+    qy[f] = j === 0 ? -outfall(x) : j === Hc ? outfall((Hc - 1) * Wc + x) : face(qy[f], (j - 1) * Wc + x, j * Wc + x, dyc);
+  }
+  // no cell may lose more water than it holds in one step: scale its outgoing faces (keeps the mass balance exact)
+  const lim = F.lim || (F.lim = new Float64Array(Nc));
+  for (let c = 0; c < Nc; c++) {
+    if (solid[c]) { lim[c] = 1; continue; }
+    const x = c % Wc, y = (c - x) / Wc, fl = y * (Wc + 1) + x, ft = y * Wc + x;
+    const outV = (Math.max(0, -qx[fl]) + Math.max(0, qx[fl + 1])) * dyc * dt + (Math.max(0, -qy[ft]) + Math.max(0, qy[ft + Wc])) * dxc * dt;
+    const have = h[c] * dxc * dyc;
+    lim[c] = outV > have ? have / outV : 1;
+  }
+  for (let y = 0; y < Hc; y++) for (let i = 0; i <= Wc; i++) {
+    const f = y * (Wc + 1) + i, q = qx[f];
+    if (q > 0 && i > 0) qx[f] = q * lim[y * Wc + i - 1]; else if (q < 0 && i < Wc) qx[f] = q * lim[y * Wc + i];
+  }
+  for (let j = 0; j <= Hc; j++) for (let x = 0; x < Wc; x++) {
+    const f = j * Wc + x, q = qy[f];
+    if (q > 0 && j > 0) qy[f] = q * lim[(j - 1) * Wc + x]; else if (q < 0 && j < Hc) qy[f] = q * lim[j * Wc + x];
+  }
+  let out = 0;
+  for (let y = 0; y < Hc; y++) out += (-qx[y * (Wc + 1)] + qx[y * (Wc + 1) + Wc]) * dyc * dt;
+  for (let x = 0; x < Wc; x++) out += (-qy[x] + qy[Hc * Wc + x]) * dxc * dt;
+  for (let c = 0; c < Nc; c++) {
+    if (solid[c]) continue;
+    const x = c % Wc, y = (c - x) / Wc;
+    const dq = (qx[y * (Wc + 1) + x] - qx[y * (Wc + 1) + x + 1]) / dxc + (qy[y * Wc + x] - qy[(y + 1) * Wc + x]) / dyc;
+    h[c] = Math.max(0, h[c] + dt * dq + F.rain * dt);
+    if (F.rain) F.vin += F.rain * dt * dxc * dyc;
+  }
+  for (const c of F.src) h[c] += F.Q * dt / (dxc * dyc);
+  F.vin += F.Q * F.src.length * dt; F.vout += out; F.t += dt; F.steps++;
+  for (let c = 0; c < Nc; c++) if (h[c] > 0.1 && F.arrival[c] === Infinity) F.arrival[c] = F.t;
+  if (F.t >= F.next - 1e-6 || F.t >= F.Tend - 1e-6) { F.snaps.push(Float32Array.from(h)); F.times.push(F.t); F.next += F.every; }
+  if (F.t >= F.Tend - 1e-6) F.done = true;
+}
+function flowRun(sync) {
+  const F = flowStart();
+  if (!F.src.length && !F.rain) { T.flow.sim = null; return void ($('flout').innerHTML = '<div class="msg warn">Place at least one inflow point (or set some rain) first.</div>'); }
+  setPick(null);
+  if (sync) { while (!F.done) flowStep(F); return flowFinished(); }
+  $('flrun').textContent = '■ Stop';
+  const chunk = () => {
+    if (T.flow.sim !== F) return;
+    const t0 = performance.now();
+    while (!F.done && performance.now() - t0 < 30) flowStep(F);
+    T.flow.k = F.snaps.length - 1; $('flt').max = T.flow.k; $('flt').value = T.flow.k;
+    renderFlowFrame();
+    if (F.done || F.stop) flowFinished(); else requestAnimationFrame(chunk);
+  };
+  requestAnimationFrame(chunk);
+}
+function flowFinished() {
+  $('flrun').textContent = '▶ Run';
+  const F = T.flow.sim; F.done = true;
+  T.flow.k = F.snaps.length - 1; $('flt').max = T.flow.k; $('flt').value = T.flow.k;
+  renderFlowFrame(); renderPeople();
+}
+function flowShown() { return !!(T.flow && T.flow.sim && !$('flowcard').hidden); }
+function flowSampler(arr) {    // fine-grid (u, v) -> bilinear value on the coarse flow grid
+  const { f, Wc, Hc } = T.flow.sim.G, { W, H } = gridInfo();
+  return (u, v) => {
+    const x = clampI(u * W / f - 0.5, 0, Wc - 1), y = clampI(v * H / f - 0.5, 0, Hc - 1), x0 = Math.floor(x), y0 = Math.floor(y), x1 = Math.min(Wc - 1, x0 + 1), y1 = Math.min(Hc - 1, y0 + 1), fx = x - x0, fy = y - y0;
+    return (arr[y0 * Wc + x0] * (1 - fx) + arr[y0 * Wc + x1] * fx) * (1 - fy) + (arr[y1 * Wc + x0] * (1 - fx) + arr[y1 * Wc + x1] * fx) * fy;
+  };
+}
+function flowDepthAt(u, v) { const F = T.flow.sim; return flowSampler(F.snaps[T.flow.k])(u, v); }
+function flowArrivalAt(u, v) { const F = T.flow.sim, { f, Wc, Hc } = F.G, { W, H } = gridInfo(), a = F.arrival[clampI(Math.floor(v * H / f), 0, Hc - 1) * Wc + clampI(Math.floor(u * W / f), 0, Wc - 1)]; return a <= F.times[T.flow.k] ? a : Infinity; }
+function flowHeights(pos, k) {
+  const F = T.flow.sim, { W, H } = gridInfo(), g = groundGrid(), s = flowSampler(F.snaps[T.flow.k]);
+  for (let i = 0; i < pos.count; i++) {
+    const x = i % W, y = (i - x) / W, d = s((x + 0.5) / W, (y + 0.5) / H);
+    pos.setY(i, d > 0.05 && !(data.bid[i] > 0) ? (g[i] - data.gmin + d) * k : (g[i] - data.gmin - 1) * k);
+  }
+  pos.needsUpdate = true;
+}
+function flowWetBlocks() {
+  const F = T.flow.sim, h = F.snaps[T.flow.k], s = new Set();
+  for (const [id, cs] of F.G.brim) if (cs.some(c => h[c] > 0.1)) s.add(id);
+  return s;
+}
+function renderFlowFrame() {
+  const F = T.flow.sim, { Wc, Hc, Nc } = F.G, h = F.snaps[T.flow.k], t = F.times[T.flow.k], arr = $('flarr').checked;
+  const cv = T.flow.cv && T.flow.cv.width === Wc ? T.flow.cv : (T.flow.cv = Object.assign(document.createElement('canvas'), { width: Wc, height: Hc, smooth: true }));
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(Wc, Hc), cell = F.G.dxc * F.G.dyc;
+  let wet = 0, maxd = 0, vol = 0;
+  for (let c = 0; c < Nc; c++) {
+    const d = h[c];
+    vol += d * cell;
+    if (d <= 0.05) continue;
+    if (d > 0.1) wet++;
+    maxd = Math.max(maxd, d);
+    if (arr) { const a = F.arrival[c]; if (a <= t) img.data.set([...ARR_KEYS[a <= 0 ? 0 : clampI(Math.ceil(4 * a / F.Tend), 1, 4)][2], 215], c * 4); continue; }
+    const x = Math.min(1, d / 3);
+    img.data.set([Math.round(140 - 120 * x), Math.round(200 - 140 * x), 255, Math.round(Math.min(230, 110 + 120 * x))], c * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  water.visible = true; updateWater(); layersChanged();
+  $('fltv').textContent = fmtClock(T.flow.k);
+  const wetB = flowWetBlocks(), ppl = data.buildings.filter(b => wetB.has(b.id)).reduce((a, b) => a + residents(b), 0);
+  $('flout').innerHTML = `<div class="kpis">${kpi(fmtHa(wet * cell), 'under water')}${kpi(maxd.toFixed(1) + ' m', 'deepest')}${kpi(wetB.size, 'buildings wet', `≈ ${fmtN(Math.round(ppl))} residents`)}</div>`
+    + row('Water in so far', `${fmtM3(F.vin * Math.min(1, t / Math.max(F.t, 1e-6)))}${F.done ? ` · ${fmtM3(F.vout)} left the scene` : ''}`)
+    + row('Now standing in the scene', fmtM3(vol)) + (F.done ? '' : `<div class="msg">Simulating… ${Math.round(100 * F.t / F.Tend)} %</div>`)
+    + (arr ? `<div class="keys">${ARR_KEYS.slice(0, 5).map(([, , c], k) => `<span><i class="sw" style="background:rgb(${c})"></i>${k ? `by ${fmtDur(F.Tend * k / 4)}` : 'at the start'}</span>`).join('')}</div>` : '')
+    + `<small>2D shallow-water model (local inertial, Manning friction from land cover) on ${Wc}×${Hc} cells of ${F.G.dxc.toFixed(0)} m; buildings block the flow; water leaves at the scene edges. `
+    + 'No drains, culverts or infiltration, and the 30 m terrain limits depths (±2–4 m). A scenario to compare options, not a forecast.</small>';
+}
+function renderFlow() {
+  if (T.flow.sim) return renderFlowFrame();
+  $('flout').innerHTML = `<div class="msg">${T.flow.src.length ? `${T.flow.src.length} inflow point${T.flow.src.length > 1 ? 's' : ''}: press <b>▶ Run</b>.` : 'Place inflow points, then press <b>▶ Run</b>.'}</div>`;
+}
+TOOL_OPEN.flowcard = () => {
+  if ($('flood').checked) { $('flood').checked = false; updateFlood(); }   // one water model at a time
+  if (!T.flow.src.length) setPick('flowsrc');
+  renderFlow();
+};
+TOOL_CLOSE.flowcard = () => { if (T.flow.sim) T.flow.sim.stop = true; water.visible = $('flood').checked; updateWater(); };
+$('flpick').onclick = () => setPick(pick.mode === 'flowsrc' ? null : 'flowsrc');
+$('flrun').onclick = () => { if (T.flow.sim && !T.flow.sim.done) { T.flow.sim.stop = true; return; } flowRun(false); };
+$('flclear').onclick = () => { if (T.flow.sim) T.flow.sim.stop = true; T.flow = { src: [], sim: null, k: 0 }; $('flt').max = 0; $('fltv').textContent = '–'; water.visible = $('flood').checked; updateWater(); renderFlow(); layersChanged(); };
+$('flt').oninput = () => { if (T.flow.sim) { T.flow.k = +$('flt').value; renderFlowFrame(); renderPeople(); } };
+$('flarr').onchange = () => T.flow.sim && renderFlowFrame();
+
+// ===================================================== REPORT ===========================================
+function cardHTML(card) {      // a card as static HTML: charts become images, inputs their values, buttons go
+  const c = card.cloneNode(true);
+  const srcC = card.querySelectorAll('canvas'), dstC = c.querySelectorAll('canvas');
+  srcC.forEach((cv, k) => { const img = document.createElement('img'); img.src = cv.toDataURL(); img.style.maxWidth = '100%'; dstC[k].replaceWith(img); });
+  const srcI = card.querySelectorAll('input, select'), dstI = c.querySelectorAll('input, select');
+  srcI.forEach((el, k) => {
+    const v = el.tagName === 'SELECT' ? (el.selectedOptions[0] || {}).textContent || '' : el.type === 'checkbox' ? (el.checked ? '☑' : '☐')
+      : el.type === 'file' ? (el.files[0] ? el.files[0].name : '–') : el.type === 'range' ? '' : el.value;
+    const s = document.createElement('b'); s.textContent = v; dstI[k].replaceWith(s);
+  });
+  c.querySelectorAll('button, .help, [hidden], a').forEach(e => e.remove());
+  return c.innerHTML;
+}
+function reportHTML() {
+  const m = data.meta, W = data.photo.naturalWidth, H = data.photo.naturalHeight, k = Math.min(1, 1400 / Math.max(W, H));
+  const cv = Object.assign(document.createElement('canvas'), { width: Math.round(W * k), height: Math.round(H * k) }), c = cv.getContext('2d');
+  c.drawImage(data.photo, 0, 0, cv.width, cv.height);
+  if (T.wms && T.wms.on) { c.globalAlpha = +$('wmsop').value; c.drawImage(T.wms.img, 0, 0, cv.width, cv.height); }
+  c.globalAlpha = +$('alpha').value; c.drawImage($('heat'), 0, 0, cv.width, cv.height); c.globalAlpha = 1;
+  c.drawImage($('ovl'), 0, 0, cv.width, cv.height);
+  let shot3d = '';
+  if (mesh && $('v3d').classList.contains('on')) { renderer.render(scene3, camera); shot3d = renderer.domElement.toDataURL('image/jpeg', 0.85); }
+  const cards = [...$('cards').children].filter(x => !x.hidden).map(cardHTML);
+  const esc = s => s.replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[ch]);
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${esc(data.name)} situation report</title><style>
+  body{font:13px/1.45 -apple-system,"Segoe UI",sans-serif;color:#111;margin:24px;max-width:1000px}h1{font-size:20px;margin:0}h2{font-size:15px;margin:22px 0 6px;border-bottom:2px solid #333}
+  .meta{color:#555}.chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.chip{border:1px solid #bbb;border-radius:999px;padding:2px 9px;font-size:12px}
+  img.map{width:100%;border:1px solid #999;border-radius:4px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card{border:1px solid #ccc;border-radius:6px;padding:8px 12px;break-inside:avoid}
+  .card h3{margin:0 0 6px;font-size:13px;text-transform:uppercase;letter-spacing:.4px}.card .row{display:flex;justify-content:space-between;gap:10px;border-top:1px solid #eee;padding:2px 0}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.kpi{background:#f2f2f2;border-radius:4px;padding:4px 6px}.kpi b{display:block;font-size:15px}.kpi span{color:#555;font-size:11px}
+  table{width:100%;border-collapse:collapse}td,th{border-top:1px solid #ddd;padding:2px 4px;text-align:right}td:first-child,th:first-child{text-align:left}small{color:#555;display:block;margin-top:6px}
+  .sw{display:inline-block;width:10px;height:10px;margin-right:5px}.warn{color:#b3261e}.foot{margin-top:24px;color:#666;font-size:11.5px;border-top:1px solid #ccc;padding-top:8px}
+  @media print{body{margin:10mm}.noprint{display:none}}</style></head><body>
+  <button class="noprint" onclick="print()" style="float:right">Print / save as PDF</button>
+  <h1>${esc(data.name.replaceAll('_', ' '))}: situation report</h1>
+  <div class="meta">DepthWizard · ${new Date().toLocaleString('en-IN')} · ${m.width}×${m.height} px at ${m.gsd.toFixed(2)} m${m.center_lonlat ? ` · centre ${m.center_lonlat[1].toFixed(5)}°N, ${m.center_lonlat[0].toFixed(5)}°E` : ''}</div>
+  <div class="chips">${[...$('stats').children].map(ch => `<span class="chip">${esc(ch.textContent)}</span>`).join('')}</div>
+  <p class="meta">${esc($('note').textContent)}</p>
+  <h2>Map</h2><img class="map" src="${cv.toDataURL('image/jpeg', 0.88)}">
+  ${shot3d ? `<h2>3D view</h2><img class="map" src="${shot3d}">` : ''}
+  <h2>Results</h2><div class="grid">${cards.map(h => `<div class="card">${h}</div>`).join('') || '<p>No tool is open: open tools in the toolbar to add their results here.</p>'}</div>
+  <div class="foot">Heights are estimated from a single satellite image by the RS3DAda model (± their uncertainty) on a 30 m terrain model. The tools give scenarios and planning estimates, not forecasts: check on the ground before acting.</div>
+  </body></html>`;
+}
+$('reportbtn').onclick = () => {
+  if (!data) return;
+  const url = URL.createObjectURL(new Blob([reportHTML()], { type: 'text/html' }));
+  if (!window.open(url, '_blank')) download(url, `${data.name}_report.html`);
+};
+
+// ===================================================== TOOL FINDER (Ctrl K) ===============================
+const MODE_NAME = { explore: 'Explore', validate: 'Validate & calibrate', disaster: 'Disaster tools' };
+function paletteItems() {
+  const items = [];
+  for (const el of document.querySelectorAll('#toolbar .tool[data-mode]')) {
+    const on = () => el.dataset.tool ? !$(el.dataset.tool).hidden : el.tagName === 'LABEL' ? $('flood').checked : el.classList.contains('on');
+    items.push({ label: el.textContent.trim(), desc: el.title, kw: el.dataset.kw || '', tag: MODE_NAME[el.dataset.mode], run: () => {
+      setMode(el.dataset.mode);
+      if (el.id === 'timebtn' && !$('flood').checked) { $('flood').checked = true; updateFlood(); }
+      if (!on()) el.click();
+    } });
+  }
+  for (const [m, l] of Object.entries(MODE_NAME)) items.push({ label: `Mode: ${l}`, desc: `Switch to ${l}`, kw: 'mode', tag: 'Mode', run: () => setMode(m) });
+  items.push({ label: '3D view', desc: 'The photo draped on the heights; orbit, fly, street level', kw: 'three flythrough', tag: 'View', run: () => document.querySelector('#views [data-v=v3d]').click() },
+    { label: '2D compare', desc: 'The photo with a height, uncertainty or slope layer', kw: 'map', tag: 'View', run: () => document.querySelector('#views [data-v=v2d]').click() },
+    { label: '▶ Fly through', desc: 'Fly along your drawn path, or an automatic tour', kw: 'tour video', tag: 'View', run: () => { setMode('explore'); document.querySelector('#views [data-v=v3d]').click(); playPath(false); } },
+    { label: '● Record video', desc: 'Fly the path and save it as a video file', kw: 'mp4 webm', tag: 'View', run: () => { setMode('explore'); document.querySelector('#views [data-v=v3d]').click(); playPath(true); } },
+    { label: '📄 Situation report', desc: 'A printable report (save as PDF) with the map and the open tools', kw: 'pdf print', tag: 'Share', run: () => $('reportbtn').click() },
+    { label: '📱 Field app', desc: 'Phone page that records GPS points for calibration', kw: 'gps mobile gcp', tag: 'Share', run: () => window.open('/field', '_blank') },
+    { label: 'Upload an image', desc: 'PNG, JPG or GeoTIFF (Cartosat, Maxar, …)', kw: 'add open file', tag: 'Scene', run: () => $('file').click() });
+  for (const o of $('dl').options) if (o.value && !o.disabled)
+    items.push({ label: `Download: ${o.textContent}`, desc: 'Save to open in QGIS, ArcGIS, Blender…', kw: 'export save', tag: 'Download', run: () => { $('dl').value = o.value; $('dl').onchange({ target: $('dl') }); } });
+  return items;
+}
+const PAL = { items: [], shown: [], sel: 0 };
+function openPalette() { PAL.items = paletteItems(); $('palette').hidden = false; $('palq').value = ''; renderPalette(); $('palq').focus(); }
+function closePalette() { $('palette').hidden = true; }
+function renderPalette() {
+  const q = $('palq').value.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  PAL.shown = PAL.items.filter(it => q.every(w => `${it.label} ${it.desc} ${it.kw} ${it.tag}`.toLowerCase().includes(w)));
+  PAL.sel = Math.min(PAL.sel, Math.max(0, PAL.shown.length - 1));
+  $('pall').innerHTML = PAL.shown.map((it, k) => `<li data-k="${k}" class="${k === PAL.sel ? 'sel' : ''}"><b>${it.label}</b><i>${it.tag}</i><span>${it.desc}</span></li>`).join('')
+    || '<li><b>No tool matches</b><span>Try another word: flood, drone, shadow, solar, damage…</span></li>';
+}
+function runPalette(k) { const it = PAL.shown[k]; if (!it) return; closePalette(); it.run(); }
+$('findbtn').onclick = openPalette;
+$('palq').oninput = () => { PAL.sel = 0; renderPalette(); };
+$('palq').onkeydown = e => {
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); PAL.sel = clampI(PAL.sel + (e.key === 'ArrowDown' ? 1 : -1), 0, PAL.shown.length - 1); renderPalette(); $('pall').children[PAL.sel]?.scrollIntoView({ block: 'nearest' }); }
+  else if (e.key === 'Enter') runPalette(PAL.sel);
+  else if (e.key === 'Escape') closePalette();
+};
+$('pall').onclick = e => { const li = e.target.closest('li[data-k]'); if (li) runPalette(+li.dataset.k); };
+$('palette').onclick = e => { if (e.target.id === 'palette') closePalette(); };
+addEventListener('keydown', e => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); $('palette').hidden ? openPalette() : closePalette(); }
+  else if (e.key === '/' && $('palette').hidden && !e.target.matches('input, select, textarea')) { e.preventDefault(); openPalette(); }
+});
+
+// ----- a new scene: fresh tool state; open tools recompute
+function newToolsSceneLoaded() {
+  if (T.flow && T.flow.sim) T.flow.sim.stop = true;
+  T = { los: { obs: [] }, vol: { pts: [] }, shadow: { meas: [], a: null, auto: null }, flow: { src: [], sim: null, k: 0 }, wms: null };
+  $('wmsimg').hidden = true; $('flt').max = 0; $('fltv').textContent = '–';
+  const c = data.meta.class_scale; $('fixb').value = c ? c.buildings : 1; $('fixt').value = c ? c.trees : 1;
+  for (const b of document.querySelectorAll('#toolbar [data-tool]')) if (!$(b.dataset.tool).hidden) TOOL_OPEN[b.dataset.tool]?.();
+  renderPeople(); layersChanged();
+}
+
+// #v2test: expose internals to the headless browser test (demo/…; nothing is exposed otherwise)
+if (location.hash.includes('v2test')) window.__dw = { get data() { return data; }, get T() { return T; }, get pick() { return pick; }, $, setMode, toggleTool, setPick, onPick,
+  computeLOS, computeVolume, renderVolume, renderDrone, droneKML, dronePlan, droneCSV, computeSolar, autoShadows, shadowRatio, applyFix, residents, evacPlan,
+  computeSlide, fitObsLevel, obsMetrics, flowRun, reportHTML, paletteItems, updateFlood, surfaceGrid, blockCells, sunPos, pm, loadObs, togglePath, nav, select };
 // ---------- tabs / upload ----------
 function setView(v) {
   for (const id of ['v2d', 'v3d', 'vwait']) $(id).classList.toggle('on', id === v);
@@ -2041,7 +3626,7 @@ if (location.hash.includes('selftest')) setTimeout(() => {
 
 async function upload(file) {
   $('drop').firstChild.textContent = `Uploading ${file.name}…`;
-  const r = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}`, { method: 'POST', body: file });
+  const r = await fetch(`/api/upload?name=${encodeURIComponent(file.name)}&bands=${$('bands').value}`, { method: 'POST', body: file });
   const j = await r.json();
   $('drop').firstChild.textContent = r.ok ? 'Drop a satellite image here, or click to upload' : `Upload failed: ${j.error}`;
   if (r.ok) { await poll(); select(j.name); }
