@@ -1,0 +1,375 @@
+{
+ "version": 1,
+ "label": "90% interval (calibrated on GAMUS, US cities)",
+ "formula": "interval = [h + q_lo * (spread + c), h + q_hi * (spread + c)], lower end clipped at 0; spread = 4-flip std (m); c = null means constant width (spread + c -> 1); group = predicted height bin (buildings) or predicted land-cover group | predicted height bin (pixels); unknown group -> \"pooled\"",
+ "bins": [
+  "0-3 m",
+  "3-10 m",
+  "10-20 m",
+  "20-inf m"
+ ],
+ "class_groups": {
+  "bareland": "ground",
+  "rangeland": "ground",
+  "developed": "ground",
+  "road": "ground",
+  "trees": "trees",
+  "water": "water",
+  "agriculture": "ground",
+  "buildings": "buildings"
+ },
+ "building": {
+  "c": 16.0,
+  "c_selection": {
+   "0.1": {
+    "width_90": 15.199873526040095,
+    "coverage_90": 0.8990825688073395
+   },
+   "0.25": {
+    "width_90": 14.657807781831108,
+    "coverage_90": 0.8944954128440367
+   },
+   "0.5": {
+    "width_90": 13.767233371640508,
+    "coverage_90": 0.8899082568807339
+   },
+   "1.0": {
+    "width_90": 12.99742626688804,
+    "coverage_90": 0.8761467889908257
+   },
+   "2.0": {
+    "width_90": 12.542223189777467,
+    "coverage_90": 0.8738532110091743
+   },
+   "4.0": {
+    "width_90": 12.24813990654898,
+    "coverage_90": 0.8715596330275229
+   },
+   "8.0": {
+    "width_90": 12.185687674609968,
+    "coverage_90": 0.8738532110091743
+   },
+   "16.0": {
+    "width_90": 12.130534060037043,
+    "coverage_90": 0.8715596330275229
+   }
+  },
+  "signed": false,
+  "min_group_n": 40,
+  "n": 959,
+  "group_n": {
+   "0-3 m": 15,
+   "10-20 m": 71,
+   "20-inf m": 14,
+   "3-10 m": 859
+  },
+  "q": {
+   "0.68": {
+    "pooled": [
+     -0.2173,
+     0.2173
+    ],
+    "10-20 m": [
+     -0.2453,
+     0.2453
+    ],
+    "3-10 m": [
+     -0.2105,
+     0.2105
+    ]
+   },
+   "0.9": {
+    "pooled": [
+     -0.4172,
+     0.4172
+    ],
+    "10-20 m": [
+     -0.6012,
+     0.6012
+    ],
+    "3-10 m": [
+     -0.3903,
+     0.3903
+    ]
+   },
+   "0.95": {
+    "pooled": [
+     -0.6273,
+     0.6273
+    ],
+    "10-20 m": [
+     -0.7441,
+     0.7441
+    ],
+    "3-10 m": [
+     -0.5914,
+     0.5914
+    ]
+   }
+  },
+  "variant": "symmetric",
+  "reported_height": "block median of the predicted height (app.extract_buildings height_m)",
+  "reference": "90th percentile of the LiDAR nDSM inside the block",
+  "held_out_coverage": {
+   "0.68": {
+    "coverage_per_fold": [
+     0.6821515892420538,
+     0.5746606334841629,
+     0.7386018237082067
+    ],
+    "max_abs_gap_pp": 10.53393665158372,
+    "width_mean_per_fold": [
+     7.200120829507657,
+     6.699822610337274,
+     7.474829496294682
+    ]
+   },
+   "0.9": {
+    "coverage_per_fold": [
+     0.8655256723716381,
+     0.832579185520362,
+     0.9696048632218845
+    ],
+    "max_abs_gap_pp": 6.960486322188453,
+    "width_mean_per_fold": [
+     12.062039561357269,
+     11.638733043064073,
+     14.326281168310222
+    ]
+   },
+   "0.95": {
+    "coverage_per_fold": [
+     0.902200488997555,
+     0.9276018099547512,
+     0.9817629179331308
+    ],
+    "max_abs_gap_pp": 4.779951100244495,
+    "width_mean_per_fold": [
+     14.7766894702766,
+     15.724574476701179,
+     18.270917101097858
+    ]
+   }
+  }
+ },
+ "pixel": {
+  "c": 8.0,
+  "c_selection": {
+   "0.1": {
+    "width_90": 13.670824302352905,
+    "coverage_90": 0.8993827241050805
+   },
+   "0.25": {
+    "width_90": 12.736327219126778,
+    "coverage_90": 0.8982995549871455
+   },
+   "0.5": {
+    "width_90": 12.126953965611632,
+    "coverage_90": 0.8977644955433464
+   },
+   "1.0": {
+    "width_90": 11.634020702730341,
+    "coverage_90": 0.8958983126052175
+   },
+   "2.0": {
+    "width_90": 11.354017799221733,
+    "coverage_90": 0.8953241024704086
+   },
+   "4.0": {
+    "width_90": 11.225809228620633,
+    "coverage_90": 0.8945410886502146
+   },
+   "8.0": {
+    "width_90": 11.184257023318354,
+    "coverage_90": 0.894201782661464
+   },
+   "16.0": {
+    "width_90": 11.200150712214354,
+    "coverage_90": 0.8937972255210305
+   }
+  },
+  "signed": false,
+  "min_group_n": 200,
+  "n": 153285,
+  "group_n": {
+   "buildings|0-3 m": 10054,
+   "buildings|10-20 m": 5804,
+   "buildings|20-inf m": 2144,
+   "buildings|3-10 m": 23857,
+   "ground|0-3 m": 67616,
+   "ground|10-20 m": 3,
+   "ground|3-10 m": 79,
+   "trees|0-3 m": 21914,
+   "trees|10-20 m": 113,
+   "trees|3-10 m": 18567,
+   "water|0-3 m": 3134
+  },
+  "q": {
+   "0.68": {
+    "pooled": [
+     -0.3479,
+     0.3479
+    ],
+    "buildings|0-3 m": [
+     -0.1973,
+     0.1973
+    ],
+    "buildings|10-20 m": [
+     -0.5739,
+     0.5739
+    ],
+    "buildings|20-inf m": [
+     -1.5804,
+     1.5804
+    ],
+    "buildings|3-10 m": [
+     -0.3641,
+     0.3641
+    ],
+    "ground|0-3 m": [
+     -0.039,
+     0.039
+    ],
+    "trees|0-3 m": [
+     -1.581,
+     1.581
+    ],
+    "trees|3-10 m": [
+     -1.2504,
+     1.2504
+    ],
+    "water|0-3 m": [
+     -0.0355,
+     0.0355
+    ]
+   },
+   "0.9": {
+    "pooled": [
+     -1.4987,
+     1.4987
+    ],
+    "buildings|0-3 m": [
+     -0.3813,
+     0.3813
+    ],
+    "buildings|10-20 m": [
+     -0.9615,
+     0.9615
+    ],
+    "buildings|20-inf m": [
+     -2.2,
+     2.2
+    ],
+    "buildings|3-10 m": [
+     -0.6231,
+     0.6231
+    ],
+    "ground|0-3 m": [
+     -0.3674,
+     0.3674
+    ],
+    "trees|0-3 m": [
+     -2.7231,
+     2.7231
+    ],
+    "trees|3-10 m": [
+     -2.2573,
+     2.2573
+    ],
+    "water|0-3 m": [
+     -0.0626,
+     0.0626
+    ]
+   },
+   "0.95": {
+    "pooled": [
+     -2.1901,
+     2.1901
+    ],
+    "buildings|0-3 m": [
+     -0.6443,
+     0.6443
+    ],
+    "buildings|10-20 m": [
+     -1.1314,
+     1.1314
+    ],
+    "buildings|20-inf m": [
+     -2.6035,
+     2.6035
+    ],
+    "buildings|3-10 m": [
+     -0.8074,
+     0.8074
+    ],
+    "ground|0-3 m": [
+     -1.0178,
+     1.0178
+    ],
+    "trees|0-3 m": [
+     -3.1347,
+     3.1347
+    ],
+    "trees|3-10 m": [
+     -2.6404,
+     2.6404
+    ],
+    "water|0-3 m": [
+     -0.1402,
+     0.1402
+    ]
+   }
+  },
+  "variant": "mondrian_normalised",
+  "held_out_coverage": {
+   "0.68": {
+    "coverage_per_fold": [
+     0.6116733811535816,
+     0.6041015625,
+     0.78623046875
+    ],
+    "max_abs_gap_pp": 10.623046874999996,
+    "width_mean_per_fold": [
+     6.711739023614166,
+     6.158649413776584,
+     5.1942554153979295
+    ]
+   },
+   "0.9": {
+    "coverage_per_fold": [
+     0.8139137270315417,
+     0.9134375,
+     0.9612109375
+    ],
+    "max_abs_gap_pp": 8.608627296845828,
+    "width_mean_per_fold": [
+     11.085224717166694,
+     12.913457979488886,
+     10.571325596399255
+    ]
+   },
+   "0.95": {
+    "coverage_per_fold": [
+     0.8818315810160166,
+     0.9573046875,
+     0.9836328125
+    ],
+    "max_abs_gap_pp": 6.816841898398341,
+    "width_mean_per_fold": [
+     14.452149831788343,
+     16.767294829566964,
+     14.763538817600347
+    ]
+   }
+  },
+  "note": "not shown in the viewer: the per-pixel map stays the flip spread, labelled consistency score"
+ },
+ "provenance": {
+  "data": "GAMUS test split, 150 frozen tiles (demo/gamus_v2.py, data/GAMUS_bench.txt): Washington DC, New York, Philadelphia; 0.33 m aerial orthophotos; LiDAR nDSM reference; 504x504 centre crop; 4-flip TTA fp16 MPS",
+  "folds": "leave-one-city-out (calibrate on two cities, test on the third); shipped table refitted on all three",
+  "command": ".venv/bin/python demo/uncertainty_calibration.py",
+  "script": "demo/uncertainty_calibration.py",
+  "report": "demo/benchmark/v2/uncertainty_calibration.md",
+  "date": "2026-10-18"
+ }
+}

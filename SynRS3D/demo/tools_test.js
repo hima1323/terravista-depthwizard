@@ -13,7 +13,7 @@ const check = (name, ok, info = '') => { results.push([ok ? 'PASS' : 'FAIL', nam
   const p = await b.newPage({ viewport: { width: 1500, height: 900 }, deviceScaleFactor: 1, acceptDownloads: true });
   const errs = [];
   p.on('pageerror', e => errs.push(e.message + ' ' + (e.stack || '').split('\n')[1]));
-  await p.goto(`${B}/#v2test-scene=town_before`);
+  await p.goto(`${B}/classic#v2test-scene=town_before`);
   await p.waitForFunction(() => window.__dw && __dw.data && __dw.data.name === 'town_before' && __dw.T.los, null, { timeout: 30000 });
   const ev = (f, a) => p.evaluate(f, a);
   const visible = async sel => p.$eval(sel, e => !e.hidden && e.getBoundingClientRect().width > 0);

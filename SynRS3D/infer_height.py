@@ -5,7 +5,7 @@ import torch
 from albumentations import Compose, Normalize
 from albumentations.pytorch import ToTensorV2
 
-from models.dpt import DPT_DINOv2
+from models.dpt import make_model
 import argparse
 from tqdm import tqdm
 import rasterio
@@ -30,7 +30,7 @@ def get_arguments():
                         help="Path of the image.")
     parser.add_argument("--output_path", type=str, default='path/to/your/ouput.tif',
                         help="Path to the output director.")
-    parser.add_argument("--restore_from", type=str, default='./pretrain/RS3DAda_vitl_DPT_height.pth',
+    parser.add_argument("--restore_from", type=str, default=WEIGHTS,
                         help="Where restore model parameters from.")
     parser.add_argument("--gpu", type=str, default='0',
                         help="choose gpu device.")
@@ -47,14 +47,19 @@ def get_arguments():
                         help="With --use_tta: also save the per-pixel spread of the 4 flipped predictions (m) here.")
     return parser.parse_args()
 
-def load_model(restore_from, fp16=False):
-    head_configs = [
-        {'name': 'regression', 'nclass': 1},
-        {'name': 'segmentation', 'nclass': 8}
-    ]
-    model = DPT_DINOv2(encoder='vitl', head_configs=head_configs, pretrained=False)
+# which weights the app and the benchmarks load: RS3DAda, or a student from train_distill.py (DW_WEIGHTS=path)
+WEIGHTS = os.environ.get('DW_WEIGHTS') or os.path.join(os.path.dirname(os.path.abspath(__file__)), 'pretrain', 'RS3DAda_vitl_DPT_height.pth')
+
+
+def load_model(restore_from=WEIGHTS, fp16=False):
+    """RS3DAda (a bare state dict, ViT-L) or a train_distill.py student ({'encoder', 'patch_size', 'state_dict'}).
+    model.patch_size = the tile side predict() uses for it."""
+    ckpt = torch.load(restore_from, map_location='cpu', weights_only=True)
+    student = isinstance(ckpt, dict) and 'state_dict' in ckpt
+    model, patch = make_model(ckpt['encoder'] if student else 'vitl', pretrained=False)
+    model.patch_size = ckpt.get('patch_size', patch) if student else patch
     device = 'cuda' if torch.cuda.is_available() else 'mps' if torch.backends.mps.is_available() else 'cpu'
-    model.load_state_dict(torch.load(restore_from, map_location='cpu', weights_only=True))
+    model.load_state_dict(ckpt['state_dict'] if student else ckpt)
     model.eval()
     dtype = torch.float16 if fp16 and device != 'cpu' else torch.float32   # half precision only on a GPU
     model.to(device, dtype)
@@ -63,8 +68,9 @@ def load_model(restore_from, fp16=False):
 LANDCOVER = ['bareland', 'rangeland', 'developed', 'road', 'trees', 'water', 'agriculture', 'buildings']  # seg head order
 
 
-def predict(model, device, dtype, img0, patch_size=518, stride=259, use_tta=True, progress=None, full=False):
-    """img0: HxWxC uint8 array -> HxW height map in metres. progress(done, total) is called per patch.
+def predict(model, device, dtype, img0, patch_size=None, stride=None, use_tta=True, progress=None, full=False):
+    """img0: HxWxC uint8 array -> HxW height map in metres. progress(done, total) is called per patch. Tiles are
+    model.patch_size (518 for ViT encoders) with 50% overlap unless given.
     full=True returns a dict instead: 'height'; 'std' = per-pixel spread (m) of the 4 flipped predictions,
     used as an uncertainty map (None without use_tta); 'landcover' = HxW uint8 class index into LANDCOVER,
     from the model's second (land-cover) head, which runs anyway."""
@@ -72,6 +78,8 @@ def predict(model, device, dtype, img0, patch_size=518, stride=259, use_tta=True
         img0 = img0[:,:,[0,1,2]]
     height = img0.shape[0]
     width = img0.shape[1]
+    patch_size = patch_size or getattr(model, 'patch_size', 518)
+    stride = stride or patch_size // 2
     C = max(1, int(np.ceil((width - patch_size) / stride) + 1))
     R = max(1, int(np.ceil((height - patch_size) / stride) + 1))
     
@@ -179,6 +187,28 @@ def correct_heights(h, landcover, corr):
     return out
 
 
+CONFORMAL = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'calibration', 'conformal.json')
+
+
+def load_conformal(path=CONFORMAL):
+    """Split-conformal interval table (demo/uncertainty_calibration.py), or None if it is not installed."""
+    import json
+    return json.load(open(path)) if os.path.exists(path) else None
+
+
+def building_interval(height, spread, table, level='0.9'):
+    """Calibrated interval (lo, hi) in m for a building block's reported height (block median, app.extract_buildings)
+    from its median 4-flip spread: lo/hi = height + q_lo/q_hi * (spread + c), q per predicted height bin, from
+    split-conformal calibration on GAMUS LiDAR (US cities, calibration/conformal.json). None without a table."""
+    if not table:
+        return None
+    b = table['building']
+    q = b['q'][level]
+    ql, qh = q.get(table['bins'][int(np.digitize(height, [3, 10, 20]))], q['pooled'])
+    s = 1.0 if b['c'] is None else spread + b['c']
+    return max(0.0, height + ql * s), height + qh * s
+
+
 def main():
     args = get_arguments()
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
@@ -194,7 +224,7 @@ def main():
         if dtm is None:
             print('No georeferencing in the input: only the relative height map was saved. ' + info['none'])
         else:
-            dtm, laser = terrain.laser_correct(args.data_dir, dtm, info.get('geoid_undulation_m'))
+            dtm, laser = terrain.laser_correct(args.data_dir, dtm, info.get('geoid_undulation_m'), out['height'], out['landcover'])
             terrain.save_with_tags(args.data_dir, args.dsm_path, dtm + np.clip(out['height'], 0, None),
                                    save_tiff_with_geo_info, VERTICAL_DATUM=terrain.DATUM, UNITS='metre',
                                    TERRAIN_SOURCE=info['source'], LASER_CORRECTION=laser)

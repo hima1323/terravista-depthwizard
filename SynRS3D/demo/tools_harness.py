@@ -25,12 +25,16 @@ fake.save_tiff_with_geo_info = save_tiff_with_geo_info
 fake.ground_mask = lambda h, lc, max_height=1.5: np.isin(lc, [0, 1, 2, 3, 5, 6]) & (h < max_height)
 fake.correct_heights = lambda h, lc, corr: h
 fake.load_model = lambda *a, **k: (None, 'cpu', None)
+fake.WEIGHTS = ''
+fake.load_conformal = lambda *a, **k: None
+fake.building_interval = lambda *a, **k: None
 sys.modules['infer_height'] = fake
 
 import terrain, validate, tools, app
 for mod in (app, validate, tools):
     mod.RESULTS = os.path.join(work, 'results')
 app.SAMPLES = os.path.join(work, 'samples')
+validate.Scene.__init__.__defaults__ = (app.RESULTS,)   # bound at import time
 if os.environ.get('DW_WEB'):
     app.WEB = os.environ['DW_WEB']
 validate.REFERENCE = os.path.join(work, 'reference')
@@ -45,7 +49,7 @@ CRS = 'EPSG:32643'
 yy, xx = np.mgrid[0:S, 0:S].astype(np.float32)
 DTM = (1000 + 0.06 * xx * GSD + 25 * np.exp(-(((xx - 600) / 150) ** 2 + ((yy - 200) / 150) ** 2))).astype(np.float32)  # slope + hill
 
-def fake_build_dtm(image_path, ndsm, ground, prefer=None):
+def fake_build_dtm(image_path, ndsm, ground, source=None):
     with rasterio.open(image_path) as src:
         if not src.crs:
             return None, {'none': 'image has no georeferencing'}
@@ -56,10 +60,10 @@ def fake_build_dtm(image_path, ndsm, ground, prefer=None):
     x, y = tr * (cols, rows)
     px, py = (x - X0) / GSD, (Y0 - y) / GSD
     d = 1000 + 0.06 * px * GSD + 25 * np.exp(-(((px - 600) / 150) ** 2 + ((py - 200) / 150) ** 2))
-    src = 'synthetic test terrain' if not prefer else prefer.split('__')[-1]
+    src = 'synthetic test terrain' if not source else os.path.basename(source).split('__')[-1]
     return d.astype(np.float32), {'source': src, 'datum': terrain.DATUM, 'geoid_undulation_m': N_GEOID, 'relief_m': 30}
 terrain.build_dtm = fake_build_dtm
-terrain.laser_correct = lambda path, dtm, und: (dtm, {'none': '0 ICESat-2 ground photons in the scene (need 50)'})
+terrain.laser_correct = lambda path, dtm, und, *a, **k: (dtm, {'none': '0 ICESat-2 ground photons in the scene (need 50)'})
 terrain.geoid_shift = lambda lon, lat, *a: 0.6
 
 BUILDINGS = [  # (row0, col0, size_rows, size_cols, true height m)

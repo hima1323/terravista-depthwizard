@@ -22,23 +22,26 @@ def _make_fusion_block(features, use_bn, size = None):
 
 
 class DPTHead(nn.Module):
-    def __init__(self, nclass, in_channels, features=256, use_bn=False, out_channels=[256, 512, 1024, 1024], use_clstoken=False):
+    def __init__(self, nclass, in_channels, features=256, use_bn=False, out_channels=[256, 512, 1024, 1024], use_clstoken=False, in_dims=None):
+        """in_dims: channels of the 4 stages of a hierarchical encoder (strides 4, 8, 16, 32, e.g. MambaVision). Those are
+        already a pyramid, so each is only projected (1x1) and not reassembled from ViT tokens."""
         super(DPTHead, self).__init__()
         
         self.nclass = nclass
         self.use_clstoken = use_clstoken
+        self.hierarchical = in_dims is not None
         
         self.projects = nn.ModuleList([
             nn.Conv2d(
-                in_channels=in_channels,
+                in_channels=in_dims[i] if in_dims else in_channels,
                 out_channels=out_channel,
                 kernel_size=1,
                 stride=1,
                 padding=0,
-            ) for out_channel in out_channels
+            ) for i, out_channel in enumerate(out_channels)
         ])
         
-        self.resize_layers = nn.ModuleList([
+        self.resize_layers = nn.ModuleList([nn.Identity()] * 4) if in_dims else nn.ModuleList([
             nn.ConvTranspose2d(
                 in_channels=out_channels[0],
                 out_channels=out_channels[0],
@@ -99,9 +102,13 @@ class DPTHead(nn.Module):
                 nn.Identity(),
             )
             
-    def forward(self, out_features, patch_h, patch_w):
+    def forward(self, out_features, patch_h, patch_w, size=None):
+        """size: output (h, w) of the height head; default the ViT input size patch * 14."""
         out = []
         for i, x in enumerate(out_features):
+            if self.hierarchical:
+                out.append(self.projects[i](x))
+                continue
             if self.use_clstoken:
                 x, cls_token = x[0], x[1]
                 readout = cls_token.unsqueeze(1).expand_as(x)
@@ -132,7 +139,7 @@ class DPTHead(nn.Module):
             out = self.scratch.output_conv(path_1)
         else:
             out = self.scratch.output_conv1(path_1)
-            out = F.interpolate(out, (int(patch_h * 14), int(patch_w * 14)), mode="bilinear", align_corners=True)
+            out = F.interpolate(out, size or (int(patch_h * 14), int(patch_w * 14)), mode="bilinear", align_corners=True)
             out = self.scratch.output_conv2(out)
         
         return out
@@ -184,3 +191,36 @@ class DPT_DINOv2(nn.Module):
         return outputs
 
     
+
+class DPT_MambaVision(nn.Module):
+    """NVIDIA MambaVision (hybrid Mamba-Transformer, ImageNet weights from Hugging Face) as the encoder, with the same
+    DPT heads as RS3DAda. Its Mamba mixer is a CUDA kernel (mamba_ssm): it runs on an NVIDIA GPU only, not on CPU or
+    Apple MPS, and does not export to ONNX. Input sides must be multiples of 32."""
+
+    def __init__(self, name='nvidia/MambaVision-T-1K', head_configs=None, features=128, use_bn=False):
+        super().__init__()
+        from transformers import AutoModel
+        self.backbone = AutoModel.from_pretrained(name, trust_remote_code=True)
+        dims = [self.backbone.config.dim * 2 ** i for i in range(4)]   # stage widths double: T 80-160-320-640
+        self.heads = nn.ModuleDict({c['name']: DPTHead(c['nclass'], None, features, use_bn, dims, in_dims=dims)
+                                    for c in head_configs or []})
+
+    def forward(self, x):
+        h, w = x.shape[-2:]
+        _, feats = self.backbone(x)          # pooled output, 4 stage maps at strides 4/8/16/32
+        return {task: F.interpolate(head(feats, None, None, size=(h, w)), size=(h, w), mode='bilinear', align_corners=True)
+                for task, head in self.heads.items()}
+
+
+HEADS = [{'name': 'regression', 'nclass': 1}, {'name': 'segmentation', 'nclass': 8}]   # RS3DAda: height + 8 land-cover classes
+# DPT head sizes per DINOv2 encoder, as in Depth Anything V2; vitl is RS3DAda's
+DINO_HEAD = {'vits': (64, [48, 96, 192, 384]), 'vitb': (128, [96, 192, 384, 768]), 'vitl': (256, [256, 512, 1024, 1024])}
+
+
+def make_model(encoder, pretrained=True):
+    """encoder: 'vits' / 'vitb' / 'vitl' (DINOv2 + DPT) or a MambaVision Hugging Face id ('nvidia/MambaVision-T-1K', ...).
+    Returns (model, patch size): a ViT tile must be a multiple of 14 (518), MambaVision a multiple of 32 (512)."""
+    if encoder in DINO_HEAD:
+        features, out_channels = DINO_HEAD[encoder]
+        return DPT_DINOv2(encoder, HEADS, features, out_channels, pretrained=pretrained), 518
+    return DPT_MambaVision(encoder, HEADS), 512
