@@ -37,7 +37,7 @@
 \newcommand{\psection}[2]{\section[#1]{#1\hfill{\normalsize\normalfont\itshape #2}}}
 \newcommand{\usection}[1]{\section*{#1}}
 
-\newcommand{\m}{\,m}
+\newcommand{\m}{\ifmmode\,\mathrm{m}\else\,m\fi}
 \hypersetup{pdftitle={DepthWizard: Building, Tree and Ground Heights from One Satellite Image},pdfauthor={Himanshu Patel, Shlok Vaidya}}
 
 \begin{document}
@@ -70,8 +70,9 @@ ISRO posed this challenge as problem SIH26175, ``Single-View Height Estimation a
 
 \begin{figure}[t]
 \centering
-\includegraphics[width=0.92\linewidth]{canoas.jpg}
-\caption{A town rebuilt in 3D by DepthWizard from one satellite photograph taken before a flood, shown at the flood's water level (Canoas, Brazil, May 2024). Orange roofs remain above the water. Imagery: Maxar Open Data (CC BY-NC 4.0).}
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{f1_photo.jpg}\caption{3D model draped with the photograph}\end{subfigure}\hfill
+\begin{subfigure}{0.49\linewidth}\includegraphics[width=\linewidth]{f1_height.jpg}\caption{Coloured by height above ground}\end{subfigure}
+\caption{Bengaluru Electronic City in 3D, built by DepthWizard from one satellite photograph. In (b), colour runs from 0\m{} (dark blue) to 48\m{} (red) above the ground. Heights are drawn at twice their true scale. Imagery: Esri World Imagery, for demonstration only.}
 \label{fig:canoas}
 \end{figure}
 
