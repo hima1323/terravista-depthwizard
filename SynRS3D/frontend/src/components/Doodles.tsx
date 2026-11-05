@@ -1,12 +1,12 @@
 // Footer sketch, drawn in the hero's pencil style. Original line art (no borrowed characters), white strokes on the dark footer:
-// a chibi mapper cheering with a tablet, Himanshu surveying with a theodolite, Shlok flying a mapping drone over a
+// a chibi mapper cheering with a tablet, a surveyor with a theodolite, a pilot flying a mapping drone over a
 // contour-lined mountain, and a hard-hat cat waving an SOS flag. Classes drive small CSS loops (styles.css, "footer sketch").
 const star = (x: number, y: number, r: number) => `M${x} ${y - r} l${r * .3} ${r * .7} l${r * .7} ${r * .3} l${-r * .7} ${r * .3} l${-r * .3} ${r * .7} l${-r * .3} ${-r * .7} l${-r * .7} ${-r * .3} l${r * .7} ${-r * .3} z`;
 
 export default function Doodles() {
   return (
     <svg className="doodles" viewBox="0 0 840 262" role="img"
-      aria-label="Sketch: a cheering chibi mapper with a tablet, Himanshu surveying with a theodolite, Shlok flying a mapping drone over a mountain, and a cat in a hard hat waving an SOS flag">
+      aria-label="Sketch: a cheering chibi mapper with a tablet, a surveyor with a theodolite, a pilot flying a mapping drone over a mountain, and a cat in a hard hat waving an SOS flag">
       <g fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M8 232 C 200 226, 640 236, 832 228" />
 
@@ -28,13 +28,13 @@ export default function Doodles() {
           <path d="M150 221 L232 118 L262 146 L314 72 L404 221" />
           <path d="M188 182 Q 240 168 280 176 T 366 172 M212 152 Q 246 140 262 148 M282 128 Q 310 116 336 126 M298 100 Q 314 92 328 100" opacity=".6" />
           <path className="d-wave" d="M314 72 l-3 -16 l14 6 l-11 4" />
-          {/* Himanshu: cap, grin, theodolite */}
+          {/* surveyor: cap, grin, theodolite */}
           <circle cx="66" cy="122" r="17" />
           <path d="M49 118 Q 66 96 83 118 M81 116 L97 112 M59 130 Q 66 136 73 130" />
           <path d="M66 139 L66 184 M66 152 L92 162 M66 152 L50 170 M66 184 L54 216 M66 184 L78 216" />
           <path d="M106 166 L94 216 M106 166 L106 216 M106 166 L118 216 M96 152 h20 v14 h-20 z M116 156 L130 150" />
           <path className="d-march" d="M130 150 L176 128" strokeDasharray="2 6" opacity=".7" />
-          {/* Shlok: spiky hair, controller, signal to the drone */}
+          {/* drone pilot: spiky hair, controller, signal to the drone */}
           <circle cx="474" cy="130" r="17" />
           <path d="M458 124 L461 108 L468 118 L474 102 L480 118 L487 108 L490 124 M467 137 Q 474 143 481 137" />
           <path d="M474 147 L474 190 M474 160 L462 172 M474 160 L486 172 M474 190 L462 220 M474 190 L486 220 M458 170 h32 v10 h-32 z" />
@@ -70,7 +70,6 @@ export default function Doodles() {
         <g className="d-hop"><text x="70" y="70" fontSize="24" transform="rotate(-8 70 70)">yatta!</text></g>
         <text className="d-pulse" x="652" y="98" fontSize="26" transform="rotate(10 652 98)">!!</text>
         <text className="d-wave" x="805" y="122" fontSize="13">SOS</text>
-        <text x="220" y="256" fontSize="22">Himanshu</text><text x="624" y="256" fontSize="22">Shlok</text>
       </g>
     </svg>
   );
