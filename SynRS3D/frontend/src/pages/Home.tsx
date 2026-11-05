@@ -45,7 +45,7 @@ function Liquid({ children, cls, radius }: { children: React.ReactNode; cls: str
 }
 
 const fmt = (m: number) => Math.round(m).toLocaleString('en-IN');
-const TABS: [string, string][] = [['top', 'Home'], ['how', 'How it works'], ['cycle', 'Disaster cycle'], ['accuracy', 'Accuracy'], ['team', 'Team']];
+const TABS: [string, string][] = [['top', 'Home'], ['how', 'How it works'], ['cycle', 'Disaster cycle'], ['accuracy', 'Accuracy']];
 
 // Hero sketch: two pencil satellites drifting in the sky, each snapping the terrain (dashed capture cone + viewfinder)
 function Satellites() {
@@ -171,7 +171,7 @@ export default function Home() {
       <section className="ln-about" aria-label="About">
         <h2>About <em>us</em></h2>
         <div>
-          <p>Himanshu and Shlok built DepthWizard for disaster teams. <span>From one optical image it estimates the height of every pixel,
+          <p>DepthWizard is built for disaster teams. <span>From one optical image it estimates the height of every pixel,
             levels it to NASA laser points, and turns it into tools for every phase of a disaster, offline on this machine.</span></p>
           <a href="#how" className="cta">See how it works<i><ArrowUpRight size={15} /></i></a>
         </div>
@@ -220,12 +220,12 @@ export default function Home() {
 
       </div>
 
-      <footer id="team" className="ln-foot">
+      <footer className="ln-foot">
         <FooterSky />
         <div className="foot-top">
           <div className="foot-team">
-            <span className="sec-label">Built by</span>
-            <h2>Himanshu <em>&amp;</em> Shlok</h2>
+            <span className="sec-label">Built for</span>
+            <h2>Disaster <em>teams</em></h2>
             <button className="cta" onClick={() => go(nav, '/scenes')}>Open the workspace<i><ArrowUpRight size={15} /></i></button>
           </div>
           <Doodles />
