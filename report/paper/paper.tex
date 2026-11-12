@@ -187,7 +187,7 @@ C(x) = \bigl[\,\hat h(x) \pm \hat q\,\bigl(u(x)+u_0\bigr)\bigr],
 where $\hat q$ is the value that 90\% of the scores $r_i$ fall below and $u_0=0.25\m$. The range $C(x)$ should then contain the true height nine times in ten, and we test that promise in cities that were not used to set it.
 
 \subsection{Disaster models}
-For a simple flood, every place below a chosen water level that connects to the river is marked wet. For water that moves over time we use the flow model of Bates and others~\cite{bates2010inertial}. It moves water between neighbouring squares of the map according to the slope of the water surface, the depth of the water and the roughness of the ground. We added limits so that no square gives away more water than it holds. A real flood can be loaded as a ready-made map, or taken from a radar satellite image that the app splits into water and land~\cite{otsu1979}. To compare a predicted flood with a real one we use the critical success index,
+For a simple flood, every place below a chosen water level that connects to the river is marked wet. For water that moves over time we use the flow model of Bates and others~\cite{bates2010inertial}. It moves water between neighboring squares of the map according to the slope of the water surface, the depth of the water and the roughness of the ground. We added limits so that no square gives away more water than it holds. A real flood can be loaded as a ready-made map, or taken from a radar satellite image that the app splits into water and land~\cite{otsu1979}. To compare a predicted flood with a real one we use the critical success index,
 \begin{equation}
 \mathrm{CSI} \;=\; \frac{TP}{TP+FP+FN},
 \label{eq:csi}
@@ -195,7 +195,7 @@ For a simple flood, every place below a chosen water level that connects to the 
 where $TP$ counts places both maps call wet, and $FP$ and $FN$ count places only one of them calls wet. A score of 1 is a perfect match. Evacuation routes are the cheapest paths~\cite{dijkstra1959} that avoid steep slopes, deep water and buildings, and landslide risk follows the Indian Standard IS~14496~\cite{bis14496}. The number of people at risk is estimated from each affected building's floor area, its number of floors, the share of it that is lived in, and the floor space one person needs. The app labels all of these as scenarios, not forecasts.
 
 \subsection{The application}
-DepthWizard runs on an ordinary laptop and works without internet once a scene has been opened. It has a scene library and six working pages that follow a disaster from start to finish (Figure~\ref{fig:pages}). Its eighteen tools (Table~\ref{tab:tools}) switch on in place, and any of them can be found by typing its name in a search box. The 3D view can be circled, flown through freely or walked at street level, and a flight along a drawn path can be recorded as a video for briefings. Results can be saved as standard map and 3D files that open in QGIS, ArcGIS or Bhuvan.
+DepthWizard runs on an ordinary laptop and works without internet once a scene has been opened. It has a scene library and six working pages that follow a disaster from start to finish, shown in Figure~\ref{fig:pages}. Table~\ref{tab:tools} lists its eighteen tools, which switch on in place, and any of them can be found by typing its name in a search box. The 3D view can be circled, flown through freely or walked at street level, and a flight along a drawn path can be recorded as a video for briefings. Results can be saved as standard map and 3D files that open in QGIS, ArcGIS or Bhuvan.
 
 \begin{table}[!htbp]
 \centering\small
@@ -236,7 +236,7 @@ Situation report & What does a decision maker need on one page? \\
 \psection{Detailed Work Plan / Technological Interventions}{}
 \label{sec:plan}
 
-A scene goes through seven steps (Figure~\ref{fig:pipeline}). An ordinary PNG or JPEG photograph gives heights above the ground. A GeoTIFF, which carries its location, continues to heights above sea level. Table~\ref{tab:timeline} gives the order in which we built the parts, and Figures~\ref{fig:pages} and~\ref{fig:tools} show the result.
+Figure~\ref{fig:pipeline} shows the seven steps a scene goes through. An ordinary PNG or JPEG photograph gives heights above the ground. A GeoTIFF, which carries its location, continues to heights above sea level. Table~\ref{tab:timeline} gives the order in which we built the parts, and Figures~\ref{fig:pages} and~\ref{fig:tools} show the result.
 
 Most of the effort went into the fifth step. A height above the ground is of little use for floods until the ground itself is right, and the free ground map is wrong in exactly the places where people live. We also wrote automated tests that click through every tool on test scenes whose true answers are known: 38 checks in the main interface and 36 in the older viewer. All of them pass.
 
@@ -278,7 +278,7 @@ Before 15 October & Study of the problem, choice of model, first height maps \\
 \begin{figure}[!htbp]
 \centering
 \begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{f1_photo.jpg}\caption{3D model with the photograph on it}\end{subfigure}\hfill
-\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{f1_height.jpg}\caption{Coloured by height: 0\m{} blue, 48\m{} red}\end{subfigure}\\[6pt]
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{f1_height.jpg}\caption{Colored by height: 0\m{} blue, 48\m{} red}\end{subfigure}\\[6pt]
 \begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{p_scenes.jpg}\caption{Scene library and upload}\end{subfigure}\hfill
 \begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{p_prepare.jpg}\caption{Prepare: risky slopes and water rise}\end{subfigure}\\[6pt]
 \begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{p_respond.jpg}\caption{Respond: flood scenario and routes}\end{subfigure}\hfill
@@ -306,7 +306,7 @@ Before 15 October & Study of the problem, choice of model, first height maps \\
 \subsection{A Mamba-based height model}
 RS3DAda reads images with a Transformer, a network that cuts the image into patches and compares every patch with every other patch. The work grows with the square of the image area, so large satellite scenes are slow and need a strong computer. Mamba~\cite{gu2023mamba} reads the patches one after another and keeps a short running memory, so its work grows only in step with the area.
 
-We built a height model on MambaVision~\cite{hatamizadeh2025mambavision}, a version of Mamba made for images, and joined it to RS3DAda's two output parts, one for height and one for land cover (Figure~\ref{fig:arch}). It gives the same kind of output as RS3DAda, so the rest of DepthWizard runs unchanged. A smaller and faster model matters for the users we have in mind. It can cover a whole district in the time the larger model needs for a few towns, and it needs far less graphics memory.
+We built a height model on MambaVision~\cite{hatamizadeh2025mambavision}, a version of Mamba made for images, and joined it to RS3DAda's two output parts, one for height and one for land cover. Figure~\ref{fig:arch} shows the layout. It gives the same kind of output as RS3DAda, so the rest of DepthWizard runs unchanged. A smaller and faster model matters for the users we have in mind. It can cover a whole district in the time the larger model needs for a few towns, and it needs far less graphics memory.
 
 \begin{figure}[!htbp]
 \centering
@@ -329,7 +329,7 @@ We built a height model on MambaVision~\cite{hatamizadeh2025mambavision}, a vers
 \label{fig:arch}
 \end{figure}
 
-Training a height model from nothing needs a very large labelled dataset. We used knowledge distillation~\cite{hinton2015distilling} instead: the Mamba model (the student, S) looks at unlabelled images and learns to give the same answers as RS3DAda (the teacher, T). Its training goal is
+Training a height model from nothing needs a very large labeled dataset. We used knowledge distillation~\cite{hinton2015distilling} instead: the Mamba model, called the student and written S, looks at unlabeled images and learns to give the same answers as RS3DAda, the teacher, written T. Its training goal is
 \begin{equation}
 \mathcal{L} \;=\; \ell\bigl(\hat h_{\mathrm S},\hat h_{\mathrm T}\bigr)
 \;+\; \lambda\,\tau^{2}\,\mathrm{KL}\!\bigl(\sigma(z_{\mathrm T}/\tau)\,\big\|\,\sigma(z_{\mathrm S}/\tau)\bigr)
@@ -387,19 +387,21 @@ Some data is for non-commercial use only & Commercial use restricted & Research 
 \psection{Expertise Available with Each Student to Contribute to the Development of the Intervention}{}
 \label{sec:expertise}
 
-Most of the technical skills came from two members, as Table~\ref{tab:expertise} shows. The other members are Agampreet Singh, Saaransh Garg, Takshita Nagrale, Saloni Mahajan, Peruru Smitha Reddy, Akshita, Aryan Goyal and Arahana Garg.
+The project drew on machine learning, satellite data and web development, and just as much on research, writing, testing and presentation. Table~\ref{tab:expertise} lists what each member brought to the team.
 
 \begin{table}[H]
 \centering\small
 \caption{Expertise of each student.}
 \label{tab:expertise}
-\begin{tabularx}{\linewidth}{@{}p{3.4cm}Y@{}}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.9cm}Y@{\hspace{1em}}>{\raggedright\arraybackslash}p{2.9cm}Y@{}}
 \toprule
-Student & Expertise \\
+Student & Expertise & Student & Expertise \\
 \midrule
-Himanshu Patel & Full-stack web development and hosting, machine learning, satellite and map data \\
-Shlok Vaidya & Model training, testing and benchmarks \\
-Other members & General reading and proofreading \\
+Himanshu Patel & Full-stack web development and hosting, machine learning, satellite and map data & Saloni Mahajan & Writing, editing and figure layout \\
+Shlok Vaidya & Model training, testing and benchmarks & Peruru Smitha Reddy & Presentation design and communication \\
+Agampreet Singh & Research on floods and landslides in India & Akshita & Documentation and user guides \\
+Saaransh Garg & Software testing and user feedback & Aryan Goyal & Data handling and literature review \\
+Takshita Nagrale & Technical writing and editing & Arahana Garg & Human geography and disaster management \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -408,7 +410,7 @@ Other members & General reading and proofreading \\
 \psection{Expected Outcomes}{}
 \label{sec:results}
 
-The main outcome is an offline tool that gives a checked height map from one image. We tested it on places the model never saw in training: 150 aerial tiles of three US cities with aircraft laser heights (GAMUS~\cite{xiong2023gamus}), 300 satellite tiles each of Atlanta and Buenos Aires (Overhead Geopose~\cite{christie2021geopose}), and eight Indian sites checked against NASA lasers. Each number is an average with a 95\% confidence range in brackets, set against a simple guess at the same points.
+The main outcome is an offline tool that gives a checked height map from one image. We tested it on places the model never saw in training: 150 aerial tiles of three US cities with aircraft laser heights from the GAMUS set~\cite{xiong2023gamus}, 300 satellite tiles each of Atlanta and Buenos Aires from Overhead Geopose~\cite{christie2021geopose}, and eight Indian sites checked against NASA lasers. Each number is an average with a 95\% confidence range in brackets, set against a simple guess at the same points.
 
 \subsection{Height accuracy}
 \begin{table}[!htbp]
@@ -429,7 +431,7 @@ India, against GEDI & 7 sites & 9.93 [4.86, 15.42] & 16.89 (height 0) \\
 \end{tabularx}
 \end{table}
 
-For buildings, DepthWizard is about three times closer to the truth than guessing flat ground (Table~\ref{tab:accuracy}). At Indian sites it is almost twice as close as guessing zero. On satellite images it matches the results the original authors published. Figure~\ref{fig:mae} shows where the gain comes from: buildings and trees. On roads and bare ground the true height is near zero, so the flat guess is already right. The same pattern shows by landscape on the aerial tiles. In towns the error is 2.90\m{} against 5.66\m{} for the flat guess, and in forest 6.67\m{} against 8.70\m. On open land the flat guess wins, 0.55\m{} against our 0.96\m. Reading each tile four times instead of once lowers the error by 0.064\m{} on average and helps on 114 of the 150 tiles, so we kept it.
+Table~\ref{tab:accuracy} shows that for buildings, DepthWizard is about three times closer to the truth than guessing flat ground. At Indian sites it is almost twice as close as guessing zero. On satellite images it matches the results the original authors published. Figure~\ref{fig:mae} shows where the gain comes from: buildings and trees. On roads and bare ground the true height is near zero, so the flat guess is already right. The same pattern shows by landscape on the aerial tiles. In towns the error is 2.90\m{} against 5.66\m{} for the flat guess, and in forest 6.67\m{} against 8.70\m. On open land the flat guess wins, 0.55\m{} against our 0.96\m. Reading each tile four times instead of once lowers the error by 0.064\m{} on average and helps on 114 of the 150 tiles, so we kept it.
 
 \begin{figure}[!htbp]
 \centering
@@ -439,7 +441,7 @@ For buildings, DepthWizard is about three times closer to the truth than guessin
 \end{figure}
 
 \subsection{The Mamba model and other models}
-We ran four models on the same 750 tiles: RS3DAda, our Mamba student, and two versions of Depth Anything~V2~\cite{yang2024dav2}. Depth Anything does not give heights in metres, so we also score every model after fitting its output to the truth with the best scale and offset for each tile (``fitted'' in Table~\ref{tab:compare}). That shows how well a model finds where the tall things are.
+We ran four models on the same 750 tiles: RS3DAda, our Mamba student, and two versions of Depth Anything~V2~\cite{yang2024dav2}. Depth Anything does not give heights in metres, so we also score every model after fitting its output to the truth with the best scale and offset for each tile; Table~\ref{tab:compare} calls this score ``fitted''. It shows how well a model finds where the tall things are.
 
 \begin{table}[!htbp]
 \centering\small
@@ -469,7 +471,7 @@ Depth Anything V2, metric & 335.3\,M & 650\,MiB & \multicolumn{4}{l}{134 tiles p
 
 The Mamba student is the cheapest model by a wide margin. It is nine times smaller than RS3DAda, uses nine times less memory and runs 5.2 times faster. Its first version is less accurate: 7.20\m{} against 3.90\m{} on the aerial tiles, where it is worse than the flat guess, and 8.70\m{} and 3.39\m{} against 5.91\m{} and 1.86\m{} on the satellite tiles, where it is slightly better than the flat guess. The app therefore keeps RS3DAda for now. RS3DAda is also more accurate than Depth Anything~V2 on all three sets. The gaps are small, 0.30\m, 0.70\m{} and 0.39\m{} for the relative version after fitting, but all three are outside the confidence ranges.
 
-The student's main weakness is in finding where the tall things are. Even after fitting, its heights follow the true ones much less closely than RS3DAda's (a correlation of 0.29 against 0.61). On the aerial tiles it also makes low ground about 3\m{} too high. Both problems should shrink with longer training and with true heights in the training goal, which is the first item in Section~\ref{sec:action}. Figure~\ref{fig:examples} shows typical tiles.
+The student's main weakness is in finding where the tall things are. Even after fitting, its heights follow the true ones much less closely than RS3DAda's, with a correlation of 0.29 against 0.61. On the aerial tiles it also makes low ground about 3\m{} too high. Both problems should shrink with longer training and with true heights in the training goal, which is the first item in Section~\ref{sec:action}. Figure~\ref{fig:examples} shows typical tiles.
 
 \begin{figure}[!htbp]
 \centering
@@ -479,7 +481,7 @@ The student's main weakness is in finding where the tall things are. Even after 
 \end{figure}
 
 \subsection{Tall objects and error ranges}
-Low objects are about right. Tall ones come out far too low (Figure~\ref{fig:height}a): above 20\m, heights are 16.26\m{} too low on aerial tiles and 18.31\m{} too low in India. The two satellite cities show the same thing, at 16.80\m{} and 15.25\m{} too low. This is the main weakness of the published model, and our Mamba student inherits it. The 90\% error range held for 86.6\%, 83.3\% and 97.0\% of building blocks in three cities it was not set on, with a width of about 6\m{} either side. On 96 Indian roofs it held for 71\%. It fails for buildings over 20\m{} (Figure~\ref{fig:height}b), and the app warns users about this.
+Low objects are about right, but tall ones come out far too low, as Figure~\ref{fig:height}a shows. Above 20\m, heights are 16.26\m{} too low on aerial tiles and 18.31\m{} too low in India. The two satellite cities show the same thing, at 16.80\m{} and 15.25\m{} too low. This is the main weakness of the published model, and our Mamba student inherits it. The 90\% error range held for 86.6\%, 83.3\% and 97.0\% of building blocks in three cities it was not set on, with a width of about 6\m{} either side. On 96 Indian roofs it held for 71\%. Figure~\ref{fig:height}b shows that it fails for buildings over 20\m, and the app warns users about this.
 
 \begin{figure}[!htbp]
 \centering
@@ -489,9 +491,9 @@ Low objects are about right. Tall ones come out far too low (Figure~\ref{fig:hei
 \end{figure}
 
 \subsection{Ground level and floods}
-Removing rooftops and trees from the free ground map halves its error in Indian towns, from 5.28\m{} to 2.36\m{} (Figure~\ref{fig:terrain}a). In hills FABDEM is better, and under forest every map is about 20\m{} off. Levelling with lasers removes the map's average offset, from 2.58\m{} too high to 0.27\m{} too low. The full surface, ground plus objects, is closer to GEDI's tree-top and roof-top heights than the free 30\m{} surface map is (5.97\m{} against 8.39\m). Against every laser point, ground and tops together, it is not (9.14\m{} against 8.06\m). What the photograph adds is detail at half a metre, which a 30\m{} map cannot have.
+Removing rooftops and trees from the free ground map halves its error in Indian towns, from 5.28\m{} to 2.36\m, as Figure~\ref{fig:terrain}a shows. In hills FABDEM is better, and under forest every map is about 20\m{} off. Leveling with lasers removes the map's average offset, from 2.58\m{} too high to 0.27\m{} too low. The full surface, ground plus objects, is closer to GEDI's tree-top and roof-top heights than the free 30\m{} surface map is, at 5.97\m{} against 8.39\m. Against every laser point, ground and tops together, it is not: 9.14\m{} against 8.06\m. What the photograph adds is detail at half a metre, which a 30\m{} map cannot have.
 
-That offset matters most for floods. We flooded the pre-flood heights of four areas of Porto Alegre, Brazil, and compared them with the mapped flood of 6 May 2024. The match (CSI) was 0.20 with the free ground map, 0.30 with our cleaned map and 0.79 after laser levelling (Figure~\ref{fig:terrain}b). FABDEM scored 0.32. Over all seven areas we tried, without laser levelling, the scores were 0.18 for the free map, 0.47 for ours and 0.48 for FABDEM. The areas are small, so this is a test of the method and not a forecast.
+That offset matters most for floods. We flooded the pre-flood heights of four areas of Porto Alegre, Brazil, and compared them with the mapped flood of 6 May 2024. The match, measured by CSI, was 0.20 with the free ground map, 0.30 with our cleaned map and 0.79 after laser levelling. Figure~\ref{fig:terrain}b plots these scores. FABDEM scored 0.32. Over all seven areas we tried, without laser levelling, the scores were 0.18 for the free map, 0.47 for ours and 0.48 for FABDEM. The areas are small, so this is a test of the method and not a forecast.
 
 \begin{figure}[!htbp]
 \centering
@@ -502,9 +504,9 @@ That offset matters most for floods. We flooded the pre-flood heights of four ar
 
 \subsection{A real Indian disaster: the Teesta flood, Sikkim, 4 October 2023}
 \label{sec:teesta}
-On 4 October 2023 the South Lhonak glacial lake burst and sent a flood down the Teesta valley. Using free public data only, we compared Sentinel-2~\cite{drusch2012sentinel2} satellite images from November 2022 and November 2023, the first cloud-free pair after the flood. Ground near the river that lost its vegetation or turned into water counts as damaged. We found 1.281\,km$^2$ of damaged ground along 12\,km of valley (Figure~\ref{fig:teesta}). The lake itself shrank by only 5.7\%, from 1.358 to 1.28\,km$^2$, but its water became much muddier.
+On 4 October 2023 the South Lhonak glacial lake burst and sent a flood down the Teesta valley. Using free public data only, we compared Sentinel-2~\cite{drusch2012sentinel2} satellite images from November 2022 and November 2023, the first cloud-free pair after the flood. Ground near the river that lost its vegetation or turned into water counts as damaged. We found 1.281\,km$^2$ of damaged ground along 12\,km of valley, mapped in Figure~\ref{fig:teesta}. The lake itself shrank by only 5.7\%, from 1.358 to 1.28\,km$^2$, but its water became much muddier.
 
-We then ran DepthWizard on a pre-flood photograph of the valley~\cite{maxar} and loaded the damage map into the Observed-flood tool (Figure~\ref{fig:tools}f). The best-fitting flood scenario matches the damage map with a CSI of 0.49. It covers 86\% of the damaged ground, but 47\% of the ground it floods was not damaged. A single water level is a rough model for a fast flood in a steep valley, which explains much of the over-flooding. The damaged area reached 52 buildings, home to about 673 people by the app's estimate. Two cautions apply. The first clear images came a month after the flood, so the map shows what the flood left behind and not its peak. And each satellite pixel covers 10\m, which suits areas but not single houses.
+We then ran DepthWizard on a pre-flood photograph of the valley~\cite{maxar} and loaded the damage map into the Observed-flood tool, shown in Figure~\ref{fig:tools}f. The best-fitting flood scenario matches the damage map with a CSI of 0.49. It covers 86\% of the damaged ground, but 47\% of the ground it floods was not damaged. A single water level is a rough model for a fast flood in a steep valley, which explains much of the over-flooding. The damaged area reached 52 buildings, home to about 673 people by the app's estimate. Two cautions apply. The first clear images came a month after the flood, so the map shows what the flood left behind and not its peak. And each satellite pixel covers 10\m, which suits areas but not single houses.
 
 \begin{figure}[!htbp]
 \centering
