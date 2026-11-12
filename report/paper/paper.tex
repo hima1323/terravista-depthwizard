@@ -27,8 +27,8 @@
 
 % ---------- layout ----------
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{4pt plus 4pt minus 1pt}
-\flushbottom
+\setlength{\parskip}{4pt plus 1pt minus 1pt}
+\raggedbottom
 \renewcommand{\arraystretch}{1.18}
 \setlist{itemsep=2pt,topsep=3pt,parsep=0pt}
 \captionsetup[table]{position=above}
@@ -42,7 +42,7 @@
 \titlespacing*{\section}{0pt}{14pt}{6pt}
 \titleformat{\subsection}{\sffamily\large\bfseries}{\thesubsection}{0.6em}{}
 \titlespacing*{\subsection}{0pt}{9pt}{3pt}
-\newcommand{\psection}[2]{\section[#1]{#1\hfill{\normalsize\normalfont\rmfamily\itshape #2}}}
+\newcommand{\psection}[2]{\section{#1}}
 \newcommand{\usection}[1]{\section*{#1}}
 
 \newcommand{\m}{\ifmmode\,\mathrm{m}\else\,m\fi}
@@ -86,34 +86,29 @@
 
 \setcounter{section}{2}
 % =====================================================================
-\psection{Definition of the problem}{what is missing and why it matters}
+\psection{Definition of the Problem}{}
 \label{sec:problem}
 
 \subsection{Problem statement}
 Estimate a reliable height, in metres, for every point of a single satellite photograph, and show how far that height can be trusted.
 
-\subsection{Origin and identification of the problem}
-The problem comes from how disasters are handled in India. In a flood, height decides the outcome: whether water enters a house, which roofs can shelter people, which slopes may slide. Yet the height data that planners need is rarely there. Laser surveys from aircraft are accurate but expensive, and few Indian districts have one. Pairs of satellite images taken from two angles also give height, but a pair seldom exists for the place and date of an emergency. Free worldwide ground maps record one value every 30\m, which is too coarse to see a building. One satellite photograph, on the other hand, exists for almost every place and date. If its heights could be recovered, the missing data would be available everywhere.
+\subsection{Origin/identification of the problem}
+The problem comes from how disasters are handled in India. In a flood, height decides the outcome: whether water enters a house, which roofs can shelter people, which slopes may slide. Yet the height data that planners need is rarely there. Laser surveys from aircraft are accurate but expensive, and few Indian districts have one. Pairs of satellite images taken from two angles also give height, but a pair seldom exists for the place and date of an emergency. Free worldwide ground maps record one value every 30\m, which is too coarse to see a building. One satellite photograph, on the other hand, exists for almost every place and date. Recovering heights from that photograph would fill the gap almost everywhere.
 
-India makes the gap sharper. Floods, cloudbursts and landslides strike somewhere in the country every monsoon, often in hill towns and river-bank settlements that have grown quickly. The Teesta flood of October 2023 in Sikkim, which we study in Section~\ref{sec:teesta}, is one example. For that valley we could find no public height map detailed enough to show single buildings, and the free 30\m{} map was the best available.
+In India the gap is wider. Floods, cloudbursts and landslides strike somewhere in the country every monsoon, often in hill towns and river-bank settlements that have grown quickly. The Teesta flood of October 2023 in Sikkim, which we study in Section~\ref{sec:teesta}, is one example. For that valley we could find no public height map detailed enough to show single buildings, and the free 30\m{} map was the best available.
 
 \subsection{Methodology adopted to identify the problem}
 We did not run surveys, key-informant interviews or focus-group discussions. We identified the problem in three ways. We read the published work on height from single images, on free ground maps and on satellite lasers. We discussed within the team what a disaster manager would need from a height map. And before building anything, we measured how far the free ground map sits from laser-measured ground at Indian sites. In towns it was 5.28\m{} off on average, which told us where to work first.
 
 \subsection{Detailed description of the identified problem}
-Three gaps make height from one image hard to use.
-\begin{enumerate}
-\item \textbf{One image is ambiguous.} From above, a tall building and a short one can look alike. Models guess from shadows and roof size, and they make tall objects too short.
-\item \textbf{Height above ground is not height above sea level.} Flood analysis needs the second. In towns and forests the free ground map includes roofs and tree tops, so its ground is too high.
-\item \textbf{No error figure.} Most tools return a height map without saying how wrong it may be. A relief officer cannot tell whether a 2\m{} flood depth is good to half a metre or to five.
-\end{enumerate}
+Height from one image is hard to use for three reasons. First, the image is ambiguous: seen from above, a tall building and a short one can look alike, so models guess from shadows and roof size and tend to make tall objects too short. Second, flood work needs height above sea level, while a model gives height above the ground; in towns and forests the free ground map includes roofs and tree tops, so its ground sits too high. Third, most tools give a height map without any error figure, and a relief officer cannot tell whether a 2\m{} flood depth is good to half a metre or to five.
 A useful tool must also work across India's very different landscapes: dense cities, scattered villages, hill towns and forests. A method tuned for flat cities can fail on a hillside, where the slope itself can be mistaken for height.
 
 \subsection{Current developments in the domain}
 Neural networks can now estimate depth from one photograph~\cite{ranftl2021dpt}. RS3DAda~\cite{song2024synrs3d} adapted this to satellite images by training on computer-generated cities, and it is the model we start from. Depth Anything~V2~\cite{yang2024dav2} is a strong general model trained on ordinary photographs. Mamba~\cite{gu2023mamba} and MambaVision~\cite{hatamizadeh2025mambavision} are newer network designs that cost less to run. For the ground, Copernicus GLO-30~\cite{esa2021glo30} is a free worldwide map and FABDEM~\cite{hawker2022fabdem} is a version with buildings and forest removed. NASA's ICESat-2~\cite{neumann2019icesat2,neuenschwander2019atl08} and GEDI~\cite{dubayah2020gedi} satellites measure heights with lasers along narrow tracks, and Song and others~\cite{song2025sparse} recently showed that such laser points can correct single-image heights. Meta has published a worldwide map of tree heights~\cite{tolan2024canopy}. India has its own Cartosat images and CartoDEM ground map from NRSC, but both need a login, so we have not tested them yet.
 
 \subsection{Need and significance of resolving the problem}
-With a height map that can be trusted, a district office could see before the monsoon which streets a given water rise would reach, route rescue teams away from deep water, choose helipad and relief-camp sites, and count affected buildings afterwards. Today these jobs rely on the coarse 30\m{} map or are not done. The need is greatest in the places with the least data: small towns, hill settlements and river banks, where a survey flight is unlikely to be paid for but a satellite photograph already exists. Stating the error matters as much as the height. A planner who knows a map is good to 3\m{} in towns and poor under forest can still use it safely, while a map with no error figure invites either blind trust or no trust. Table~\ref{tab:approaches} shows what each existing source lacks.
+With a height map that can be trusted, a district office could see before the monsoon which streets a given water rise would reach, route rescue teams away from deep water, choose helipad and relief-camp sites, and count affected buildings afterwards. Today these jobs rely on the coarse 30\m{} map or are not done. The need is greatest in the places with the least data: small towns, hill settlements and river banks, where a survey flight is unlikely to be paid for but a satellite photograph already exists. The error figure matters too. A planner who knows a map is good to 3\m{} in towns and poor under forest can still use it with care; with no error figure, people either trust the map completely or ignore it. Table~\ref{tab:approaches} shows what each existing source lacks.
 
 \begin{table}[!htbp]
 \centering\small
@@ -133,7 +128,7 @@ DepthWizard (ours) & One image and free data & Pixel & Yes & Yes \\
 \end{table}
 
 % =====================================================================
-\psection{Aims, objectives and goals}{what success means}
+\psection{Aims/Objectives/Goals}{}
 \label{sec:objectives}
 
 Our aim is one offline tool that turns a single satellite photograph into a height map that disaster teams can use and check. Each objective in Table~\ref{tab:objectives} closes one gap from Section~\ref{sec:problem} and has a test.
@@ -158,7 +153,7 @@ O7 & A cheaper height model (Mamba) & Speed, size and accuracy on the same tests
 \end{table}
 
 % =====================================================================
-\psection{Tools and techniques (interventions)}{how DepthWizard works}
+\psection{Tools and Techniques (Interventions)}{}
 \label{sec:method}
 
 \subsection{Height model}
@@ -238,7 +233,7 @@ Situation report & What does a decision maker need on one page? \\
 \end{table}
 
 % =====================================================================
-\psection{Detailed work plan and technological interventions}{steps and timeline}
+\psection{Detailed Work Plan / Technological Interventions}{}
 \label{sec:plan}
 
 A scene goes through seven steps (Figure~\ref{fig:pipeline}). An ordinary PNG or JPEG photograph gives heights above the ground. A GeoTIFF, which carries its location, continues to heights above sea level. Table~\ref{tab:timeline} gives the order in which we built the parts, and Figures~\ref{fig:pages} and~\ref{fig:tools} show the result.
@@ -305,7 +300,7 @@ Before 15 October & Study of the problem, choice of model, first height maps \\
 \end{figure}
 
 % =====================================================================
-\psection{Novelty and innovation of the proposed interventions}{what is new}
+\psection{Novelty / Innovation of the Proposed Interventions}{}
 \label{sec:mamba}
 
 \subsection{A Mamba-based height model}
@@ -344,29 +339,24 @@ Training a height model from nothing needs a very large labelled dataset. We use
 The first part pulls the student's heights towards the teacher's. The second does the same for land cover, with $\lambda=0.5$ and $\tau=2$. The third is optional and uses true heights from computer-generated cities, so that the student can do better than its teacher. We trained for 20,000 steps on tiles from the SynRS3D dataset. Section~\ref{sec:results} reports how it did.
 
 \subsection{Other new parts}
-\begin{itemize}
-\item \textbf{Sea-level heights from one image, checked by lasers.} Most single-image tools stop at height above ground. We clean the free ground map with the model's own output and level it with NASA lasers.
-\item \textbf{Safety rules learned from failures.} In Silent Valley, one laser track along a forested valley floor would have moved the whole scene by 46.59\m. In Chandigarh, all 35 ``ground'' laser points we held back for checking were on roofs. The app now refuses both.
-\item \textbf{An honest error range.} Each building gets a range whose reliability we measured in cities the method never saw.
-\item \textbf{A register of every number.} Each figure in this report is linked to the file that produced it, with its confidence range and a simple guess to compare against.
-\end{itemize}
+Most single-image tools stop at height above ground. We go on to height above sea level by cleaning the free ground map with the model's own output and levelling it with NASA lasers. Two safety rules in that step came from mistakes we saw: in Silent Valley one laser track along a forested valley floor would have moved the whole scene by 46.59\m, and in Chandigarh all 35 ``ground'' laser points we held back for checking were on roofs. The app now refuses both cases. Each building also gets an error range whose reliability we measured in cities the method never saw. Finally, every figure in this report is linked in a register to the file that produced it, with its confidence range and a simple guess to compare against.
 
 % =====================================================================
-\psection{Approaches to implement the intervention plans}{reaching users}
+\psection{Approaches that can be taken to Implement Intervention Plans}{}
 \label{sec:approaches}
 
-DepthWizard can reach users in four ways.
+DepthWizard can reach users in five ways.
 \begin{enumerate}
-\item \textbf{An offline app for district and state offices.} It installs with one click. One full scene took 42 seconds on a laptop with 8\,GB of memory. Internet is needed only to fetch ground and laser data for a new scene.
-\item \textbf{Inside existing mapping work.} The outputs are standard files, so NDMA and state disaster authorities can load them into the software they already use.
-\item \textbf{A phone page for field staff.} On the same network, a phone records GPS points and known heights, which return to the app as check points.
-\item \textbf{A web demo anyone can open.} The repository runs as a hosted demo on Replit with a processed scene, so a visitor can explore the tools in a browser without installing anything. A check every five minutes keeps it awake.
-\item \textbf{The Mamba model on a central server.} A faster model lets one graphics card process many districts, with the results sent to offices as files.
+\item As an offline app for district and state offices. It installs with one click. One full scene took 42 seconds on a laptop with 8\,GB of memory. Internet is needed only to fetch ground and laser data for a new scene.
+\item Inside existing mapping work. The outputs are standard files, so NDMA and state disaster authorities can load them into the software they already use.
+\item Through a phone page for field staff. On the same network, a phone records GPS points and known heights, which return to the app as check points.
+\item Through a web demo anyone can open. The repository runs as a hosted demo on Replit with a processed scene, so a visitor can explore the tools in a browser without installing anything. A check every five minutes keeps it awake.
+\item Through the Mamba model on a central server. A faster model lets one graphics card process many districts, with the results sent to offices as files.
 \end{enumerate}
 Each rollout would start with a test on Indian imagery, then a pilot with one office through a monsoon, staff training with the user guide, and feedback through the app's own checking page. Because the checking page reports errors in the same way for every scene, feedback from a pilot can be compared directly with the tests in this report.
 
 % =====================================================================
-\psection{Possible constraints, barriers and design issues}{limits}
+\psection{Possible Constraints and Barriers to Implementation; Design Issues}{}
 \label{sec:limits}
 
 Table~\ref{tab:limits} lists the limits we know of. The largest is accuracy on tall objects. Design choices follow from these limits: heavy data is stored per scene so the tool works offline, every disaster output is labelled a scenario, and a faster model must match the current one on the same tests before it replaces it. Population figures come from building floor area, not from personal data.
@@ -394,30 +384,28 @@ Some data is for non-commercial use only & Commercial use restricted & Research 
 \end{table}
 
 % =====================================================================
-\psection{Expertise available with each student}{who brought what}
+\psection{Expertise Available with Each Student to Contribute to the Development of the Intervention}{}
 \label{sec:expertise}
 
-The project needed skills in machine learning, map and satellite data, web development, testing, and writing. Table~\ref{tab:expertise} lists what each student brought.
+Most of the technical skills came from two members, as Table~\ref{tab:expertise} shows. The other members are Agampreet Singh, Saaransh Garg, Takshita Nagrale, Saloni Mahajan, Peruru Smitha Reddy, Akshita, Aryan Goyal and Arahana Garg.
 
 \begin{table}[H]
 \centering\small
 \caption{Expertise of each student.}
 \label{tab:expertise}
-\begin{tabularx}{\linewidth}{@{}p{3.3cm}Y@{\hspace{1.2em}}p{3.3cm}Y@{}}
+\begin{tabularx}{\linewidth}{@{}p{3.4cm}Y@{}}
 \toprule
-Student & Expertise & Student & Expertise \\
+Student & Expertise \\
 \midrule
-Himanshu Patel & Full-stack web development, hosting, machine learning, satellite data & Peruru Smitha Reddy & Presentation design \\
-Shlok Vaidya & Model training, testing and benchmarks & Akshita & Documentation \\
-Agampreet Singh & Literature search & Aryan Goyal & Data checking \\
-Saaransh Garg & Software testing & Arahana Garg & Disaster-management background \\
-Takshita Nagrale & Writing and editing & Saloni Mahajan & Figures and screenshots \\
+Himanshu Patel & Full-stack web development and hosting, machine learning, satellite and map data \\
+Shlok Vaidya & Model training, testing and benchmarks \\
+Other members & General reading and proofreading \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 % =====================================================================
-\psection{Expected outcomes}{results so far}
+\psection{Expected Outcomes}{}
 \label{sec:results}
 
 The main outcome is an offline tool that gives a checked height map from one image. We tested it on places the model never saw in training: 150 aerial tiles of three US cities with aircraft laser heights (GAMUS~\cite{xiong2023gamus}), 300 satellite tiles each of Atlanta and Buenos Aires (Overhead Geopose~\cite{christie2021geopose}), and eight Indian sites checked against NASA lasers. Each number is an average with a 95\% confidence range in brackets, set against a simple guess at the same points.
@@ -529,52 +517,61 @@ We then ran DepthWizard on a pre-flood photograph of the valley~\cite{maxar} and
 Some ideas were tested on the same data and dropped. A correction curve for heights helped in two cities and hurt in the third, where the error rose from 1.86\m{} to 2.87\m. Resizing the input image made no clear difference. Using GEDI points to make the laser levelling denser was slightly worse than using ICESat-2 alone. An error range for every pixel, in place of every building, held between 81.4\% and 96.1\% of the time across cities and missed its 90\% target, so the app shows ranges for buildings only.
 
 % =====================================================================
-\psection{Suggested plan of action for utilisation of the outcome}{next steps}
+\psection{Suggested Plan of Action for Utilization of the Expected Outcome from the Work}{}
 \label{sec:action}
 
-\begin{enumerate}
-\item \textbf{Improve the Mamba model.} Train it longer and with true heights, until it matches RS3DAda's accuracy at five times the speed.
-\item \textbf{Fix tall buildings and trees.} Use shadow lengths for tall buildings, and measure the tree-height corrections on Indian forests.
-\item \textbf{Test on Indian imagery.} Repeat the tests on Cartosat images once access is granted, with more sites per landscape.
-\item \textbf{Pilot with one State Disaster Management Authority} through a monsoon: make flood-reach maps for a few districts before the rains and compare them with what happens.
-\item \textbf{Hand over} the code and results to NRSC and ISRO, and use the tool in geography and planning courses.
-\end{enumerate}
-Each step depends on the one before it. A pilot is only worth running once tall buildings and trees are handled better, and a handover is only useful once a pilot has shown where the maps hold up.
-The same height maps can also support town planning, rooftop solar studies and checks on unauthorised construction. Those uses are less urgent than disaster work but need the same thing, a cheap height map with a known error.
+The plan runs in four phases over about two years. Each phase starts only when the one before it has met its check, so effort goes where the evidence says it is needed.
+
+\begin{table}[H]
+\centering\small
+\caption{Plan of action, with the check that ends each phase.}
+\label{tab:action}
+\begin{tabularx}{\linewidth}{@{}>{\raggedright\arraybackslash}p{2.6cm}YY@{}}
+\toprule
+Phase and time & What we will do & Check before moving on \\
+\midrule
+1. Fix the model\newline 0 to 6 months & Train the Mamba model for longer, add true heights from the synthetic cities, and adapt it to real images. Correct tall buildings from shadow length and sun angle. Measure the tree-height corrections on Indian forest sites. & Mamba error within 0.5\m{} of RS3DAda on the 750 test tiles; error above 20\m{} cut by half \\
+2. Test on Indian data\newline 3 to 9 months & Get Cartosat images and CartoDEM from NRSC and repeat every test. Add at least ten sites for each landscape, with ground points from a state survey department. & Results hold on Indian imagery; confidence ranges narrow enough to compare landscapes \\
+3. Pilot with a state\newline one monsoon & Work with one State Disaster Management Authority, for example Assam or Himachal Pradesh. Before the rains, give flood-reach and landslide maps for two or three districts. After each flood, compare them with the mapped extent and with field reports. & District officers use the maps in their monsoon plans; flood match (CSI) of 0.6 or more on real events \\
+4. Hand over and scale\newline from year 2 & Give the code, test register and user guide to NRSC and ISRO so the model can run on their servers and feed Bhuvan. Train district staff with short hands-on sessions, and offer the tool to geography and planning courses. & A state or national agency runs it without our help \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Alongside disaster work, the same height maps can help with town planning, rooftop solar studies and checks on unauthorised construction. These need the same thing, a cheap height map with a known error, so they can be added at any phase without new research.
 
 % =====================================================================
 \psection{Conclusion}{}
 
 One ordinary satellite photograph, combined with free ground data and NASA's lasers, gives a 3D height map that disaster teams can use offline and check for themselves. DepthWizard beats simple guesses on every height test with the published model, halves the ground-level error in Indian towns, and maps a real Indian flood from public data. Our Mamba model is nine times smaller and five times faster than the published one, and making it as accurate is the next job. The tool does not replace a ground survey yet: very tall buildings come out too low and forests remain hard. Every result carries its error, so users can see where to trust it.
 
+\subsection*{Data and code}
+The code, the register of every number, a video walkthrough and the steps to run the web demo are in the project repository: {\small\url{https://github.com/hima1323/terravista-depthwizard}}. All test data are public.
+
 % =====================================================================
-\psection{Contribution of each student}{}
+\psection{Contribution of Each Student of the Group to Complete the Assignment}{}
 \label{sec:contrib}
 
 \begin{table}[H]
 \centering\small
 \caption{Contribution of each student to the project and this report.}
 \label{tab:contrib}
-\begin{tabularx}{\linewidth}{@{}p{3.4cm}Y@{}}
+\begin{tabularx}{\linewidth}{@{}p{3.1cm}Yp{3.1cm}Y@{}}
 \toprule
-Student & Contribution \\
+Student & Contribution & Student & Contribution \\
 \midrule
-Himanshu Patel & The whole website and app (front end, back end, hosting); ground-level correction; Mamba model code; the eighteen tools; Teesta study; this report \\
-Shlok Vaidya & Checking in the app and survey-point correction; installer; helipad and route tools; Mamba training and model comparison; screenshots \\
-Agampreet Singh & Collected background papers on past Indian floods and landslides \\
-Saaransh Garg & Tried the demo on the sample scene and listed small interface issues \\
-Takshita Nagrale & Proofread the report and checked its section order against the HS202 format \\
-Saloni Mahajan & Organised the screenshots and figures used in the report \\
-Peruru Smitha Reddy & Prepared the presentation slides from the report \\
-Akshita & Reviewed the README and the demo instructions for clarity \\
-Aryan Goyal & Cross-checked the numbers in the tables against the result files \\
-Arahana Garg & Summarised NDMA guidance on flood and landslide planning \\
+Himanshu Patel & \multicolumn{3}{>{\raggedright\arraybackslash}p{\dimexpr\linewidth-3.1cm-2\tabcolsep\relax}@{}}{The whole website and app (front end, back end, hosting); ground-level correction; Mamba model code; the eighteen tools; Teesta study; this report} \\
+Shlok Vaidya & \multicolumn{3}{>{\raggedright\arraybackslash}p{\dimexpr\linewidth-3.1cm-2\tabcolsep\relax}@{}}{Checking in the app and survey-point correction; installer; helipad and route tools; Mamba training and model comparison; screenshots} \\
+\addlinespace
+Agampreet Singh & Background reading & Peruru Smitha Reddy & Presentation slides \\
+Saaransh Garg & Tried the demo & Akshita & Read through the README \\
+Takshita Nagrale & Proofreading & Aryan Goyal & Background reading \\
+Saloni Mahajan & Proofreading & Arahana Garg & Background reading \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
-\subsection*{Data and code}
-The code, the register of every number, a video walkthrough and the steps to run the web demo are in the project repository: {\small\url{https://github.com/hima1323/terravista-depthwizard}}. All test data are public.
+
 
 % =====================================================================
 \begingroup
