@@ -38,9 +38,10 @@
 \newcolumntype{C}{>{\centering\arraybackslash}X}
 
 % section headings: number, title, italic note on the right, rule below
-\titleformat{\section}[block]{\sffamily\Large\bfseries}{\thesection.}{0.5em}{}[{\vspace{-1.5pt}\titlerule[0.6pt]}]
+\setcounter{secnumdepth}{0}
+\titleformat{\section}[block]{\sffamily\Large\bfseries}{}{0em}{}[{\vspace{-1.5pt}\titlerule[0.6pt]}]
 \titlespacing*{\section}{0pt}{14pt}{6pt}
-\titleformat{\subsection}{\sffamily\large\bfseries}{\thesubsection}{0.6em}{}
+\titleformat{\subsection}{\sffamily\large\bfseries}{}{0em}{}
 \titlespacing*{\subsection}{0pt}{9pt}{3pt}
 \newcommand{\psection}[2]{\section{#1}}
 \newcommand{\usection}[1]{\section*{#1}}
@@ -93,7 +94,7 @@
 Estimate a reliable height, in metres, for every point of a single satellite photograph, and show how far that height can be trusted.
 
 \subsection{Origin/identification of the problem}
-In a flood, height decides the outcome: whether water enters a house, which roofs can shelter people, which slopes may slide. Yet planners rarely have height data. Aircraft laser surveys are accurate but costly, and few Indian districts have one. Two-angle satellite pairs give height, but a pair seldom exists for the place and date of an emergency, and free worldwide maps record one value every 30\m, too coarse to see a building. A single satellite photograph, though, exists for almost every place and date. The Teesta flood of October 2023, studied in Section~\ref{sec:teesta}, is an example: no public map of that valley showed single buildings.
+In a flood, height decides the outcome: whether water enters a house, which roofs can shelter people, which slopes may slide. Yet planners rarely have height data. Aircraft laser surveys are accurate but costly, and few Indian districts have one. Two-angle satellite pairs give height, but a pair seldom exists for the place and date of an emergency, and free worldwide maps record one value every 30\m, too coarse to see a building. A single satellite photograph, though, exists for almost every place and date. The Teesta flood of October 2023, studied in the Expected Outcomes section, is an example: no public map of that valley showed single buildings.
 
 \subsection{Methodology adopted to identify the problem}
 We did not run surveys, key-informant interviews or focus-group discussions. We identified the problem in three ways. We read the published work on height from single images, on free ground maps and on satellite lasers. We discussed within the team what a disaster manager would need from a height map. And before building anything, we measured how far the free ground map sits from laser-measured ground at Indian sites. In towns it was 5.28\m{} off on average, which told us where to work first.
@@ -129,7 +130,7 @@ DepthWizard (ours) & One image and free data & Pixel & Yes & Yes \\
 \psection{Aims/Objectives/Goals}{}
 \label{sec:objectives}
 
-Our aim is one offline tool that turns a single satellite photograph into a height map that disaster teams can use and check. Each objective in Table~\ref{tab:objectives} closes one gap from Section~\ref{sec:problem} and has a test.
+Our aim is one offline tool that turns a single satellite photograph into a height map that disaster teams can use and check. Each objective in Table~\ref{tab:objectives} closes one gap from the Definition of the Problem and has a test.
 
 \begin{table}[!htbp]
 \centering\small
@@ -164,7 +165,7 @@ A scene is far larger than the network's 518-pixel input, so we cut it into tile
 u_k = \operatorname{std}_f\, h_k^{(f)} .
 \label{eq:blend}
 \end{equation}
-The spread $u$ of the four readings, blended the same way, shows where the model is unsure, and Section~\ref{sec:conformal} turns it into an error range.
+The spread $u$ of the four readings, blended the same way, shows where the model is unsure, and the next part on error ranges turns it into an error range.
 
 \subsection{From height above ground to height above sea level}
 The model gives the height $h$ of each point $x$ above the ground under it. Adding the height of the ground gives the height above sea level:
@@ -390,7 +391,7 @@ Training a height model from nothing needs a very large labeled dataset. We used
 \end{split}
 \label{eq:distill}
 \end{equation}
-where $\ell$ is the smooth-L1 loss, $\sigma$ the softmax over land-cover classes and KL the Kullback--Leibler divergence. The first term pulls the student's heights towards the teacher's; smooth-L1 behaves like a squared error for small differences and like an absolute error for large ones, so a few wild pixels do not dominate. The second term matches the land-cover answers. Dividing the scores by a temperature $\tau = 2$ softens both distributions, so the student also learns which classes the teacher found close, and the factor $\tau^2$ keeps that term's gradients at the right size. The third term, used when labels exist, compares the student with true heights from the synthetic SynRS3D cities, which lets it learn things the teacher gets wrong. We used $\lambda = 0.5$, the AdamW optimizer, learning rates of $10^{-4}$ for the heads and $10^{-5}$ for the pretrained encoder with a 500-step warm-up and cosine decay, and 20,000 steps of eight 512-pixel crops with random flips and turns. Section~\ref{sec:results} reports how it did.
+where $\ell$ is the smooth-L1 loss, $\sigma$ the softmax over land-cover classes and KL the Kullback--Leibler divergence. The first term pulls the student's heights towards the teacher's; smooth-L1 behaves like a squared error for small differences and like an absolute error for large ones, so a few wild pixels do not dominate. The second term matches the land-cover answers. Dividing the scores by a temperature $\tau = 2$ softens both distributions, so the student also learns which classes the teacher found close, and the factor $\tau^2$ keeps that term's gradients at the right size. The third term, used when labels exist, compares the student with true heights from the synthetic SynRS3D cities, which lets it learn things the teacher gets wrong. We used $\lambda = 0.5$, the AdamW optimizer, learning rates of $10^{-4}$ for the heads and $10^{-5}$ for the pretrained encoder with a 500-step warm-up and cosine decay, and 20,000 steps of eight 512-pixel crops with random flips and turns. the Expected Outcomes section reports how it did.
 
 \subsection{Other new parts}
 Most single-image tools stop at height above ground; we reach sea level with Eqs.~(\ref{eq:clean}) and~(\ref{eq:level}). Their two safety rules came from mistakes we saw: in Silent Valley one laser track along a forested valley floor would have moved the whole scene by 46.59\m, and in Chandigarh all 35 ``ground'' laser points we held back for checking were on roofs. The app now refuses both cases. Each building also gets an error range whose reliability we measured in cities the method never saw. Every number in this report is linked in a register to the file that produced it.
