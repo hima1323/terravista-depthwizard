@@ -93,22 +93,20 @@
 Estimate a reliable height, in metres, for every point of a single satellite photograph, and show how far that height can be trusted.
 
 \subsection{Origin/identification of the problem}
-The problem comes from how disasters are handled in India. In a flood, height decides the outcome: whether water enters a house, which roofs can shelter people, which slopes may slide. Yet the height data that planners need is rarely there. Laser surveys from aircraft are accurate but expensive, and few Indian districts have one. Pairs of satellite images taken from two angles also give height, but a pair seldom exists for the place and date of an emergency. Free worldwide ground maps record one value every 30\m, which is too coarse to see a building. One satellite photograph, on the other hand, exists for almost every place and date. Recovering heights from that photograph would fill the gap almost everywhere.
-
-In India the gap is wider. Floods, cloudbursts and landslides strike somewhere in the country every monsoon, often in hill towns and river-bank settlements that have grown quickly. The Teesta flood of October 2023 in Sikkim, which we study in Section~\ref{sec:teesta}, is one example. For that valley we could find no public height map detailed enough to show single buildings, and the free 30\m{} map was the best available.
+In a flood, height decides the outcome: whether water enters a house, which roofs can shelter people, which slopes may slide. Yet planners rarely have height data. Aircraft laser surveys are accurate but costly, and few Indian districts have one. Two-angle satellite pairs give height, but a pair seldom exists for the place and date of an emergency, and free worldwide maps record one value every 30\m, too coarse to see a building. A single satellite photograph, though, exists for almost every place and date. The Teesta flood of October 2023, studied in Section~\ref{sec:teesta}, is an example: no public map of that valley showed single buildings.
 
 \subsection{Methodology adopted to identify the problem}
 We did not run surveys, key-informant interviews or focus-group discussions. We identified the problem in three ways. We read the published work on height from single images, on free ground maps and on satellite lasers. We discussed within the team what a disaster manager would need from a height map. And before building anything, we measured how far the free ground map sits from laser-measured ground at Indian sites. In towns it was 5.28\m{} off on average, which told us where to work first.
 
 \subsection{Detailed description of the identified problem}
 Height from one image is hard to use for three reasons. First, the image is ambiguous: seen from above, a tall building and a short one can look alike, so models guess from shadows and roof size and tend to make tall objects too short. Second, flood work needs height above sea level, while a model gives height above the ground; in towns and forests the free ground map includes roofs and tree tops, so its ground sits too high. Third, most tools give a height map without any error figure, and a relief officer cannot tell whether a 2\m{} flood depth is good to half a metre or to five.
-A useful tool must also work across India's very different landscapes: dense cities, scattered villages, hill towns and forests. A method tuned for flat cities can fail on a hillside, where the slope itself can be mistaken for height.
+The tool must also work in cities, villages, hills and forests; on a hillside the slope itself can be mistaken for height.
 
 \subsection{Current developments in the domain}
 Neural networks can now estimate depth from one photograph~\cite{ranftl2021dpt}. RS3DAda~\cite{song2024synrs3d} adapted this to satellite images by training on computer-generated cities, and it is the model we start from. Depth Anything~V2~\cite{yang2024dav2} is a strong general model trained on ordinary photographs. Mamba~\cite{gu2023mamba} and MambaVision~\cite{hatamizadeh2025mambavision} are newer network designs that cost less to run. For the ground, Copernicus GLO-30~\cite{esa2021glo30} is a free worldwide map and FABDEM~\cite{hawker2022fabdem} is a version with buildings and forest removed. NASA's ICESat-2~\cite{neumann2019icesat2,neuenschwander2019atl08} and GEDI~\cite{dubayah2020gedi} satellites measure heights with lasers along narrow tracks, and Song and others~\cite{song2025sparse} recently showed that such laser points can correct single-image heights. Meta has published a worldwide map of tree heights~\cite{tolan2024canopy}. India has its own Cartosat images and CartoDEM ground map from NRSC, but both need a login, so we have not tested them yet.
 
 \subsection{Need and significance of resolving the problem}
-With a height map that can be trusted, a district office could see before the monsoon which streets a given water rise would reach, route rescue teams away from deep water, choose helipad and relief-camp sites, and count affected buildings afterwards. Today these jobs rely on the coarse 30\m{} map or are not done. The need is greatest in the places with the least data: small towns, hill settlements and river banks, where a survey flight is unlikely to be paid for but a satellite photograph already exists. The error figure matters too. A planner who knows a map is good to 3\m{} in towns and poor under forest can still use it with care; with no error figure, people either trust the map completely or ignore it. Table~\ref{tab:approaches} shows what each existing source lacks.
+A trusted height map would let a district office see before the monsoon which streets a water rise would reach, route rescue teams away from deep water, choose helipad and camp sites, and count damaged buildings afterwards. The error figure matters as much: a planner who knows a map is good to 3\m{} in towns and poor under forest can use it with care. Table~\ref{tab:approaches} shows what each existing source lacks.
 
 \begin{table}[!htbp]
 \centering\small
@@ -157,9 +155,16 @@ O7 & A cheaper height model (Mamba) & Speed, size and accuracy on the same tests
 \label{sec:method}
 
 \subsection{Height model}
-RS3DAda~\cite{song2024synrs3d} gives, for every pixel, a height above the ground and a land-cover class such as building, tree or road. We cut large scenes into overlapping tiles and read each tile four times, flipped, then average the answers. How much the four answers disagree, $u$, tells us where the model is unsure.
+RS3DAda~\cite{song2024synrs3d} is a DINOv2 vision transformer~\cite{oquab2023dinov2} with two DPT decoder heads~\cite{ranftl2021dpt}. For each pixel it returns a height above the ground, $h$, and scores $z$ for eight land-cover classes such as building, tree, road and water. We chose it because it was trained for satellite images, so it predicts height above the ground and not distance from a camera. It also gives land cover in the same pass, which the ground step below needs, and its weights are public, so anyone can repeat our numbers. We did not retrain it.
 
-We chose RS3DAda for three reasons. It was trained for satellite images, so it predicts height above the ground and not distance from a camera. It predicts land cover in the same pass, which the ground step below needs in order to find roofs and trees. And its trained weights are public, so anyone can repeat our numbers. We did not retrain it: every result in this report uses the released weights.
+A scene is far larger than the network's 518-pixel input, so we cut it into tiles that overlap by half. Each tile $k$ is read four times, once as it is and once for each flip, and the four answers are averaged. The tiles are then blended with weights $w_k(x)$ that are 1 in the middle of a tile and fall linearly to near 0 at its edge:
+\begin{equation}
+\hat h(x) = \frac{\sum_k w_k(x)\,\bar h_k(x)}{\sum_k w_k(x)}, \qquad
+\bar h_k = \tfrac14 \sum_{f=1}^{4} h_k^{(f)}, \qquad
+u_k = \operatorname{std}_f\, h_k^{(f)} .
+\label{eq:blend}
+\end{equation}
+The spread $u$ of the four readings, blended the same way, shows where the model is unsure, and Section~\ref{sec:conformal} turns it into an error range.
 
 \subsection{From height above ground to height above sea level}
 The model gives the height $h$ of each point $x$ above the ground under it. Adding the height of the ground gives the height above sea level:
@@ -167,32 +172,74 @@ The model gives the height $h$ of each point $x$ above the ground under it. Addi
 \mathrm{DSM}(x) \;=\; \mathrm{DTM}(x) \;+\; h(x).
 \label{eq:dsm}
 \end{equation}
-The ground map starts as GLO-30~\cite{esa2021glo30}, which in towns sits on rooftops. In each 30\m{} square we subtract the average building and tree height the model found there. We then shift the whole map up or down to match ICESat-2 laser points that reached the ground. Two safety rules came from failures we saw. We refuse to shift when only one laser track crosses the scene, and we throw away ``ground'' laser points that sit on a roof. A user with a few surveyed points can correct the map further. If $K$ points of known height $z_k$ are available at positions $(x_k,y_k)$, we find the level, scale and tilt that best fit the map's values $\hat z_k$ to them:
+The ground map starts as GLO-30~\cite{esa2021glo30}, a 30\m{} surface model that sits on rooftops and tree tops in towns and forests. For every 30\m{} cell $c$ we average two things from our own outputs: the mean height above ground $m_c$, and the open-ground fraction $g_c$, the share of the cell that the land-cover map calls road, bare soil or water. On flat scenes, with less than 50\m{} of relief, the cleaned cell height is
+\begin{equation}
+\mathrm{DTM}_c = \mathrm{GLO}_c - m_c, \qquad \text{trusted with weight } g_c^2 ,
+\label{eq:clean}
+\end{equation}
+and cells whose weight is below 0.25, mostly roofs or trees, are filled in from their neighbors. In hills the slope itself must survive, so every cell keeps its shape and loses only a share $\alpha$ of the object height, $\mathrm{DTM}_c = \mathrm{GLO}_c - \alpha\, m_c$, with weight $0.2 + 0.8\,g_c^2$.
+
+We then level the whole map with ICESat-2 photons classed as ground~\cite{neuenschwander2019atl08}. For ground photons $j$ at heights $z_j$, the shift is the median difference
+\begin{equation}
+\delta = \operatorname*{median}_j \bigl( z_j - \mathrm{DTM}(x_j) \bigr), \qquad \mathrm{DTM} \leftarrow \mathrm{DTM} + \delta .
+\label{eq:level}
+\end{equation}
+The median keeps a few bad photons from pulling the result. Two rules came from real failures. First, the shift is applied only with at least 50 ground photons from at least two passes; one pass is a single line and can carry a local error into the whole scene. Second, a ground photon counts as a roof, and is dropped, when it falls on a building pixel grown by 2\m{} and also stands more than 3\m{} above the median of the other ground photons. Either sign alone was not enough in our tests.
+
+A user with $K$ surveyed points of known height $z_k$ at positions $(x_k,y_k)$ can correct the map further. We find the level $a$, scale $b$ and tilt $c,d$ that best fit the map values $\hat z_k$:
 \begin{equation}
 \min_{a,b,c,d}\; \sum_{k=1}^{K} \bigl(z_k - a - b\,\hat z_k - c\,x_k - d\,y_k\bigr)^2 .
 \label{eq:gcp}
 \end{equation}
-One point sets only the level $a$. Two or three also set the scale $b$, and four or more also set the tilt $c,d$. Each fit reports its error on a point that was left out, so the user can see how much to trust it. This also lets a plain photograph without location data reach heights above sea level.
+One point fixes only $a$, two or three also fix $b$, and four or more fix the tilt as well. Each fit reports its error on a left-out point. This also lets a plain photograph without location data reach heights above sea level.
 
 \subsection{Tree heights}
-The model sees trees at only 18 to 60\% of their true height. Trees can take their height from Meta's tree-height map~\cite{tolan2024canopy}, or be scaled up by the typical ratio between GEDI laser heights~\cite{dubayah2020gedi} and the model's heights at the same spots.
+The model sees trees at only 18 to 60\% of their true height. Tree pixels can take their height from Meta's canopy map~\cite{tolan2024canopy}, which is resampled onto the image grid. The other route is a single scale for the tree class, fitted from GEDI laser shots~\cite{dubayah2020gedi} that fall on trees, each covering a circle of 12.5\m{} radius:
+\begin{equation}
+s_{\mathrm{tree}} = \operatorname*{median}_{k}\; \frac{H_k}{\hat h_k}, \qquad \hat h \leftarrow s_{\mathrm{tree}}\,\hat h \ \text{ on tree pixels},
+\label{eq:tree}
+\end{equation}
+where $H_k$ is the laser's canopy height, its 98th-percentile return, and $\hat h_k$ is the model's height over the same footprint.
 
 \subsection{An error range for every building}
-We turn the disagreement $u$ into a range with a method called split conformal prediction~\cite{lei2018conformal}. On buildings with known heights we compute the errors $e_i$ and set
+\label{sec:conformal}
+The spread $u$ ranks errors on flat ground well, with a rank correlation of 0.44, but says almost nothing on tall objects, where it is $-0.03$. So we do not show it as an error bar. We use split conformal prediction~\cite{lei2018conformal} instead. On $n$ calibration buildings with known errors $e_i$ we compute scores and a range
 \begin{equation}
 r_i = \frac{|e_i|}{u_i+u_0},\qquad
+\hat q = r_{(\lceil (n+1)(1-\alpha)\rceil)},\qquad
 C(x) = \bigl[\,\hat h(x) \pm \hat q\,\bigl(u(x)+u_0\bigr)\bigr],
 \label{eq:conformal}
 \end{equation}
-where $\hat q$ is the value that 90\% of the scores $r_i$ fall below and $u_0=0.25\m$. The range $C(x)$ should then contain the true height nine times in ten, and we test that promise in cities that were not used to set it.
+where $r_{(k)}$ is the $k$-th smallest score, $\alpha = 0.1$ and $u_0 = 0.25\m$. If new buildings behave like the calibration ones, conformal theory guarantees $P\bigl(h \in C(x)\bigr) \ge 1-\alpha$, nine times in ten. A new city may break that condition, so we test the range on cities left out of the calibration.
 
 \subsection{Disaster models}
-For a simple flood, every place below a chosen water level that connects to the river is marked wet. For water that moves over time we use the flow model of Bates and others~\cite{bates2010inertial}. It moves water between neighboring squares of the map according to the slope of the water surface, the depth of the water and the roughness of the ground. We added limits so that no square gives away more water than it holds. A real flood can be loaded as a ready-made map, or taken from a radar satellite image that the app splits into water and land~\cite{otsu1979}. To compare a predicted flood with a real one we use the critical success index,
+A simple flood marks as wet every cell below a chosen level that connects to the river or the scene edge. For water that moves over time we solve the local-inertial shallow-water equations of Bates and others~\cite{bates2010inertial} on the height grid. The flow $q$ between two neighboring cells, per metre of their shared edge, is updated as
+\begin{equation}
+q_{t+\Delta t} \;=\; \frac{q_t - g\,h_f\,\Delta t\,\partial\eta/\partial x}{1 + g\,\Delta t\,n^2\,|q_t|\,/\,h_f^{7/3}},
+\qquad
+h_{t+\Delta t} = h_t + \frac{\Delta t}{\Delta x}\sum_{\text{edges}} \pm q ,
+\label{eq:flow}
+\end{equation}
+where $\eta$ is the water surface, $h_f$ the depth through which water can flow, $g$ gravity and $n$ Manning's roughness. We set $n$ from the land cover, from 0.016 for roads to 0.1 for trees. The time step follows the stability limit $\Delta t = \min\bigl(5\,\mathrm{s},\; 0.7\,\Delta x/\sqrt{g\,h_{\max}}\bigr)$. On steep urban ground the scheme can blow up, so we cap the flow at the critical value $|q| \le h_f\sqrt{g\,h_f}$, a Froude number of 1, and limit each cell's outflow to the water it holds. With these limits, water in equals water stored plus water out to within 5\% in our tests.
+
+A real flood can be loaded as a map, or taken from a Sentinel-1 radar image in decibels. Water is dark in radar, so the app picks the threshold $\tau$ with Otsu's method~\cite{otsu1979}, the value that best separates the two classes:
+\begin{equation}
+\tau^* = \arg\max_\tau\; \omega_0(\tau)\,\omega_1(\tau)\,\bigl(\mu_0(\tau)-\mu_1(\tau)\bigr)^2 ,
+\label{eq:otsu}
+\end{equation}
+where $\omega$ and $\mu$ are the share and mean of the pixels on each side of $\tau$. A predicted flood is then scored against the real one with the critical success index
 \begin{equation}
 \mathrm{CSI} \;=\; \frac{TP}{TP+FP+FN},
 \label{eq:csi}
 \end{equation}
-where $TP$ counts places both maps call wet, and $FP$ and $FN$ count places only one of them calls wet. A score of 1 is a perfect match. Evacuation routes are the cheapest paths~\cite{dijkstra1959} that avoid steep slopes, deep water and buildings, and landslide risk follows the Indian Standard IS~14496~\cite{bis14496}. The number of people at risk is estimated from each affected building's floor area, its number of floors, the share of it that is lived in, and the floor space one person needs. The app labels all of these as scenarios, not forecasts.
+where $TP$ counts cells both maps call wet, and $FP$ and $FN$ count cells only one of them calls wet. Unlike plain accuracy, it ignores cells dry in both maps.
+
+Evacuation routes are shortest paths found with Dijkstra's method~\cite{dijkstra1959} over a cost grid. A cell's cost is
+\begin{equation}
+c = c_{\mathrm{lc}} \Bigl(1 + \frac{s}{s_0}\Bigr)\Bigl(1 + 3\,\frac{d}{d_{\max}}\Bigr),
+\label{eq:cost}
+\end{equation}
+where $c_{\mathrm{lc}}$ depends on the land cover, $s$ is the slope and $d$ the water depth. Buildings, slopes above a limit, and water deeper than $d_{\max}$ cost infinity, so routes never cross them. Landslide risk uses the slope classes of the Indian Standard IS~14496~\cite{bis14496}. The number of people at risk is the floor area of each affected building, times its number of floors and the share that is lived in, divided by the floor space one person needs. The app labels all of these outputs as scenarios, not forecasts.
 
 \subsection{The application}
 DepthWizard runs on an ordinary laptop and works without internet once a scene has been opened. It has a scene library and six working pages that follow a disaster from start to finish, shown in Figure~\ref{fig:pages}. Table~\ref{tab:tools} lists its eighteen tools, which switch on in place, and any of them can be found by typing its name in a search box. The 3D view can be circled, flown through freely or walked at street level, and a flight along a drawn path can be recorded as a video for briefings. Results can be saved as standard map and 3D files that open in QGIS, ArcGIS or Bhuvan.
@@ -236,9 +283,7 @@ Situation report & What does a decision maker need on one page? \\
 \psection{Detailed Work Plan / Technological Interventions}{}
 \label{sec:plan}
 
-Figure~\ref{fig:pipeline} shows the seven steps a scene goes through. An ordinary PNG or JPEG photograph gives heights above the ground. A GeoTIFF, which carries its location, continues to heights above sea level. Table~\ref{tab:timeline} gives the order in which we built the parts, and Figures~\ref{fig:pages} and~\ref{fig:tools} show the result.
-
-Most of the effort went into the fifth step. A height above the ground is of little use for floods until the ground itself is right, and the free ground map is wrong in exactly the places where people live. We also wrote automated tests that click through every tool on test scenes whose true answers are known: 38 checks in the main interface and 36 in the older viewer. All of them pass.
+Figure~\ref{fig:pipeline} shows the seven steps a scene goes through. A PNG or JPEG gives heights above the ground; a GeoTIFF, which carries its location, continues to heights above sea level. Table~\ref{tab:timeline} gives the order of work. Most of the effort went into the fifth step, because the free ground map is wrong exactly where people live. Automated tests click through every tool on scenes with known answers, 38 checks in the main interface and 36 in the older viewer, and all pass.
 
 \begin{figure}[!htbp]
 \centering
@@ -304,9 +349,16 @@ Before 15 October & Study of the problem, choice of model, first height maps \\
 \label{sec:mamba}
 
 \subsection{A Mamba-based height model}
-RS3DAda reads images with a Transformer, a network that cuts the image into patches and compares every patch with every other patch. The work grows with the square of the image area, so large satellite scenes are slow and need a strong computer. Mamba~\cite{gu2023mamba} reads the patches one after another and keeps a short running memory, so its work grows only in step with the area.
+RS3DAda reads an image with a transformer. The image is cut into $N$ patches, and every layer compares every patch with every other one through attention, which costs on the order of $N^2 d$ operations for patches described by $d$ numbers. Doubling the side of a tile quadruples $N$ and multiplies the attention cost by sixteen. That is why large satellite scenes are slow and need a strong graphics card.
 
-We built a height model on MambaVision~\cite{hatamizadeh2025mambavision}, a version of Mamba made for images, and joined it to RS3DAda's two output parts, one for height and one for land cover. Figure~\ref{fig:arch} shows the layout. It gives the same kind of output as RS3DAda, so the rest of DepthWizard runs unchanged. A smaller and faster model matters for the users we have in mind. It can cover a whole district in the time the larger model needs for a few towns, and it needs far less graphics memory.
+Mamba~\cite{gu2023mamba} is a state-space model. It reads the patches one after another and keeps a running memory, the state $s_t$:
+\begin{equation}
+s_t = \bar A_t\, s_{t-1} + \bar B_t\, x_t, \qquad y_t = C_t\, s_t ,
+\label{eq:ssm}
+\end{equation}
+where $x_t$ is the $t$-th patch and $y_t$ the output. The matrices come from a continuous system through a step size $\Delta_t$, with $\bar A_t = \exp(\Delta_t A)$ and $\bar B_t \approx \Delta_t B_t$. What makes Mamba ``selective'' is that $\Delta_t$, $B_t$ and $C_t$ are computed from the input patch itself. The model can therefore decide, patch by patch, what to keep in memory and what to forget; it can keep a roof edge and pass over a plain field. One pass over $N$ patches costs on the order of $N d$, which grows only in step with the image area.
+
+MambaVision~\cite{hatamizadeh2025mambavision} adapts this to images in four stages. The first two are convolution blocks, which find edges and textures cheaply. The last two mix Mamba blocks with a few attention blocks, so the model can still relate distant parts of a scene, such as a building and the shadow it casts. The four stages produce feature maps at $1/4$, $1/8$, $1/16$ and $1/32$ of the input size, with 80, 160, 320 and 640 channels in the Tiny version we use. Because these already form a pyramid, each one goes through a single $1\times1$ convolution into RS3DAda's two DPT heads, which fuse the scales back to full resolution. Figure~\ref{fig:arch} shows the layout. The new model gives the same outputs as RS3DAda, so the rest of DepthWizard runs unchanged, and it has 40.7 million parameters against 366.5 million.
 
 \begin{figure}[!htbp]
 \centering
@@ -329,39 +381,31 @@ We built a height model on MambaVision~\cite{hatamizadeh2025mambavision}, a vers
 \label{fig:arch}
 \end{figure}
 
-Training a height model from nothing needs a very large labeled dataset. We used knowledge distillation~\cite{hinton2015distilling} instead: the Mamba model, called the student and written S, looks at unlabeled images and learns to give the same answers as RS3DAda, the teacher, written T. Its training goal is
+Training a height model from nothing needs a very large labeled dataset. We used knowledge distillation~\cite{hinton2015distilling} instead. The Mamba model, called the student and written S, looks at unlabeled images and learns to give the same answers as RS3DAda, the teacher, written T. Its training loss is
 \begin{equation}
-\mathcal{L} \;=\; \ell\bigl(\hat h_{\mathrm S},\hat h_{\mathrm T}\bigr)
-\;+\; \lambda\,\tau^{2}\,\mathrm{KL}\!\bigl(\sigma(z_{\mathrm T}/\tau)\,\big\|\,\sigma(z_{\mathrm S}/\tau)\bigr)
-\;+\; \gamma\,\ell\bigl(\hat h_{\mathrm S},h_{\mathrm{true}}\bigr).
+\begin{split}
+\mathcal{L} \;=\;& \ell\bigl(\hat h_{\mathrm S},\hat h_{\mathrm T}\bigr)
++ \lambda\,\tau^{2}\,\mathrm{KL}\!\bigl(\sigma(z_{\mathrm T}/\tau)\,\big\|\,\sigma(z_{\mathrm S}/\tau)\bigr)\\
+&+ \gamma\,\ell\bigl(\hat h_{\mathrm S},h_{\mathrm{true}}\bigr),
+\end{split}
 \label{eq:distill}
 \end{equation}
-The first part pulls the student's heights towards the teacher's. The second does the same for land cover, with $\lambda=0.5$ and $\tau=2$. The third is optional and uses true heights from computer-generated cities, so that the student can do better than its teacher. We trained for 20,000 steps on tiles from the SynRS3D dataset. Section~\ref{sec:results} reports how it did.
+where $\ell$ is the smooth-L1 loss, $\sigma$ the softmax over land-cover classes and KL the Kullback--Leibler divergence. The first term pulls the student's heights towards the teacher's; smooth-L1 behaves like a squared error for small differences and like an absolute error for large ones, so a few wild pixels do not dominate. The second term matches the land-cover answers. Dividing the scores by a temperature $\tau = 2$ softens both distributions, so the student also learns which classes the teacher found close, and the factor $\tau^2$ keeps that term's gradients at the right size. The third term, used when labels exist, compares the student with true heights from the synthetic SynRS3D cities, which lets it learn things the teacher gets wrong. We used $\lambda = 0.5$, the AdamW optimizer, learning rates of $10^{-4}$ for the heads and $10^{-5}$ for the pretrained encoder with a 500-step warm-up and cosine decay, and 20,000 steps of eight 512-pixel crops with random flips and turns. Section~\ref{sec:results} reports how it did.
 
 \subsection{Other new parts}
-Most single-image tools stop at height above ground. We go on to height above sea level by cleaning the free ground map with the model's own output and levelling it with NASA lasers. Two safety rules in that step came from mistakes we saw: in Silent Valley one laser track along a forested valley floor would have moved the whole scene by 46.59\m, and in Chandigarh all 35 ``ground'' laser points we held back for checking were on roofs. The app now refuses both cases. Each building also gets an error range whose reliability we measured in cities the method never saw. Finally, every figure in this report is linked in a register to the file that produced it, with its confidence range and a simple guess to compare against.
+Most single-image tools stop at height above ground; we reach sea level with Eqs.~(\ref{eq:clean}) and~(\ref{eq:level}). Their two safety rules came from mistakes we saw: in Silent Valley one laser track along a forested valley floor would have moved the whole scene by 46.59\m, and in Chandigarh all 35 ``ground'' laser points we held back for checking were on roofs. The app now refuses both cases. Each building also gets an error range whose reliability we measured in cities the method never saw. Every number in this report is linked in a register to the file that produced it.
 
 % =====================================================================
 \psection{Approaches that can be taken to Implement Intervention Plans}{}
 \label{sec:approaches}
 
-DepthWizard can reach users in five ways.
-\begin{enumerate}
-\item As an offline app for district and state offices. It installs with one click. One full scene took 42 seconds on a laptop with 8\,GB of memory. Internet is needed only to fetch ground and laser data for a new scene.
-\item Inside existing mapping work. The outputs are standard files, so NDMA and state disaster authorities can load them into the software they already use.
-\item Through a phone page for field staff. On the same network, a phone records GPS points and known heights, which return to the app as check points.
-\item Through a web demo anyone can open. The repository runs as a hosted demo on Replit with a processed scene, so a visitor can explore the tools in a browser without installing anything. A check every five minutes keeps it awake.
-\item Through the Mamba model on a central server. A faster model lets one graphics card process many districts, with the results sent to offices as files.
-\end{enumerate}
-Each rollout would start with a test on Indian imagery, then a pilot with one office through a monsoon, staff training with the user guide, and feedback through the app's own checking page. Because the checking page reports errors in the same way for every scene, feedback from a pilot can be compared directly with the tests in this report.
+DepthWizard can reach users in five ways. District and state offices can install the offline app with one click; a full scene took 42 seconds on a laptop with 8\,GB of memory. Its outputs are standard files, so NDMA and state authorities can load them into the software they already use. Field staff can record GPS points and known heights on a phone page that sends them back as check points. Anyone can try the hosted web demo on Replit, kept awake by a check every five minutes. Finally, the faster Mamba model on a central server could process many districts on one graphics card. Each rollout would start with a test on Indian imagery, then a pilot with one office through a monsoon, staff training, and feedback through the app's checking page.
 
 % =====================================================================
 \psection{Possible Constraints and Barriers to Implementation; Design Issues}{}
 \label{sec:limits}
 
-Table~\ref{tab:limits} lists the limits we know of. The largest is accuracy on tall objects. Design choices follow from these limits: heavy data is stored per scene so the tool works offline, every disaster output is labelled a scenario, and a faster model must match the current one on the same tests before it replaces it. Population figures come from building floor area, not from personal data.
-
-The data we check against has limits of its own. Most laser tracks were recorded years before or after the photograph, so a new building can look like an error. India has only two test sites for each kind of landscape, which makes the confidence ranges wide. And the laser's own labels can be wrong in dense towns, which is why the roof-point rule exists.
+Table~\ref{tab:limits} lists the limits we know of; the largest is accuracy on tall objects. They shaped the design: heavy data is stored per scene so the tool works offline, every disaster output is labeled a scenario, and a faster model must match the current one before replacing it. The reference data has limits too. Most laser tracks are years older or newer than the photograph, India has only two test sites per landscape, and laser labels can be wrong in dense towns.
 
 \begin{table}[!htbp]
 \centering\small
@@ -431,7 +475,7 @@ India, against GEDI & 7 sites & 9.93 [4.86, 15.42] & 16.89 (height 0) \\
 \end{tabularx}
 \end{table}
 
-Table~\ref{tab:accuracy} shows that for buildings, DepthWizard is about three times closer to the truth than guessing flat ground. At Indian sites it is almost twice as close as guessing zero. On satellite images it matches the results the original authors published. Figure~\ref{fig:mae} shows where the gain comes from: buildings and trees. On roads and bare ground the true height is near zero, so the flat guess is already right. The same pattern shows by landscape on the aerial tiles. In towns the error is 2.90\m{} against 5.66\m{} for the flat guess, and in forest 6.67\m{} against 8.70\m. On open land the flat guess wins, 0.55\m{} against our 0.96\m. Reading each tile four times instead of once lowers the error by 0.064\m{} on average and helps on 114 of the 150 tiles, so we kept it.
+Table~\ref{tab:accuracy} shows that for buildings, DepthWizard is about three times closer to the truth than guessing flat ground. At Indian sites it is almost twice as close as guessing zero. On satellite images it matches the results the original authors published. Figure~\ref{fig:mae} shows where the gain comes from: buildings and trees. On roads and bare ground the true height is near zero, so the flat guess is already right. Reading each tile four times instead of once lowers the error by 0.064\m{} on average and helps on 114 of the 150 tiles, so we kept it.
 
 \begin{figure}[!htbp]
 \centering
@@ -469,9 +513,7 @@ Depth Anything V2, metric & 335.3\,M & 650\,MiB & \multicolumn{4}{l}{134 tiles p
 \end{tabularx}
 \end{table}
 
-The Mamba student is the cheapest model by a wide margin. It is nine times smaller than RS3DAda, uses nine times less memory and runs 5.2 times faster. Its first version is less accurate: 7.20\m{} against 3.90\m{} on the aerial tiles, where it is worse than the flat guess, and 8.70\m{} and 3.39\m{} against 5.91\m{} and 1.86\m{} on the satellite tiles, where it is slightly better than the flat guess. The app therefore keeps RS3DAda for now. RS3DAda is also more accurate than Depth Anything~V2 on all three sets. The gaps are small, 0.30\m, 0.70\m{} and 0.39\m{} for the relative version after fitting, but all three are outside the confidence ranges.
-
-The student's main weakness is in finding where the tall things are. Even after fitting, its heights follow the true ones much less closely than RS3DAda's, with a correlation of 0.29 against 0.61. On the aerial tiles it also makes low ground about 3\m{} too high. Both problems should shrink with longer training and with true heights in the training goal, which is the first item in Section~\ref{sec:action}. Figure~\ref{fig:examples} shows typical tiles.
+The Mamba student is by far the cheapest model: nine times smaller than RS3DAda, with nine times less memory and 5.2 times the speed. Its first version is less accurate, 7.20\m{} against 3.90\m{} on the aerial tiles, where it loses even to the flat guess, and 8.70\m{} and 3.39\m{} against 5.91\m{} and 1.86\m{} on the satellite tiles. Even after fitting, its heights correlate with the truth at 0.29 against RS3DAda's 0.61, so it still struggles to find where tall things are. The app therefore keeps RS3DAda. RS3DAda also beats Depth Anything~V2 on all three sets, by small but clear margins of 0.30, 0.70 and 0.39\m{} after fitting. Figure~\ref{fig:examples} shows typical tiles.
 
 \begin{figure}[!htbp]
 \centering
@@ -491,9 +533,9 @@ Low objects are about right, but tall ones come out far too low, as Figure~\ref{
 \end{figure}
 
 \subsection{Ground level and floods}
-Removing rooftops and trees from the free ground map halves its error in Indian towns, from 5.28\m{} to 2.36\m, as Figure~\ref{fig:terrain}a shows. In hills FABDEM is better, and under forest every map is about 20\m{} off. Leveling with lasers removes the map's average offset, from 2.58\m{} too high to 0.27\m{} too low. The full surface, ground plus objects, is closer to GEDI's tree-top and roof-top heights than the free 30\m{} surface map is, at 5.97\m{} against 8.39\m. Against every laser point, ground and tops together, it is not: 9.14\m{} against 8.06\m. What the photograph adds is detail at half a metre, which a 30\m{} map cannot have.
+Removing rooftops and trees halves the ground map's error in Indian towns, from 5.28\m{} to 2.36\m, as Figure~\ref{fig:terrain}a shows. In hills FABDEM is better, and under forest every map is about 20\m{} off. Laser leveling removes the map's average offset, from 2.58\m{} too high to 0.27\m{} too low. Against GEDI's tree and roof tops our full surface beats the 30\m{} map, 5.97\m{} against 8.39\m, though not against all laser points, 9.14\m{} against 8.06\m; the photograph adds detail more than average accuracy.
 
-That offset matters most for floods. We flooded the pre-flood heights of four areas of Porto Alegre, Brazil, and compared them with the mapped flood of 6 May 2024. The match, measured by CSI, was 0.20 with the free ground map, 0.30 with our cleaned map and 0.79 after laser levelling. Figure~\ref{fig:terrain}b plots these scores. FABDEM scored 0.32. Over all seven areas we tried, without laser levelling, the scores were 0.18 for the free map, 0.47 for ours and 0.48 for FABDEM. The areas are small, so this is a test of the method and not a forecast.
+The offset matters most for floods. We flooded the pre-flood heights of four areas of Porto Alegre, Brazil, and compared them with the mapped flood of 6 May 2024. Figure~\ref{fig:terrain}b plots the CSI: 0.20 with the free map, 0.30 with our cleaned map, 0.32 with FABDEM and 0.79 after laser levelling. The areas are small, so this tests the method rather than forecasting.
 
 \begin{figure}[!htbp]
 \centering
@@ -522,7 +564,7 @@ Some ideas were tested on the same data and dropped. A correction curve for heig
 \psection{Suggested Plan of Action for Utilization of the Expected Outcome from the Work}{}
 \label{sec:action}
 
-The plan runs in four phases over about two years. Each phase starts only when the one before it has met its check, so effort goes where the evidence says it is needed.
+The plan runs in four phases over about two years. Each phase starts only when the one before has passed its check.
 
 \begin{table}[H]
 \centering\small
@@ -540,12 +582,12 @@ Phase and time & What we will do & Check before moving on \\
 \end{tabularx}
 \end{table}
 
-Alongside disaster work, the same height maps can help with town planning, rooftop solar studies and checks on unauthorised construction. These need the same thing, a cheap height map with a known error, so they can be added at any phase without new research.
+The same height maps can also serve town planning, rooftop solar studies and checks on unauthorised construction, at any phase.
 
 % =====================================================================
 \psection{Conclusion}{}
 
-One ordinary satellite photograph, combined with free ground data and NASA's lasers, gives a 3D height map that disaster teams can use offline and check for themselves. DepthWizard beats simple guesses on every height test with the published model, halves the ground-level error in Indian towns, and maps a real Indian flood from public data. Our Mamba model is nine times smaller and five times faster than the published one, and making it as accurate is the next job. The tool does not replace a ground survey yet: very tall buildings come out too low and forests remain hard. Every result carries its error, so users can see where to trust it.
+One satellite photograph, with free ground data and NASA's lasers, gives a 3D height map that disaster teams can use offline and check. DepthWizard beats simple guesses on every height test, halves the ground error in Indian towns, and maps a real Indian flood from public data. Our Mamba model is nine times smaller and five times faster; making it as accurate is the next job. Very tall buildings and forests remain hard, and every result carries its error so users know where to trust it.
 
 \subsection*{Data and code}
 The code, the register of every number, a video walkthrough and the steps to run the web demo are in the project repository: {\small\url{https://github.com/hima1323/terravista-depthwizard}}. All test data are public.
@@ -588,6 +630,7 @@ Arahana Garg & Summarised disaster-management guidance used in the background se
 \bibitem{gu2023mamba} A.~Gu and T.~Dao. Mamba: Linear-time sequence modeling with selective state spaces. \emph{arXiv:2312.00752}, 2023.
 \bibitem{hatamizadeh2025mambavision} A.~Hatamizadeh and J.~Kautz. MambaVision: A hybrid Mamba-Transformer vision backbone. In \emph{Proc.\ CVPR}, 2025. arXiv:2407.08083.
 \bibitem{song2024synrs3d} J.~Song, H.~Chen, W.~Xuan, J.~Xia and N.~Yokoya. SynRS3D: A synthetic dataset for global 3D semantic understanding from monocular remote sensing imagery. In \emph{NeurIPS Datasets and Benchmarks}, 2024. arXiv:2406.18151.
+\bibitem{oquab2023dinov2} M.~Oquab \emph{et al.} DINOv2: Learning robust visual features without supervision. \emph{arXiv:2304.07193}, 2023.
 \bibitem{hinton2015distilling} G.~Hinton, O.~Vinyals and J.~Dean. Distilling the knowledge in a neural network. \emph{arXiv:1503.02531}, 2015.
 \bibitem{ranftl2021dpt} R.~Ranftl, A.~Bochkovskiy and V.~Koltun. Vision transformers for dense prediction. In \emph{Proc.\ ICCV}, 2021.
 \bibitem{yang2024dav2} L.~Yang, B.~Kang, Z.~Huang, Z.~Zhao, X.~Xu, J.~Feng and H.~Zhao. Depth Anything V2. In \emph{NeurIPS}, 2024. arXiv:2406.09414.
