@@ -2,14 +2,16 @@
 
 % ---------- packages ----------
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
+\usepackage[sc]{mathpazo}      % Palatino-style maths
+\usepackage{tgpagella}          % body: TeX Gyre Pagella
+\usepackage[scale=0.9]{tgheros} % headings, captions, labels: TeX Gyre Heros
 \usepackage[utf8]{inputenc}
 \usepackage[a4paper,left=2.3cm,right=2.3cm,top=2.4cm,bottom=2.6cm]{geometry}
 \usepackage{amsmath,amssymb,bm}
 \usepackage{microtype}
 \usepackage{graphicx}
 \usepackage{booktabs,tabularx,array,multirow}
-\usepackage[font=small,labelfont=bf,labelsep=colon,skip=6pt]{caption}
+\usepackage[font=small,labelfont={bf,sf},labelsep=colon,skip=6pt]{caption}
 \usepackage{subcaption}
 \usepackage{titlesec}
 \usepackage{enumitem}
@@ -19,11 +21,14 @@
 \usepackage[section]{placeins}
 \renewcommand{\topfraction}{0.9}\renewcommand{\bottomfraction}{0.8}\renewcommand{\textfraction}{0.07}\renewcommand{\floatpagefraction}{0.75}
 \setcounter{topnumber}{3}\setcounter{bottomnumber}{2}\setcounter{totalnumber}{5}
+\usepackage{float}
 \usepackage[hidelinks]{hyperref}
+\urlstyle{sf}
 
 % ---------- layout ----------
 \setlength{\parindent}{0pt}
-\setlength{\parskip}{5pt plus 1pt}
+\setlength{\parskip}{4pt plus 4pt minus 1pt}
+\flushbottom
 \renewcommand{\arraystretch}{1.18}
 \setlist{itemsep=2pt,topsep=3pt,parsep=0pt}
 \captionsetup[table]{position=above}
@@ -33,40 +38,42 @@
 \newcolumntype{C}{>{\centering\arraybackslash}X}
 
 % section headings: number, title, italic note on the right, rule below
-\titleformat{\section}[block]{\Large\bfseries}{\thesection.}{0.5em}{}[{\vspace{-1.5pt}\titlerule[0.6pt]}]
-\titlespacing*{\section}{0pt}{16pt}{8pt}
-\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.6em}{}
-\titlespacing*{\subsection}{0pt}{11pt}{4pt}
-\newcommand{\psection}[2]{\section[#1]{#1\hfill{\normalsize\normalfont\itshape #2}}}
+\titleformat{\section}[block]{\sffamily\Large\bfseries}{\thesection.}{0.5em}{}[{\vspace{-1.5pt}\titlerule[0.6pt]}]
+\titlespacing*{\section}{0pt}{14pt}{6pt}
+\titleformat{\subsection}{\sffamily\large\bfseries}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{9pt}{3pt}
+\newcommand{\psection}[2]{\section[#1]{#1\hfill{\normalsize\normalfont\rmfamily\itshape #2}}}
 \newcommand{\usection}[1]{\section*{#1}}
 
 \newcommand{\m}{\ifmmode\,\mathrm{m}\else\,m\fi}
-\hypersetup{pdftitle={DepthWizard: Building, Tree and Ground Heights from One Satellite Image},pdfauthor={Himanshu Patel, Shlok Vaidya}}
+\hypersetup{pdftitle={DepthWizard: Building, Tree and Ground Heights from One Satellite Image},pdfauthor={Himanshu Patel and team}}
 
 \begin{document}
 
 % ---------- title ----------
 \begin{center}
-{\LARGE\bfseries DepthWizard: Building, Tree and Ground Heights\\[3pt] from One Satellite Image, with a Mamba-Based\\[3pt] Height Model, for Disaster Response in India\par}
+{\sffamily\LARGE\bfseries DepthWizard: Building, Tree and Ground Heights\\[3pt] from One Satellite Image, with a Mamba-Based\\[3pt] Height Model, for Disaster Response in India\par}
 \vspace{8pt}
-{\large HS202: Human Geography \quad·\quad Project Report\par}
+{\sffamily\large HS202: Human Geography \quad·\quad Project Report\par}
 \vspace{10pt}
 {\large
 \renewcommand{\arraystretch}{1.2}
 \begin{tabular}{@{}r@{\hspace{1.2em}}l@{}}
-\textsc{Himanshu Patel} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1007} \\
-\textsc{Shlok Vaidya} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1016} \\
-\textsc{Agampreet Singh} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1097} \\
-\textsc{Saaransh Garg} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1015} \\
-\textsc{Takshita Nagrale} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1018} \\
-\textsc{Saloni Mahajan} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1149} \\
-\textsc{Peruru Smitha Reddy} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1141} \\
-\textsc{Akshita} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1098} \\
-\textsc{Aryan Goyal} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1102} \\
-\textsc{Arahana Garg} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024MCB1261} \\
+\textsc{Himanshu Patel} & \textcolor{black!70}{\sffamily\small 2024AIB1007} \\
+\textsc{Shlok Vaidya} & \textcolor{black!70}{\sffamily\small 2024AIB1016} \\
+\textsc{Agampreet Singh} & \textcolor{black!70}{\sffamily\small 2024CSB1097} \\
+\textsc{Saaransh Garg} & \textcolor{black!70}{\sffamily\small 2024AIB1015} \\
+\textsc{Takshita Nagrale} & \textcolor{black!70}{\sffamily\small 2024AIB1018} \\
+\textsc{Saloni Mahajan} & \textcolor{black!70}{\sffamily\small 2024CSB1149} \\
+\textsc{Peruru Smitha Reddy} & \textcolor{black!70}{\sffamily\small 2024CSB1141} \\
+\textsc{Akshita} & \textcolor{black!70}{\sffamily\small 2024CSB1098} \\
+\textsc{Aryan Goyal} & \textcolor{black!70}{\sffamily\small 2024CSB1102} \\
+\textsc{Arahana Garg} & \textcolor{black!70}{\sffamily\small 2024MCB1261} \\
 \end{tabular}\par}
 \vspace{6pt}
-{\small\itshape Indian Institute of Technology Ropar, Punjab, India\quad·\quad 5 November 2026\par}
+{\small\itshape Indian Institute of Technology Ropar, Punjab, India\quad·\quad 12 November 2026\par}
+\vspace{3pt}
+{\sffamily\small Code and demo: \url{https://github.com/hima1323/terravista-depthwizard}\par}
 \end{center}
 \vspace{2pt}
 
@@ -353,6 +360,7 @@ DepthWizard can reach users in four ways.
 \item \textbf{An offline app for district and state offices.} It installs with one click. One full scene took 42 seconds on a laptop with 8\,GB of memory. Internet is needed only to fetch ground and laser data for a new scene.
 \item \textbf{Inside existing mapping work.} The outputs are standard files, so NDMA and state disaster authorities can load them into the software they already use.
 \item \textbf{A phone page for field staff.} On the same network, a phone records GPS points and known heights, which return to the app as check points.
+\item \textbf{A web demo anyone can open.} The repository runs as a hosted demo on Replit with a processed scene, so a visitor can explore the tools in a browser without installing anything. A check every five minutes keeps it awake.
 \item \textbf{The Mamba model on a central server.} A faster model lets one graphics card process many districts, with the results sent to offices as files.
 \end{enumerate}
 Each rollout would start with a test on Indian imagery, then a pilot with one office through a monsoon, staff training with the user guide, and feedback through the app's own checking page. Because the checking page reports errors in the same way for every scene, feedback from a pilot can be compared directly with the tests in this report.
@@ -389,26 +397,21 @@ Some data is for non-commercial use only & Commercial use restricted & Research 
 \psection{Expertise available with each student}{who brought what}
 \label{sec:expertise}
 
-The project needed four kinds of skill: machine learning, map and satellite data, interface building, and testing. Table~\ref{tab:expertise} lists what each student brought. The skills overlap on purpose. The people who built the model also wrote its tests, and the people who built the tools also checked them against real scenes, so that no part of the project was understood by one person only.
+The project needed skills in machine learning, map and satellite data, web development, testing, and writing. Table~\ref{tab:expertise} lists what each student brought.
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering\small
 \caption{Expertise of each student.}
 \label{tab:expertise}
-\begin{tabularx}{\linewidth}{@{}p{4cm}Y@{}}
+\begin{tabularx}{\linewidth}{@{}p{3.3cm}Y@{\hspace{1.2em}}p{3.3cm}Y@{}}
 \toprule
-Student & Expertise \\
+Student & Expertise & Student & Expertise \\
 \midrule
-Himanshu Patel & Machine learning, map and satellite data, interface building \\
-Shlok Vaidya & Model training, testing and benchmarks, map tools \\
-Agampreet Singh & \\
-Saaransh Garg & \\
-Takshita Nagrale & \\
-Saloni Mahajan & \\
-Peruru Smitha Reddy & \\
-Akshita & \\
-Aryan Goyal & \\
-Arahana Garg & \\
+Himanshu Patel & Full-stack web development, hosting, machine learning, satellite data & Peruru Smitha Reddy & Presentation design \\
+Shlok Vaidya & Model training, testing and benchmarks & Akshita & Documentation \\
+Agampreet Singh & Literature search & Aryan Goyal & Data checking \\
+Saaransh Garg & Software testing & Arahana Garg & Disaster-management background \\
+Takshita Nagrale & Writing and editing & Saloni Mahajan & Figures and screenshots \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -548,30 +551,30 @@ One ordinary satellite photograph, combined with free ground data and NASA's las
 \psection{Contribution of each student}{}
 \label{sec:contrib}
 
-\begin{table}[!htbp]
+\begin{table}[H]
 \centering\small
 \caption{Contribution of each student to the project and this report.}
 \label{tab:contrib}
-\begin{tabularx}{\linewidth}{@{}p{4cm}Y@{}}
+\begin{tabularx}{\linewidth}{@{}p{3.4cm}Y@{}}
 \toprule
 Student & Contribution \\
 \midrule
-Himanshu Patel & Processing steps and ground-level correction; Mamba model and training code; test method; interface and the eighteen tools; Teesta case study; this report \\
-Shlok Vaidya & Checking inside the app and correction from surveyed points; installer; helipad and route tools; training of the Mamba student; model comparison; app screenshots \\
-Agampreet Singh & \\
-Saaransh Garg & \\
-Takshita Nagrale & \\
-Saloni Mahajan & \\
-Peruru Smitha Reddy & \\
-Akshita & \\
-Aryan Goyal & \\
-Arahana Garg & \\
+Himanshu Patel & The whole website and app (front end, back end, hosting); ground-level correction; Mamba model code; the eighteen tools; Teesta study; this report \\
+Shlok Vaidya & Checking in the app and survey-point correction; installer; helipad and route tools; Mamba training and model comparison; screenshots \\
+Agampreet Singh & Collected background papers on past Indian floods and landslides \\
+Saaransh Garg & Tried the demo on the sample scene and listed small interface issues \\
+Takshita Nagrale & Proofread the report and checked its section order against the HS202 format \\
+Saloni Mahajan & Organised the screenshots and figures used in the report \\
+Peruru Smitha Reddy & Prepared the presentation slides from the report \\
+Akshita & Reviewed the README and the demo instructions for clarity \\
+Aryan Goyal & Cross-checked the numbers in the tables against the result files \\
+Arahana Garg & Summarised NDMA guidance on flood and landslide planning \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \subsection*{Data and code}
-The code and the register of every number are in the project repository: {\small\url{https://github.com/hima1323/terravista-depthwizard}}. All test data are public.
+The code, the register of every number, a video walkthrough and the steps to run the web demo are in the project repository: {\small\url{https://github.com/hima1323/terravista-depthwizard}}. All test data are public.
 
 % =====================================================================
 \begingroup
