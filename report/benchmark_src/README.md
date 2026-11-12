@@ -9,6 +9,6 @@ Code behind the DepthWizard model comparison report.
 Run both with `SynRS3D/.venv/bin/python`. Tile lists: `SynRS3D/data/GAMUS_bench.txt` and
 `SynRS3D/data/geopose/OGC_*/bench.txt`. The data and weights are not in git.
 
-The published scores come from the two papers in `report/papers/`, listed in the report's Sources section.
+The published scores come from Song et al. (NeurIPS 2024, arXiv:2406.18151) and Song et al. (arXiv:2505.06905), cited in the report.
 Depth Anything V2 relative outputs reach about 480, so `run_models.py` rescales them per tile before saving; both
 scripts stop if a model's predictions are clipped or constant.

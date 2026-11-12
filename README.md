@@ -228,7 +228,8 @@ SynRS3D/
   frontend/ → web/app/                                the glass UI (React); web/index.html = classic viewer at /classic
   web/field.html                                      the phone field page (/field)
   demo/                                               benchmarks and data helpers; reports in demo/benchmark/v2/
-deck_work/, DepthWizard_Deck_Spec.md        SIH presentation material (current deck: v4)
+deck_work/, DepthWizard_Deck_Spec.md        presentation deck (v4 = current; build_v4.py builds it from v3)
+docs/updates/                               dated progress notes
 report/                                     the project report (PDF and LaTeX source), benchmark code, screenshots
 docs/video/                                 the demo walkthrough (MP4 and GIF)
 .replit, replit.nix, replit_start.sh        hosting the demo on Replit (requirements-demo.txt: its packages)

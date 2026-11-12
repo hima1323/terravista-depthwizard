@@ -7,7 +7,6 @@ This guide takes you from a fresh clone to a trained, benchmarked student model.
 - **New interface.** There is a Home landing page, a Scenes tab (choose or upload a scene; the six tools open for it), a scene switcher in the top bar, and the Claude Design "field" theme. It's already built into `SynRS3D/web/app/`, so you don't need Node.js unless you change the UI.
 - **N5, the ICESat-2 roof-photon filter.** Laser points that NASA labelled "ground" but that sit on a building and more than 3 m above the other ground points are now treated as roofs. They're left out of terrain levelling and terrain checks. This fixed Chandigarh's false 15 m terrain error. Results: `docs/CLAIMS.md` row T8 and `SynRS3D/demo/roof_filter_n5.py`.
 - **Student models.** `SynRS3D/train_distill.py` trains a small copy of RS3DAda: a DINOv2 ViT-S/B, or NVIDIA MambaVision. `SynRS3D/export_onnx.py` exports a ViT student to ONNX. Setting `DW_WEIGHTS` makes the app and the benchmarks use a student. Full details: `docs/GPU_TRAINING.md`.
-- **Research backlog.** `BRIEF_Claude_Science.md` is the project brief; the feature IDs N1–N16 come from it.
 
 ## 1. Clone and install
 
