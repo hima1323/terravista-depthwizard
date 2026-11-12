@@ -1,52 +1,85 @@
-\documentclass[conference,a4paper]{IEEEtran}
-\IEEEoverridecommandlockouts
+\documentclass[11pt,a4paper]{article}
 
+% ---------- packages ----------
 \usepackage[T1]{fontenc}
+\usepackage{lmodern}
 \usepackage[utf8]{inputenc}
-\usepackage{amsmath,amssymb}
+\usepackage[a4paper,left=2.3cm,right=2.3cm,top=2.4cm,bottom=2.6cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{microtype}
 \usepackage{graphicx}
-\usepackage{booktabs,tabularx,array}
-\usepackage[caption=false,font=footnotesize]{subfig}
+\usepackage{booktabs,tabularx,array,multirow}
+\usepackage[font=small,labelfont=bf,labelsep=colon,skip=6pt]{caption}
+\usepackage{subcaption}
+\usepackage{titlesec}
+\usepackage{enumitem}
 \usepackage{xcolor}
 \usepackage{tikz}
 \usetikzlibrary{positioning,arrows.meta,calc}
-\usepackage{url}
+\usepackage[section]{placeins}
+\renewcommand{\topfraction}{0.9}\renewcommand{\bottomfraction}{0.8}\renewcommand{\textfraction}{0.07}\renewcommand{\floatpagefraction}{0.75}
+\setcounter{topnumber}{3}\setcounter{bottomnumber}{2}\setcounter{totalnumber}{5}
 \usepackage[hidelinks]{hyperref}
-\usepackage{microtype}
 
+% ---------- layout ----------
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{5pt plus 1pt}
+\renewcommand{\arraystretch}{1.18}
+\setlist{itemsep=2pt,topsep=3pt,parsep=0pt}
+\captionsetup[table]{position=above}
+\captionsetup[subfigure]{font=footnotesize,labelfont=normalfont,skip=2pt}
 \graphicspath{{img/}}
 \newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{C}{>{\centering\arraybackslash}X}
+
+% section headings: number, title, italic note on the right, rule below
+\titleformat{\section}[block]{\Large\bfseries}{\thesection.}{0.5em}{}[{\vspace{-1.5pt}\titlerule[0.6pt]}]
+\titlespacing*{\section}{0pt}{16pt}{8pt}
+\titleformat{\subsection}{\large\bfseries}{\thesubsection}{0.6em}{}
+\titlespacing*{\subsection}{0pt}{11pt}{4pt}
+\newcommand{\psection}[2]{\section[#1]{#1\hfill{\normalsize\normalfont\itshape #2}}}
+\newcommand{\usection}[1]{\section*{#1}}
+
 \newcommand{\m}{\ifmmode\,\mathrm{m}\else\,m\fi}
-\renewcommand{\arraystretch}{1.15}
-\hypersetup{pdftitle={DepthWizard: Building, Tree and Ground Heights from One Satellite Image}}
+\hypersetup{pdftitle={DepthWizard: Building, Tree and Ground Heights from One Satellite Image},pdfauthor={Himanshu Patel, Shlok Vaidya}}
 
 \begin{document}
 
-\title{DepthWizard: Building, Tree and Ground Heights from One Satellite Image, with a Mamba-Based Height Model, for Disaster Response in India}
-
-\author{
-\IEEEauthorblockN{Himanshu Patel (2024AIB1007), Shlok Vaidya (2024AIB1016), Agampreet Singh (2024CSB1097),\\
-Saaransh Garg (2024AIB1015), Takshita Nagrale (2024AIB1018), Saloni Mahajan (2024CSB1149),\\
-Peruru Smitha Reddy (2024CSB1141), Akshita (2024CSB1098),\\
-Aryan Goyal (2024CSB1102), Arahana Garg (2024MCB1261)}
-\IEEEauthorblockA{\textit{HS202: Human Geography, Project Report}\\
-\textit{Indian Institute of Technology Ropar}, Rupnagar, Punjab, India}
-}
-
-\maketitle
+% ---------- title ----------
+\begin{center}
+{\LARGE\bfseries DepthWizard: Building, Tree and Ground Heights\\[3pt] from One Satellite Image, with a Mamba-Based\\[3pt] Height Model, for Disaster Response in India\par}
+\vspace{8pt}
+{\large HS202: Human Geography \quad·\quad Project Report\par}
+\vspace{10pt}
+{\large
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{@{}r@{\hspace{1.2em}}l@{}}
+\textsc{Himanshu Patel} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1007} \\
+\textsc{Shlok Vaidya} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1016} \\
+\textsc{Agampreet Singh} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1097} \\
+\textsc{Saaransh Garg} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1015} \\
+\textsc{Takshita Nagrale} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024AIB1018} \\
+\textsc{Saloni Mahajan} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1149} \\
+\textsc{Peruru Smitha Reddy} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1141} \\
+\textsc{Akshita} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1098} \\
+\textsc{Aryan Goyal} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024CSB1102} \\
+\textsc{Arahana Garg} & \textcolor{black!70}{\fontfamily{lmss}\selectfont\small 2024MCB1261} \\
+\end{tabular}\par}
+\vspace{6pt}
+{\small\itshape Indian Institute of Technology Ropar, Punjab, India\quad·\quad 5 November 2026\par}
+\end{center}
+\vspace{2pt}
 
 \begin{abstract}
-When a flood or landslide strikes, rescue teams need to know how tall buildings are, how high the ground lies and where water will reach. Most of India has no recent 3D map that can answer this. DepthWizard estimates the height of every building, tree and patch of ground from one ordinary satellite photograph, ties those heights to sea level, and says how accurate they are. Our main new idea is a height model built on Mamba, a recent kind of neural network that reads an image in one sweep. It is nine times smaller and 5.2 times faster than the published model it learns from, although its first version is less accurate. Around the model we add a ground-level correction that uses NASA's satellite lasers, an error range for every building, and eighteen tools for disaster teams. With the published model, the average height error is 3.90\m{} on 150 aerial test tiles, where a flat-ground guess is off by 5.65\m, and 4.85\m{} at eight Indian sites. On the 2023 Teesta flood in Sikkim, free satellite images map 1.28\,km$^2$ of damaged valley floor.
+\noindent When a flood or landslide strikes, rescue teams need to know how tall buildings are, how high the ground lies and where water will reach. Most of India has no recent 3D map that can answer this. DepthWizard estimates the height of every building, tree and patch of ground from one ordinary satellite photograph, ties those heights to sea level, and says how accurate they are. Our main new idea is a height model built on Mamba, a recent kind of neural network that reads an image in one sweep. It is nine times smaller and 5.2 times faster than the published model it learns from, although its first version is less accurate. Around the model we add a ground-level correction that uses NASA's satellite lasers, an error range for every building, and eighteen tools for disaster teams. With the published model, the average height error is 3.90\m{} on 150 aerial test tiles, where a flat-ground guess is off by 5.65\m, and 4.85\m{} at eight Indian sites. On the 2023 Teesta flood in Sikkim, free satellite images map 1.28\,km$^2$ of damaged valley floor.
 
+\medskip
+\noindent\textbf{Keywords:} height from a single image; Mamba; satellite lasers; flood mapping; disaster management; India.
 \end{abstract}
-
-\begin{IEEEkeywords}
-height from a single image, Mamba, satellite lasers, flood mapping, disaster management, India
-\end{IEEEkeywords}
 
 \setcounter{section}{2}
 % =====================================================================
-\section{Definition of the problem}
+\psection{Definition of the problem}{what is missing and why it matters}
 \label{sec:problem}
 
 \subsection{Problem statement}
@@ -75,8 +108,8 @@ Neural networks can now estimate depth from one photograph~\cite{ranftl2021dpt}.
 \subsection{Need and significance of resolving the problem}
 With a height map that can be trusted, a district office could see before the monsoon which streets a given water rise would reach, route rescue teams away from deep water, choose helipad and relief-camp sites, and count affected buildings afterwards. Today these jobs rely on the coarse 30\m{} map or are not done. The need is greatest in the places with the least data: small towns, hill settlements and river banks, where a survey flight is unlikely to be paid for but a satellite photograph already exists. Stating the error matters as much as the height. A planner who knows a map is good to 3\m{} in towns and poor under forest can still use it safely, while a map with no error figure invites either blind trust or no trust. Table~\ref{tab:approaches} shows what each existing source lacks.
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Ways of getting heights for disaster work.}
 \label{tab:approaches}
 \begin{tabularx}{\linewidth}{@{}YYccc@{}}
@@ -90,16 +123,16 @@ RS3DAda~\cite{song2024synrs3d} & One image & Pixel & No & No \\
 DepthWizard (ours) & One image and free data & Pixel & Yes & Yes \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 % =====================================================================
-\section{Aims, objectives and goals}
+\psection{Aims, objectives and goals}{what success means}
 \label{sec:objectives}
 
 Our aim is one offline tool that turns a single satellite photograph into a height map that disaster teams can use and check. Each objective in Table~\ref{tab:objectives} closes one gap from Section~\ref{sec:problem} and has a test.
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Objectives and how each is measured.}
 \label{tab:objectives}
 \begin{tabularx}{\linewidth}{@{}lYY@{}}
@@ -115,10 +148,10 @@ O6 & Works offline on a laptop & Measured time for one full scene \\
 O7 & A cheaper height model (Mamba) & Speed, size and accuracy on the same tests as RS3DAda \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 % =====================================================================
-\section{Tools and techniques (interventions)}
+\psection{Tools and techniques (interventions)}{how DepthWizard works}
 \label{sec:method}
 
 \subsection{Height model}
@@ -162,8 +195,8 @@ where $TP$ counts places both maps call wet, and $FP$ and $FN$ count places only
 \subsection{The application}
 DepthWizard runs on an ordinary laptop and works without internet once a scene has been opened. It has a scene library and six working pages that follow a disaster from start to finish (Figure~\ref{fig:pages}). Its eighteen tools (Table~\ref{tab:tools}) switch on in place, and any of them can be found by typing its name in a search box. The 3D view can be circled, flown through freely or walked at street level, and a flight along a drawn path can be recorded as a video for briefings. Results can be saved as standard map and 3D files that open in QGIS, ArcGIS or Bhuvan.
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{The eighteen tools and the question each answers.}
 \label{tab:tools}
 \begin{tabularx}{\linewidth}{@{}p{4.2cm}Y@{}}
@@ -195,17 +228,17 @@ Damage before/after & Which buildings collapsed? \\
 Situation report & What does a decision maker need on one page? \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 % =====================================================================
-\section{Detailed work plan and technological interventions}
+\psection{Detailed work plan and technological interventions}{steps and timeline}
 \label{sec:plan}
 
 A scene goes through seven steps (Figure~\ref{fig:pipeline}). An ordinary PNG or JPEG photograph gives heights above the ground. A GeoTIFF, which carries its location, continues to heights above sea level. Table~\ref{tab:timeline} gives the order in which we built the parts, and Figures~\ref{fig:pages} and~\ref{fig:tools} show the result.
 
 Most of the effort went into the fifth step. A height above the ground is of little use for floods until the ground itself is right, and the free ground map is wrong in exactly the places where people live. We also wrote automated tests that click through every tool on test scenes whose true answers are known: 38 checks in the main interface and 36 in the older viewer. All of them pass.
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
 \begin{tikzpicture}[font=\footnotesize, node distance=3.2mm,
   st/.style={draw, thick, rounded corners=2pt, align=center, minimum width=17.5mm, minimum height=11mm, inner sep=2pt},
@@ -221,10 +254,10 @@ Most of the effort went into the fifth step. A height above the ground is of lit
 \end{tikzpicture}
 \caption{From one photograph to a checked 3D map.}
 \label{fig:pipeline}
-\end{figure*}
+\end{figure}
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Work plan as carried out.}
 \label{tab:timeline}
 \begin{tabularx}{\linewidth}{@{}p{3.2cm}Y@{}}
@@ -238,34 +271,34 @@ Before 15 October & Study of the problem, choice of model, first height maps \\
 28 October to 5 November & Eighteen tools and the tool finder, tree-height correction, Teesta case study, Mamba training and model comparison \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
-\subfloat[3D model with the photograph on it]{\includegraphics[width=0.485\linewidth]{f1_photo.jpg}}\hfill
-\subfloat[Coloured by height: 0\m{} blue, 48\m{} red]{\includegraphics[width=0.485\linewidth]{f1_height.jpg}}\\[6pt]
-\subfloat[Scene library and upload]{\includegraphics[width=0.485\linewidth]{p_scenes.jpg}}\hfill
-\subfloat[Prepare: risky slopes and water rise]{\includegraphics[width=0.485\linewidth]{p_prepare.jpg}}\\[6pt]
-\subfloat[Respond: flood scenario and routes]{\includegraphics[width=0.485\linewidth]{p_respond.jpg}}\hfill
-\subfloat[Relief: helipad and camp sites]{\includegraphics[width=0.485\linewidth]{p_relief.jpg}}
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{f1_photo.jpg}\caption{3D model with the photograph on it}\end{subfigure}\hfill
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{f1_height.jpg}\caption{Coloured by height: 0\m{} blue, 48\m{} red}\end{subfigure}\\[6pt]
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{p_scenes.jpg}\caption{Scene library and upload}\end{subfigure}\hfill
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{p_prepare.jpg}\caption{Prepare: risky slopes and water rise}\end{subfigure}\\[6pt]
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{p_respond.jpg}\caption{Respond: flood scenario and routes}\end{subfigure}\hfill
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{p_relief.jpg}\caption{Relief: helipad and camp sites}\end{subfigure}
 \caption{DepthWizard on a real scene, Bengaluru Electronic City, built from one satellite image. Heights in (a) and (b) are drawn at twice their true scale. Imagery: Esri World Imagery, for demonstration only.}
 \label{fig:pages}
-\end{figure*}
+\end{figure}
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
-\subfloat[Tool finder: typing ``drone'']{\includegraphics[width=0.485\linewidth]{s_find.jpg}}\hfill
-\subfloat[Line of sight from a 30\m{} mast]{\includegraphics[width=0.485\linewidth]{s_los.jpg}}\\[6pt]
-\subfloat[Drone flight plan above every roof]{\includegraphics[width=0.485\linewidth]{s_drone.jpg}}\hfill
-\subfloat[Rooftop solar with shading]{\includegraphics[width=0.485\linewidth]{s_solar.jpg}}\\[6pt]
-\subfloat[Flowing water from an inflow point]{\includegraphics[width=0.485\linewidth]{s_flow.jpg}}\hfill
-\subfloat[Predicted against real flood, Teesta 2023]{\includegraphics[width=0.485\linewidth]{s_obs.jpg}}
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{s_find.jpg}\caption{Tool finder: typing ``drone''}\end{subfigure}\hfill
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{s_los.jpg}\caption{Line of sight from a 30\m{} mast}\end{subfigure}\\[6pt]
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{s_drone.jpg}\caption{Drone flight plan above every roof}\end{subfigure}\hfill
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{s_solar.jpg}\caption{Rooftop solar with shading}\end{subfigure}\\[6pt]
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{s_flow.jpg}\caption{Flowing water from an inflow point}\end{subfigure}\hfill
+\begin{subfigure}{0.485\linewidth}\includegraphics[width=\linewidth]{s_obs.jpg}\caption{Predicted against real flood, Teesta 2023}\end{subfigure}
 \caption{Tools running in the app. Panels (a) to (e): the IIT Ropar campus. Panel (f): the Teesta valley with the 2023 damage map.}
 \label{fig:tools}
-\end{figure*}
+\end{figure}
 
 % =====================================================================
-\section{Novelty and innovation of the proposed interventions}
+\psection{Novelty and innovation of the proposed interventions}{what is new}
 \label{sec:mamba}
 
 \subsection{A Mamba-based height model}
@@ -273,7 +306,7 @@ RS3DAda reads images with a Transformer, a network that cuts the image into patc
 
 We built a height model on MambaVision~\cite{hatamizadeh2025mambavision}, a version of Mamba made for images, and joined it to RS3DAda's two output parts, one for height and one for land cover (Figure~\ref{fig:arch}). It gives the same kind of output as RS3DAda, so the rest of DepthWizard runs unchanged. A smaller and faster model matters for the users we have in mind. It can cover a whole district in the time the larger model needs for a few towns, and it needs far less graphics memory.
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
 \begin{tikzpicture}[font=\small, node distance=4mm and 6mm,
   blk/.style={draw, thick, rounded corners=2pt, align=center, minimum height=12mm, inner sep=4pt},
@@ -292,15 +325,13 @@ We built a height model on MambaVision~\cite{hatamizadeh2025mambavision}, a vers
 \end{tikzpicture}
 \caption{The Mamba-based height model and how it learns from RS3DAda.}
 \label{fig:arch}
-\end{figure*}
+\end{figure}
 
 Training a height model from nothing needs a very large labelled dataset. We used knowledge distillation~\cite{hinton2015distilling} instead: the Mamba model (the student, S) looks at unlabelled images and learns to give the same answers as RS3DAda (the teacher, T). Its training goal is
 \begin{equation}
-\begin{split}
-\mathcal{L} \;=\;& \ell\bigl(\hat h_{\mathrm S},\hat h_{\mathrm T}\bigr)
-+ \lambda\,\tau^{2}\,\mathrm{KL}\!\bigl(\sigma(z_{\mathrm T}/\tau)\,\big\|\,\sigma(z_{\mathrm S}/\tau)\bigr)\\
-&+ \gamma\,\ell\bigl(\hat h_{\mathrm S},h_{\mathrm{true}}\bigr).
-\end{split}
+\mathcal{L} \;=\; \ell\bigl(\hat h_{\mathrm S},\hat h_{\mathrm T}\bigr)
+\;+\; \lambda\,\tau^{2}\,\mathrm{KL}\!\bigl(\sigma(z_{\mathrm T}/\tau)\,\big\|\,\sigma(z_{\mathrm S}/\tau)\bigr)
+\;+\; \gamma\,\ell\bigl(\hat h_{\mathrm S},h_{\mathrm{true}}\bigr).
 \label{eq:distill}
 \end{equation}
 The first part pulls the student's heights towards the teacher's. The second does the same for land cover, with $\lambda=0.5$ and $\tau=2$. The third is optional and uses true heights from computer-generated cities, so that the student can do better than its teacher. We trained for 20,000 steps on tiles from the SynRS3D dataset. Section~\ref{sec:results} reports how it did.
@@ -314,7 +345,7 @@ The first part pulls the student's heights towards the teacher's. The second doe
 \end{itemize}
 
 % =====================================================================
-\section{Approaches to implement the intervention plans}
+\psection{Approaches to implement the intervention plans}{reaching users}
 \label{sec:approaches}
 
 DepthWizard can reach users in four ways.
@@ -327,15 +358,15 @@ DepthWizard can reach users in four ways.
 Each rollout would start with a test on Indian imagery, then a pilot with one office through a monsoon, staff training with the user guide, and feedback through the app's own checking page. Because the checking page reports errors in the same way for every scene, feedback from a pilot can be compared directly with the tests in this report.
 
 % =====================================================================
-\section{Possible constraints, barriers and design issues}
+\psection{Possible constraints, barriers and design issues}{limits}
 \label{sec:limits}
 
 Table~\ref{tab:limits} lists the limits we know of. The largest is accuracy on tall objects. Design choices follow from these limits: heavy data is stored per scene so the tool works offline, every disaster output is labelled a scenario, and a faster model must match the current one on the same tests before it replaces it. Population figures come from building floor area, not from personal data.
 
 The data we check against has limits of its own. Most laser tracks were recorded years before or after the photograph, so a new building can look like an error. India has only two test sites for each kind of landscape, which makes the confidence ranges wide. And the laser's own labels can be wrong in dense towns, which is why the roof-point rule exists.
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Known limits and what DepthWizard does about each today.}
 \label{tab:limits}
 \begin{tabularx}{\linewidth}{@{}YYY@{}}
@@ -352,16 +383,16 @@ India's Cartosat images need a login & Not yet tested & Request to NRSC drafted 
 Some data is for non-commercial use only & Commercial use restricted & Research and government pilots \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 % =====================================================================
-\section{Expertise available with each student}
+\psection{Expertise available with each student}{who brought what}
 \label{sec:expertise}
 
 The project needed four kinds of skill: machine learning, map and satellite data, interface building, and testing. Table~\ref{tab:expertise} lists what each student brought. The skills overlap on purpose. The people who built the model also wrote its tests, and the people who built the tools also checked them against real scenes, so that no part of the project was understood by one person only.
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Expertise of each student.}
 \label{tab:expertise}
 \begin{tabularx}{\linewidth}{@{}p{4cm}Y@{}}
@@ -380,17 +411,17 @@ Aryan Goyal & \\
 Arahana Garg & \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 % =====================================================================
-\section{Expected outcomes}
+\psection{Expected outcomes}{results so far}
 \label{sec:results}
 
 The main outcome is an offline tool that gives a checked height map from one image. We tested it on places the model never saw in training: 150 aerial tiles of three US cities with aircraft laser heights (GAMUS~\cite{xiong2023gamus}), 300 satellite tiles each of Atlanta and Buenos Aires (Overhead Geopose~\cite{christie2021geopose}), and eight Indian sites checked against NASA lasers. Each number is an average with a 95\% confidence range in brackets, set against a simple guess at the same points.
 
 \subsection{Height accuracy}
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Average height error in metres with RS3DAda (lower is better).}
 \label{tab:accuracy}
 \begin{tabularx}{\linewidth}{@{}Ycccc@{}}
@@ -405,22 +436,22 @@ India, against ICESat-2 & 8 sites & 4.85 [3.04, 6.69] & 8.25 (height 0) \\
 India, against GEDI & 7 sites & 9.93 [4.86, 15.42] & 16.89 (height 0) \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 For buildings, DepthWizard is about three times closer to the truth than guessing flat ground (Table~\ref{tab:accuracy}). At Indian sites it is almost twice as close as guessing zero. On satellite images it matches the results the original authors published. Figure~\ref{fig:mae} shows where the gain comes from: buildings and trees. On roads and bare ground the true height is near zero, so the flat guess is already right. The same pattern shows by landscape on the aerial tiles. In towns the error is 2.90\m{} against 5.66\m{} for the flat guess, and in forest 6.67\m{} against 8.70\m. On open land the flat guess wins, 0.55\m{} against our 0.96\m. Reading each tile four times instead of once lowers the error by 0.064\m{} on average and helps on 114 of the 150 tiles, so we kept it.
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{c_mae.pdf}
 \caption{Average height error by type of surface. Left: aerial tiles against aircraft lasers. Right: Indian sites against NASA lasers, with 95\% confidence ranges.}
 \label{fig:mae}
-\end{figure*}
+\end{figure}
 
 \subsection{The Mamba model and other models}
 We ran four models on the same 750 tiles: RS3DAda, our Mamba student, and two versions of Depth Anything~V2~\cite{yang2024dav2}. Depth Anything does not give heights in metres, so we also score every model after fitting its output to the truth with the best scale and offset for each tile (``fitted'' in Table~\ref{tab:compare}). That shows how well a model finds where the tall things are.
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Height models on the same 750 tiles: average error in metres, and cost on one graphics card.}
 \label{tab:compare}
 \begin{tabularx}{\linewidth}{@{}Ycccccc@{}}
@@ -443,40 +474,40 @@ Depth Anything V2, relative & 335.3\,M & 1{,}532\,MiB & \multicolumn{4}{l}{118 t
 Depth Anything V2, metric & 335.3\,M & 650\,MiB & \multicolumn{4}{l}{134 tiles per minute} \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 The Mamba student is the cheapest model by a wide margin. It is nine times smaller than RS3DAda, uses nine times less memory and runs 5.2 times faster. Its first version is less accurate: 7.20\m{} against 3.90\m{} on the aerial tiles, where it is worse than the flat guess, and 8.70\m{} and 3.39\m{} against 5.91\m{} and 1.86\m{} on the satellite tiles, where it is slightly better than the flat guess. The app therefore keeps RS3DAda for now. RS3DAda is also more accurate than Depth Anything~V2 on all three sets. The gaps are small, 0.30\m, 0.70\m{} and 0.39\m{} for the relative version after fitting, but all three are outside the confidence ranges.
 
 The student's main weakness is in finding where the tall things are. Even after fitting, its heights follow the true ones much less closely than RS3DAda's (a correlation of 0.29 against 0.61). On the aerial tiles it also makes low ground about 3\m{} too high. Both problems should shrink with longer training and with true heights in the training goal, which is the first item in Section~\ref{sec:action}. Figure~\ref{fig:examples} shows typical tiles.
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=0.94\linewidth]{height_examples.png}
 \caption{Typical tiles: input, laser truth, RS3DAda, our Mamba student and Depth Anything~V2 (fitted). Rows: aerial set, Atlanta, Buenos Aires set. Dark is low and yellow is tall. The student finds buildings but makes them too tall on the aerial tile and blurs small objects.}
 \label{fig:examples}
-\end{figure*}
+\end{figure}
 
 \subsection{Tall objects and error ranges}
 Low objects are about right. Tall ones come out far too low (Figure~\ref{fig:height}a): above 20\m, heights are 16.26\m{} too low on aerial tiles and 18.31\m{} too low in India. The two satellite cities show the same thing, at 16.80\m{} and 15.25\m{} too low. This is the main weakness of the published model, and our Mamba student inherits it. The 90\% error range held for 86.6\%, 83.3\% and 97.0\% of building blocks in three cities it was not set on, with a width of about 6\m{} either side. On 96 Indian roofs it held for 71\%. It fails for buildings over 20\m{} (Figure~\ref{fig:height}b), and the app warns users about this.
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{c_height.pdf}
 \caption{(a) Average error by true object height. (b) Share of buildings whose true height falls inside the 90\% range, by height.}
 \label{fig:height}
-\end{figure*}
+\end{figure}
 
 \subsection{Ground level and floods}
 Removing rooftops and trees from the free ground map halves its error in Indian towns, from 5.28\m{} to 2.36\m{} (Figure~\ref{fig:terrain}a). In hills FABDEM is better, and under forest every map is about 20\m{} off. Levelling with lasers removes the map's average offset, from 2.58\m{} too high to 0.27\m{} too low. The full surface, ground plus objects, is closer to GEDI's tree-top and roof-top heights than the free 30\m{} surface map is (5.97\m{} against 8.39\m). Against every laser point, ground and tops together, it is not (9.14\m{} against 8.06\m). What the photograph adds is detail at half a metre, which a 30\m{} map cannot have.
 
 That offset matters most for floods. We flooded the pre-flood heights of four areas of Porto Alegre, Brazil, and compared them with the mapped flood of 6 May 2024. The match (CSI) was 0.20 with the free ground map, 0.30 with our cleaned map and 0.79 after laser levelling (Figure~\ref{fig:terrain}b). FABDEM scored 0.32. Over all seven areas we tried, without laser levelling, the scores were 0.18 for the free map, 0.47 for ours and 0.48 for FABDEM. The areas are small, so this is a test of the method and not a forecast.
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{c_terrain.pdf}
 \caption{(a) Ground-level error against NASA laser ground at the Indian sites, by landscape. (b) Match between predicted and real flood maps in Porto Alegre with four ground maps. Striped: our map levelled with lasers.}
 \label{fig:terrain}
-\end{figure*}
+\end{figure}
 
 \subsection{A real Indian disaster: the Teesta flood, Sikkim, 4 October 2023}
 \label{sec:teesta}
@@ -484,18 +515,18 @@ On 4 October 2023 the South Lhonak glacial lake burst and sent a flood down the 
 
 We then ran DepthWizard on a pre-flood photograph of the valley~\cite{maxar} and loaded the damage map into the Observed-flood tool (Figure~\ref{fig:tools}f). The best-fitting flood scenario matches the damage map with a CSI of 0.49. It covers 86\% of the damaged ground, but 47\% of the ground it floods was not damaged. A single water level is a rough model for a fast flood in a steep valley, which explains much of the over-flooding. The damaged area reached 52 buildings, home to about 673 people by the app's estimate. Two cautions apply. The first clear images came a month after the flood, so the map shows what the flood left behind and not its peak. And each satellite pixel covers 10\m, which suits areas but not single houses.
 
-\begin{figure*}[!t]
+\begin{figure}[!htbp]
 \centering
 \includegraphics[width=\linewidth]{teesta.jpg}
 \caption{The Teesta valley before (left) and after (middle) the flood, and the damaged ground in magenta (right). White box: the area loaded into DepthWizard.}
 \label{fig:teesta}
-\end{figure*}
+\end{figure}
 
 \subsection{What we tried that did not help}
 Some ideas were tested on the same data and dropped. A correction curve for heights helped in two cities and hurt in the third, where the error rose from 1.86\m{} to 2.87\m. Resizing the input image made no clear difference. Using GEDI points to make the laser levelling denser was slightly worse than using ICESat-2 alone. An error range for every pixel, in place of every building, held between 81.4\% and 96.1\% of the time across cities and missed its 90\% target, so the app shows ranges for buildings only.
 
 % =====================================================================
-\section{Suggested plan of action for utilisation of the outcome}
+\psection{Suggested plan of action for utilisation of the outcome}{next steps}
 \label{sec:action}
 
 \begin{enumerate}
@@ -509,16 +540,16 @@ Each step depends on the one before it. A pilot is only worth running once tall 
 The same height maps can also support town planning, rooftop solar studies and checks on unauthorised construction. Those uses are less urgent than disaster work but need the same thing, a cheap height map with a known error.
 
 % =====================================================================
-\section{Conclusion}
+\psection{Conclusion}{}
 
 One ordinary satellite photograph, combined with free ground data and NASA's lasers, gives a 3D height map that disaster teams can use offline and check for themselves. DepthWizard beats simple guesses on every height test with the published model, halves the ground-level error in Indian towns, and maps a real Indian flood from public data. Our Mamba model is nine times smaller and five times faster than the published one, and making it as accurate is the next job. The tool does not replace a ground survey yet: very tall buildings come out too low and forests remain hard. Every result carries its error, so users can see where to trust it.
 
 % =====================================================================
-\section{Contribution of each student}
+\psection{Contribution of each student}{}
 \label{sec:contrib}
 
-\begin{table*}[!t]
-\centering\footnotesize
+\begin{table}[!htbp]
+\centering\small
 \caption{Contribution of each student to the project and this report.}
 \label{tab:contrib}
 \begin{tabularx}{\linewidth}{@{}p{4cm}Y@{}}
@@ -537,13 +568,17 @@ Aryan Goyal & \\
 Arahana Garg & \\
 \bottomrule
 \end{tabularx}
-\end{table*}
+\end{table}
 
 \subsection*{Data and code}
 The code and the register of every number are in the project repository: {\small\url{https://github.com/hima1323/terravista-depthwizard}}. All test data are public.
 
 % =====================================================================
-\begin{thebibliography}{99}
+\begingroup
+\small
+\renewcommand{\refname}{References}
+\titleformat{\section}[block]{\Large\bfseries}{}{0em}{}[{\vspace{-1.5pt}\titlerule[0.6pt]}]
+\begin{thebibliography}{99}\setlength{\itemsep}{1pt}
 \bibitem{gu2023mamba} A.~Gu and T.~Dao. Mamba: Linear-time sequence modeling with selective state spaces. \emph{arXiv:2312.00752}, 2023.
 \bibitem{hatamizadeh2025mambavision} A.~Hatamizadeh and J.~Kautz. MambaVision: A hybrid Mamba-Transformer vision backbone. In \emph{Proc.\ CVPR}, 2025. arXiv:2407.08083.
 \bibitem{song2024synrs3d} J.~Song, H.~Chen, W.~Xuan, J.~Xia and N.~Yokoya. SynRS3D: A synthetic dataset for global 3D semantic understanding from monocular remote sensing imagery. In \emph{NeurIPS Datasets and Benchmarks}, 2024. arXiv:2406.18151.
@@ -567,5 +602,6 @@ The code and the register of every number are in the project repository: {\small
 \bibitem{maxar} Maxar Technologies. Open Data Program: India Floods October 2023. CC BY-NC 4.0.
 \bibitem{drusch2012sentinel2} M.~Drusch \emph{et al.} Sentinel-2: ESA's optical high-resolution mission for GMES operational services. \emph{Remote Sensing of Environment}, 120, 2012.
 \end{thebibliography}
+\endgroup
 
 \end{document}
