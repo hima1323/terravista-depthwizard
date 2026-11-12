@@ -18,6 +18,50 @@ water), a rain and river-rise timeline, routing, helipad / relief-camp siting, e
 before/after damage, landslide risk and checks against real satellite flood maps. Every tool sits in a toolbar per
 mode, and **Ctrl K** searches them all (see [docs/USER_GUIDE.md](docs/USER_GUIDE.md#finding-the-tools)).
 
+Code: <https://github.com/hima1323/terravista-depthwizard>
+
+## Video walkthrough
+
+![DepthWizard demo: the Teesta valley in 3D, the tool finder, the 2023 flood comparison and landslide risk](docs/video/depthwizard_demo.gif)
+
+Full video with captions (2 minutes): [docs/video/depthwizard_demo.mp4](docs/video/depthwizard_demo.mp4).
+It is a real run of the hosted demo on the Teesta valley, Sikkim, processed from one pre-flood satellite image.
+The steps it shows:
+
+1. **Open the demo link.** The home page explains DepthWizard.
+2. **Scenes:** pick *Teesta Lachen 2022*, the valley before the October 2023 glacial-lake flood.
+3. **Explore:** the valley in 3D. Drag to turn it, scroll to zoom.
+4. **Find a tool:** press **Ctrl K** and type a name, for example "observed".
+5. **Observed flood:** choose `SynRS3D/demo/reference/teesta_observed_2023.tif` (download it from this repository)
+   and press **Load & compare**. The damage seen by Sentinel-2 after the flood is drawn on the 3D valley.
+6. **Fit the water level:** finds the flood level that best matches the real flood (CSI 0.49 here).
+7. **Prepare:** switch on **Landslide risk** to see which slopes may fail in heavy rain.
+8. **Validate:** check heights against reference data and see each building's error range.
+9. **Assess:** the impact summary, and downloads (GeoTIFF, 3D model) for QGIS or Bhuvan.
+
+## Run the demo online (Replit)
+
+The hosted demo serves scenes that are already processed (the demo image is
+`SynRS3D/demo/samples/teesta_lachen_2022.tif`, with its results in `SynRS3D/demo/results/`). It needs no GPU,
+PyTorch or model weights, so it fits a free Replit. Uploading a new image there shows a message that processing needs
+the full install below.
+
+1. Sign in at [replit.com](https://replit.com), choose **Create Repl → Import from GitHub**, and paste
+   `https://github.com/hima1323/terravista-depthwizard`.
+2. Press **Run**. `replit_start.sh` installs the five packages in `requirements-demo.txt` (first run only, about a
+   minute) and starts the app on port 8000, which Replit shows in the Webview and on its public URL.
+3. To keep a public link up, use **Deploy** (Autoscale or Reserved VM) with the run command already in `.replit`.
+
+**Keeping it awake (ping every 5 minutes).** Free hosts put idle apps to sleep. Either or both:
+
+- **GitHub Actions:** `.github/workflows/keepalive.yml` calls `<your demo URL>/healthz` every 5 minutes. Add the
+  address once under **Settings → Secrets and variables → Actions → Variables** as `DEMO_URL` (no trailing slash).
+  GitHub runs scheduled workflows only from the default branch, and may delay them when busy.
+- **Built into the app:** in Replit, add a secret `KEEPALIVE_URL` set to the app's public URL. The app then pings
+  its own `/healthz` every 5 minutes.
+
+The same script works on any Linux server: `bash replit_start.sh`, then open port 8000.
+
 ## Quick start (Windows)
 
 1. Install [Python 3.10+](https://www.python.org/downloads/) and tick *Add python.exe to PATH*.
@@ -185,6 +229,10 @@ SynRS3D/
   web/field.html                                      the phone field page (/field)
   demo/                                               benchmarks and data helpers; reports in demo/benchmark/v2/
 deck_work/, DepthWizard_Deck_Spec.md        SIH presentation material (current deck: v4)
+report/                                     the project report (PDF and LaTeX source), benchmark code, screenshots
+docs/video/                                 the demo walkthrough (MP4 and GIF)
+.replit, replit.nix, replit_start.sh        hosting the demo on Replit (requirements-demo.txt: its packages)
+.github/workflows/keepalive.yml             pings the hosted demo every 5 minutes
 ```
 
 ## Credits and licences

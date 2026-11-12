@@ -1,0 +1,15 @@
+# Replit: import this repository, then press Run. The hosted demo serves the scenes already processed in
+# SynRS3D/demo/results (the 2023 Teesta flood valley), so it needs no GPU, PyTorch or model weights.
+modules = ["python-3.11"]
+run = "bash replit_start.sh"
+
+[nix]
+channel = "stable-24_05"
+
+[[ports]]
+localPort = 8000
+externalPort = 80
+
+[deployment]
+run = ["bash", "replit_start.sh"]
+deploymentTarget = "cloudrun"

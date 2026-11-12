@@ -195,6 +195,11 @@ def ensure_extras(name, path):
         lc = rasterio.open(os.path.join(RESULTS, name + '_landcover.tif')).read(1).astype(np.float32)
         grid = np.asarray(Image.fromarray(lc, 'F').resize((meta['grid_w'], meta['grid_h']), Image.NEAREST), np.float32)
         grid.astype('<f4').tofile(lc_f)
+    dtm_tif, dtm_f = os.path.join(RESULTS, name + '_dtm.tif'), os.path.join(RESULTS, name + '_dtm.f32')
+    if os.path.exists(dtm_tif) and not os.path.exists(dtm_f):   # browser grid of a terrain built elsewhere (e.g. a cloned demo)
+        dtm = rasterio.open(dtm_tif).read(1).astype(np.float32)
+        grid = np.asarray(Image.fromarray(dtm, 'F').resize((meta['grid_w'], meta['grid_h']), Image.BILINEAR), np.float32)
+        grid.astype('<f4').tofile(dtm_f)
     if 'corners_lonlat' not in meta:   # image corners, for drone plans and lon/lat read-outs in the viewer
         meta['corners_lonlat'] = tools.corners_lonlat(path)
         json.dump(meta, open(meta_f, 'w'))
@@ -247,11 +252,18 @@ def worker():
     model = None  # loaded on the first job, so a server with everything cached starts instantly and stays light
     while True:
         name = jobs.get()
-        if model is None:
-            model, device, dtype = infer_height.load_model(infer_height.WEIGHTS, fp16=True)
-            print(f'model ready on {device}', flush=True)
         path = scene_files().get(name)
         st = status[name]
+        if model is None:
+            try:
+                model, device, dtype = infer_height.load_model(infer_height.WEIGHTS, fp16=True)
+                print(f'model ready on {device}', flush=True)
+            except (ImportError, OSError) as e:   # demo hosting (e.g. Replit): no PyTorch or no weights
+                print(f'height model unavailable: {e}', flush=True)
+                st.update(state='error', error='This server runs in demo mode: the height model is not installed here, '
+                          'so only the scenes already processed can be opened. Run DepthWizard on your own computer '
+                          '(see README) to process new images.')
+                continue
         try:
             st['state'] = 'running'
             img = geo_func.load_multiband(path)
@@ -314,6 +326,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urllib.parse.urlsplit(self.path).path
+        if path == '/healthz':   # for uptime / keep-alive pings
+            return self.send(200, {'ok': True, 'scenes': len(scene_files())})
         built = os.path.isfile(os.path.join(APP, 'index.html'))
         if path == '/classic' or (path == '/' and not built):
             return self.send(200, open(WEB, 'rb').read(), 'text/html; charset=utf-8')
@@ -629,6 +643,19 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
+def keep_alive(url, every=300):
+    """Ping this app's public address every 5 minutes (KEEPALIVE_URL), so a host that sleeps idle apps
+    (Replit and similar) keeps it awake. Errors are ignored: the next ping tries again."""
+    import time, urllib.request
+    target = url.rstrip('/') + '/healthz'
+    while True:
+        time.sleep(every)
+        try:
+            urllib.request.urlopen(target, timeout=60).read()
+        except Exception as e:
+            print(f'keep-alive ping failed: {e}', flush=True)
+
+
 def lan_ip():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -640,14 +667,20 @@ def lan_ip():
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='DepthWizard local server')
-    ap.add_argument('--port', type=int, default=8000)
+    ap.add_argument('--port', type=int, default=int(os.environ.get('PORT', 8000)))
+    ap.add_argument('--host', default=os.environ.get('DW_HOST', '127.0.0.1'),
+                    help='address to listen on; 0.0.0.0 for hosting (Replit, a server) so others can open it')
     ap.add_argument('--lan', action='store_true', help='also listen on the local network, so a phone on the same Wi-Fi '
                     'can open the field page (anyone on that network can then reach the app)')
     args = ap.parse_args()
     os.makedirs(RESULTS, exist_ok=True)
     enqueue_missing()
     threading.Thread(target=worker, daemon=True).start()
-    print(f'DepthWizard demo on http://127.0.0.1:{args.port}', flush=True)
+    if os.environ.get('KEEPALIVE_URL'):
+        threading.Thread(target=keep_alive, args=(os.environ['KEEPALIVE_URL'],), daemon=True).start()
+        print(f'keep-alive: pinging {os.environ["KEEPALIVE_URL"]} every 5 minutes', flush=True)
+    host = '0.0.0.0' if args.lan else args.host
+    print(f'DepthWizard on http://{"127.0.0.1" if host == "0.0.0.0" else host}:{args.port} (listening on {host})', flush=True)
     if args.lan:
         print(f'Field page for phones on this network: http://{lan_ip()}:{args.port}/field', flush=True)
-    ThreadingHTTPServer(('0.0.0.0' if args.lan else '127.0.0.1', args.port), Handler).serve_forever()
+    ThreadingHTTPServer((host, args.port), Handler).serve_forever()

@@ -1,13 +1,10 @@
 import os
 os.environ.setdefault('PYTORCH_ENABLE_MPS_FALLBACK', '1')  # CPU fallback for any op MPS lacks
 import numpy as np
-import torch
-from albumentations import Compose, Normalize
-from albumentations.pytorch import ToTensorV2
+# torch, albumentations and the model code are imported inside load_model / predict, so the app can serve
+# already-processed scenes (demo mode, e.g. on Replit) without PyTorch installed.
 
-from models.dpt import make_model
 import argparse
-from tqdm import tqdm
 import rasterio
 from utils import geo_func
 
@@ -54,6 +51,8 @@ WEIGHTS = os.environ.get('DW_WEIGHTS') or os.path.join(os.path.dirname(os.path.a
 def load_model(restore_from=WEIGHTS, fp16=False):
     """RS3DAda (a bare state dict, ViT-L) or a train_distill.py student ({'encoder', 'patch_size', 'state_dict'}).
     model.patch_size = the tile side predict() uses for it."""
+    import torch
+    from models.dpt import make_model
     ckpt = torch.load(restore_from, map_location='cpu', weights_only=True)
     student = isinstance(ckpt, dict) and 'state_dict' in ckpt
     model, patch = make_model(ckpt['encoder'] if student else 'vitl', pretrained=False)
@@ -74,6 +73,10 @@ def predict(model, device, dtype, img0, patch_size=None, stride=None, use_tta=Tr
     full=True returns a dict instead: 'height'; 'std' = per-pixel spread (m) of the 4 flipped predictions,
     used as an uncertainty map (None without use_tta); 'landcover' = HxW uint8 class index into LANDCOVER,
     from the model's second (land-cover) head, which runs anyway."""
+    import torch
+    from albumentations import Compose, Normalize
+    from albumentations.pytorch import ToTensorV2
+    from tqdm import tqdm
     if img0.shape[2] > 3:
         img0 = img0[:,:,[0,1,2]]
     height = img0.shape[0]

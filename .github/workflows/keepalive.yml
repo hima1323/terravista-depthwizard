@@ -1,0 +1,26 @@
+# Pings the hosted demo every 5 minutes so it does not go to sleep.
+# Set the address once: Settings > Secrets and variables > Actions > Variables > New variable,
+# name DEMO_URL, value e.g. https://depthwizard.<your-name>.repl.co (no trailing slash).
+# GitHub runs scheduled workflows only from the default branch, and may delay them when busy.
+name: Keep demo awake
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping the demo
+        env:
+          DEMO_URL: ${{ vars.DEMO_URL }}
+        run: |
+          if [ -z "$DEMO_URL" ]; then
+            echo "DEMO_URL is not set; add it under Settings > Secrets and variables > Actions > Variables."
+            exit 0
+          fi
+          curl -fsS --max-time 90 --retry 3 --retry-delay 10 "$DEMO_URL/healthz"
+          echo

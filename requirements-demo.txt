@@ -1,0 +1,7 @@
+# Packages for the hosted demo (Replit or any small server). It serves scenes that were already processed,
+# so it does not need PyTorch or the model weights. For the full app, use SynRS3D/requirements.txt.
+numpy
+opencv-python-headless
+rasterio
+pyproj
+pillow
