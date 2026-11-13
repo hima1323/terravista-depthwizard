@@ -6,11 +6,10 @@ export function RouteCard() {
   const s = useEngine(x => x), sum = s.routeSum;
   return (
     <Card icon={Route} title="Route finder" right={<input type="checkbox" className="switch" aria-label="Route finder" checked={s.routeOpen} onChange={e => engine.setRouteOpen(e.target.checked)} />}>
-      {!s.routeOpen ? <p className="msg">Find a way from A to B that avoids buildings, steep ground and water deeper than you can wade or drive through, or a rescue-boat route through the flood water.</p> : (<>
+      {!s.routeOpen ? <p className="msg">Find a way from A to B that avoids buildings, steep ground and water deeper than you can wade or drive through.</p> : (<>
         <div className="fields">
-          <label className="field"><span>Travel</span><Seg full value={s.rmode} onChange={v => engine.setRmode(v)} options={[['foot', 'On foot'], ['car', 'Car'], ['boat', 'Boat']]} /></label>
-          <Num label={s.rmode === 'boat' ? 'Min water' : 'Max water'} unit="m" value={s.rdepth} step={0.05} min={0} max={3} onChange={v => engine.setRdepth(v)}
-            title={s.rmode === 'boat' ? 'The boat needs at least this much water (draught plus a margin)' : 'Water deeper than this blocks the route'} />
+          <label className="field"><span>Travel</span><Seg full value={s.rmode} onChange={v => engine.setRmode(v)} options={[['foot', 'On foot'], ['car', 'Car']]} /></label>
+          <Num label="Max water" unit="m" value={s.rdepth} step={0.05} min={0} max={3} onChange={v => engine.setRdepth(v)} title="Water deeper than this blocks the route" />
         </div>
         <div className="btns">
           <button className={`btn sm${s.pick === 'A' ? ' on' : ''}`} onClick={() => engine.setPick(s.pick === 'A' ? null : 'A')}><MapPin size={13} />Set A</button>
@@ -24,7 +23,7 @@ export function RouteCard() {
             {sum.wetLen != null && <Row k="Through water" v={`${Math.round(sum.wetLen)} m · deepest ${sum.maxDepth.toFixed(2)} m`} sw="#3da5ff" />}
             {sum.roadPct != null && <Row k="On roads" v={`${Math.round(sum.roadPct)}%`} sw="#4fe08a" />}
           </div>
-          {sum.snapped && <p className="msg">{s.rmode === 'boat' ? 'A point was on dry or shallow ground; the route starts from the nearest water deep enough for the boat.' : 'A point was on a building or in deep water; the route starts from the nearest spot you can stand on.'}</p>}
+          {sum.snapped && <p className="msg">A point was on a building or in deep water; the route starts from the nearest spot you can stand on.</p>}
           {sum.deadline && <p className="msg"><b>{sum.deadline}</b></p>}
           <p className="fine">Green = dry, blue = through water. Water depths come from the 30 m terrain (about ±2–4 m) and roads from the model's land cover: check on the ground before relying on a route.</p>
         </>) : <p className={`msg${s.routeMsg.startsWith('No route') ? ' warn' : ''}`}>{s.routeMsg}</p>}

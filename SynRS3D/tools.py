@@ -562,92 +562,6 @@ def gnss_points(scene, pts, datum):
     return {'points': out, 'datum': datum, 'datum_shift_m': shift, 'outside': len(pts) - len(out)}
 
 
-# critical facilities: OpenStreetMap tag -> kind (the letters and names are in frontend/src/engine/tools.ts, POI_KINDS)
-POI_TAGS = [('amenity', 'hospital|clinic|doctors', 'health'), ('amenity', 'school|college|university|kindergarten', 'school'),
-            ('amenity', 'fire_station|police', 'emergency'), ('emergency', 'ambulance_station', 'emergency'),
-            ('power', 'substation|plant', 'power'),
-            ('man_made', 'water_works|water_tower|wastewater_plant|pumping_station', 'water'),
-            ('amenity', 'fuel', 'fuel'), ('amenity', 'community_centre|shelter|townhall', 'shelter')]
-POI_WORDS = [('health', 'hospital|clinic|health|phc|chc|dispensary'), ('school', 'school|college|university|anganwadi'),
-             ('emergency', 'fire|police|ambulance|ndrf|sdrf'), ('power', 'power|substation|electric'),
-             ('water', 'water|pump'), ('bridge', 'bridge'), ('fuel', 'fuel|petrol|diesel'),
-             ('shelter', 'shelter|community|hall|panchayat')]
-OVERPASS = 'https://overpass-api.de/api/interpreter'
-
-
-def poi_kind(tags):
-    if tags.get('highway') and tags.get('bridge', 'no') != 'no':
-        return 'bridge'
-    return next((kind for key, vals, kind in POI_TAGS if tags.get(key) in vals.split('|')), 'other')
-
-
-def osm_facilities(bounds, fetch=None):
-    """Hospitals, schools, emergency services, power, water works, fuel, community halls and road bridges inside
-    (west, south, east, north), from OpenStreetMap through the Overpass API -> [{lon, lat, kind, name}]."""
-    w, s, e, n = bounds
-    box = f'({s:.6f},{w:.6f},{n:.6f},{e:.6f})'
-    q = ('[out:json][timeout:25];(' + ''.join(f'nwr["{k}"~"^({v})$"]{box};' for k, v, _ in POI_TAGS)
-         + f'way["highway"]["bridge"]["bridge"!="no"]{box};);out center tags;')
-    if fetch is None:
-        def fetch(query):
-            req = urllib.request.Request(OVERPASS, data=urllib.parse.urlencode({'data': query}).encode(),
-                                         headers={'User-Agent': 'DepthWizard/2 (offline-first viewer)'})
-            with urllib.request.urlopen(req, timeout=40) as resp:
-                return resp.read(20 << 20)
-    out = []
-    for el in json.loads(fetch(q)).get('elements', []):
-        c = el if 'lon' in el else el.get('center')
-        tags = el.get('tags', {})
-        if c:
-            kind = poi_kind(tags)
-            name = tags.get('name:en') or tags.get('name') or (tags.get('amenity') or tags.get('power') or tags.get('man_made') or kind).replace('_', ' ')
-            out.append({'lon': c['lon'], 'lat': c['lat'], 'kind': kind, 'name': name})
-    return out
-
-
-def parse_facilities(text):
-    """CSV with lat, lon and optionally name and type columns -> [{lon, lat, kind, name}]. Types are matched by word
-    (hospital, school, fire, police, substation, water, bridge, fuel, shelter ...); anything else is 'other'."""
-    import csv
-    rows = list(csv.reader(io.StringIO(text.strip())))
-    head = [h.strip().lower() for h in rows[0]] if rows else []
-    pick = lambda *ns: next((head.index(n) for n in ns if n in head), None)
-    ilon, ilat, iname, itype = pick('lon', 'longitude', 'lng', 'x'), pick('lat', 'latitude', 'y'), pick('name', 'facility', 'label'), pick('type', 'kind', 'category')
-    if ilon is None or ilat is None:
-        raise ValueError('the CSV needs lat and lon columns (and, if you have them, name and type)')
-    out = []
-    for row in rows[1:]:
-        try:
-            t = row[itype].strip().lower() if itype is not None and itype < len(row) else ''
-            kind = next((k for k, words in POI_WORDS if re.search(words, t)), 'other')
-            out.append({'lon': float(row[ilon]), 'lat': float(row[ilat]), 'kind': kind,
-                        'name': (row[iname].strip() if iname is not None and iname < len(row) else '') or t or kind})
-        except (ValueError, IndexError):
-            continue
-    return out
-
-
-def facilities(name, image_path, csv_text=None, source=None, fetch=None):
-    """Facilities with their image position u, v (0..1), saved as <name>_poi.json so they are there offline next time."""
-    with rasterio.open(image_path) as src:
-        if not src.crs:
-            raise ValueError('facilities need a georeferenced (GeoTIFF) scene')
-        crs, tr, W, H = src.crs, src.transform, src.width, src.height
-        bounds = transform_bounds(crs, 'EPSG:4326', *src.bounds)
-    pts = parse_facilities(csv_text) if csv_text else osm_facilities(bounds, fetch)
-    out = []
-    if pts:
-        xs, ys = warp_transform('EPSG:4326', crs, [p['lon'] for p in pts], [p['lat'] for p in pts])
-        for p, x, y in zip(pts, xs, ys):
-            c, rr = ~tr * (x, y)
-            if 0 <= c < W and 0 <= rr < H:
-                out.append({'u': round(c / W, 5), 'v': round(rr / H, 5), 'kind': p['kind'], 'name': p['name'][:80],
-                            'lon': round(p['lon'], 7), 'lat': round(p['lat'], 7)})
-    res = {'points': out, 'outside': len(pts) - len(out), 'source': source if csv_text else 'OpenStreetMap'}
-    json.dump(res, open(r(name, '_poi.json'), 'w'))
-    return res
-
-
 def corners_lonlat(image_path):
     """Lon/lat of the image corners (top-left, top-right, bottom-right, bottom-left), or None."""
     with rasterio.open(image_path) as src:
@@ -680,13 +594,4 @@ if __name__ == '__main__':
     lc = np.array([[BUILDING, TREES], [0, BUILDING]], np.uint8)
     assert np.allclose(scaled_heights(h, lc, {'buildings': 1.5, 'trees': 2}), [[15, 20], [5, 1.5]])
     assert _ccw([(0, 0), (0, 1), (1, 1), (1, 0)]) == [(1, 0), (1, 1), (0, 1), (0, 0)]
-    # facilities: OpenStreetMap tags and a district's own CSV list
-    assert poi_kind({'amenity': 'hospital'}) == 'health' and poi_kind({'highway': 'primary', 'bridge': 'yes'}) == 'bridge'
-    assert poi_kind({'highway': 'primary', 'bridge': 'no'}) == 'other' and poi_kind({'power': 'substation'}) == 'power'
-    osm = json.dumps({'elements': [{'type': 'node', 'lon': 76.1, 'lat': 30.1, 'tags': {'amenity': 'school', 'name': 'GSSS'}},
-                                   {'type': 'way', 'center': {'lon': 76.2, 'lat': 30.2}, 'tags': {'highway': 'trunk', 'bridge': 'yes'}}]})
-    assert osm_facilities((76, 30, 77, 31), fetch=lambda q: osm) == [
-        {'lon': 76.1, 'lat': 30.1, 'kind': 'school', 'name': 'GSSS'}, {'lon': 76.2, 'lat': 30.2, 'kind': 'bridge', 'name': 'bridge'}]
-    assert parse_facilities('Name,Type,Lat,Lon\nCivil Hospital,District hospital,30.5,76.5\nbad,row\nX,,30,76\n') == [
-        {'lon': 76.5, 'lat': 30.5, 'kind': 'health', 'name': 'Civil Hospital'}, {'lon': 76.0, 'lat': 30.0, 'kind': 'other', 'name': 'X'}]
     print('tools.py self-check ok')

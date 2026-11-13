@@ -216,24 +216,6 @@ server-side ones on the saved full-resolution results. After editing the fronten
 | WMS overlay | server (`tools.wms_overlay`) | WMS 1.1.1 GetMap in EPSG:4326 for the scene bounds, warped onto the photo grid, saved as `<scene>_wms.png`. |
 | Exports | server (`tools.geojson`, `cityjson`) | Block outlines traced on the grid (OpenCV contours), with the fixes and GCP calibration applied. GeoJSON in WGS84; CityJSON 1.1 LOD1 solids in the scene's projected CRS (UTM for lon/lat scenes). |
 | Report | browser | The map, the 3D view and every open card as static HTML (charts as images), printable to PDF. |
-| Embankment | browser (`Tools.bundGround`, `Engine.reachFrom`) | The drawn line is rasterised without gaps and its cells raised by the height before the priority flood; a second flood without it gives what it protects. "Starts to flood at" = the lowest flood level of the ground it keeps dry. The flowing-water grid keeps the crest (maximum per coarse cell). Sandbags: US Army Corps of Engineers pyramid wall, (3h + 9h²) / 2 bags per foot (h in feet), shown up to 2 m; earth for a 1 m crest with 1 : 2 sides. |
-| Cut-off areas | browser | Route-finder passability at the water level (foot 0.5 m, vehicle 0.3 m); flood fill from the scene edge with the route finder's moves; a building is reachable if a cell just outside it was filled. Dry and unreachable = cut off; islands are the connected passable ground around them. |
-| Building rims (shared) | browser (`Tools.blockRims`) | The cells just outside a block, stepping over up to 4 cells of roof pixels the block outline missed (land cover "building" without a block id), since those are impassable. Used by evacuation, cut-off, warning time and every "building reached" count. |
-| Boat route | browser (`Engine.travelCost`) | Passable = flood water at least the minimum depth, or a mapped water body; buildings block; A* as for the other modes at 2.5 m/s. |
-| Ponding | browser | Priority flood from the scene edges gives each cell's spill level; depth = min(water level, spill level) − ground on flooded cells (spill level − ground with the flood off). 4-connected ponds above a minimum depth and area; pump site = deepest cell; hours = volume ÷ pump rate. |
-| Warning time | browser | Arrival per building = first time a cell beside it is wet in the flowing-water run, or the timeline's hour; walk = Dijkstra from each camp over dry-weather costs. Late if arrival < time to get ready + walk. |
-| Rooftop refuge | browser | For buildings with water inside: freeboard = ground + height − level; capacity = area × usable share ÷ m² per person if the freeboard is enough. People over capacity go to the nearest roofs with room within a set distance. |
-| Helipad approach | browser | 16 directions, each a 14° sector of 3 rays from the edge of the landing circle out to 300 m; blocked if anything more than 1 m above the surface at the circle's edge rises above the approach slope (default 12.5 %, 1 in 8). |
-| Camp needs | browser | People × 15 L water, 1 toilet per 20, 5 per family tent, 0.56 kg dry ration (2 100 kcal) per day; all editable except the ration. |
-| Landslide runout | browser | Energy line (Heim's reach angle): source cells (landslide-risk class high or very high) start with head 0; cells are processed from the highest down, passing head − distance × tan(angle) to the lower neighbours whose drop is at least half the steepest; the runout is where the head stays above the ground outside the sources. |
-| Earthquake | browser | Collapsed = blocks with at least *n* floors whose id hashes below the chosen share (repeatable), or the blocks the damage comparison classed collapsed. Rubble spreads a share of the building's height from its footprint (8-neighbour distances), stopped by standing buildings. Cut off = reachable from the scene edge before, not after. |
-| Fire spread | browser | Fastest arrival (Dijkstra, 8 neighbours, no corner cutting) from the ignition cells. Speed = base rate by land cover (scrub 6, fields 4, trees 3, built-up 0.6, buildings 0.4 m/min; bare, road, water 0) × 2^(uphill° / 10), clamped 0.25–4 × max(0.15, 1 + wind km/h / 10 × cos(angle to downwind)). A firebreak sets the rate to 0 along a line; a second run without it gives what it saves. |
-| Storm surge | browser | Sea level = lowest ground on the chosen edge; the flood scenario is set to that + the surge, with water entering from that edge only. Wind-exposed = no surface within 300 m upwind that rises above the building's mid-height by a tenth of its distance (majority of 5 rays). |
-| Critical facilities | server (`tools.facilities`) + browser | Overpass query for the scene bounds (amenity, emergency, power, man_made, bridges) or a CSV, mapped to image positions and saved as `<scene>_poi.json`; the browser tests each against the open hazards. |
-| Flood loss | browser | Per storey: footprint × cost × share(depth above its floor), share from the JRC global depth-damage function for residential buildings in Asia (Huizinga et al. 2017). |
-| CAP alert | browser | CAP 1.2 XML; the polygon is the convex hull of the hazard cells in lon/lat; counts are the buildings touching the hazard itself. |
-| Mast coverage | browser | Greedy set cover: 100 candidates (the highest cell of each tenth-by-tenth block), a viewshed each, repeatedly taking the one that sees the most uncovered target cells. |
-| Search pattern | browser (`Tools.sweep`) | Scan lines across the outline at the line spacing, along its longer side, joined back and forth; then the usual waypoint and clearance steps. |
 
 **Real event** (`demo/event_teesta_2023.py`): Teesta GLOF, 4 Oct 2023. Scene = Maxar Open Data pre-event image
 (10300100CE8D0400, 2022-03-07) at 0.5 m. Observed map = Sentinel-2 L2A S2B_45RXL_20221120 vs S2B_45RXL_20231115 on a
@@ -246,8 +228,7 @@ interpretation or band names, else B, G, R for 4+ bands; non-8-bit data stretche
 percentile (a plain cast to 8 bit wrapped 16-bit values around).
 
 **Tests:** `demo/tools_harness.py <dir>` serves synthetic scenes with known truth through the real `app.py` (model
-stubbed, no PyTorch needed); `node demo/glass_tools_test.js <dir> [port]` drives every tool in the glass UI (71 checks, on a
-fresh `<dir>`) and
+stubbed, no PyTorch needed); `node demo/glass_tools_test.js <dir>` drives every tool in the glass UI (32 checks) and
 `node demo/tools_test.js <dir>` in the classic viewer (36 checks), both in a headless browser.
 `python tools.py` runs the module's self-checks.
 
@@ -273,7 +254,6 @@ fresh `<dir>`) and
 | POST | `/api/field?name=` / GET `/api/field?name=` | points from the field page |
 | POST | `/api/gnss?name=&datum=ellipsoid\|egm96\|egm2008[&source=field]` | CSV / GPX (body) or field points → image position + height (EGM2008) |
 | GET | `/api/export?name=&fmt=geojson\|cityjson` | building footprints / LOD1 solids |
-| POST | `/api/poi?name=[&file=]` | critical facilities from OpenStreetMap, or from a CSV (body: name, type, lat, lon) → image positions; saved as `<scene>_poi.json` |
 | GET | `/field` | the phone field page |
 
 `python app.py --lan` also listens on the local network (for the field page); `--port` changes the port.
@@ -353,9 +333,6 @@ python app.py                                                      # then open h
   - The level-fill flood has no flow dynamics; the flowing-water model has no drains or infiltration; the 30 m
     terrain limits depth accuracy everywhere.
   - The flood CSI test (0.79) is a small-window scenario check from before the single-pass guard.
-- **The response tools (10 November) are what-ifs.** They are tested on synthetic scenes with a known answer, not on
-  real events. The 30 m terrain has no kerbs, walls, drains or bridge decks; the earthquake tool does not know how a
-  building is built; the fire model has no spotting or fuel moisture; the loss estimate covers structure only.
 - **The newer tools inherit the heights' errors.** Shadow heights assume a near-vertical view; the landslide map is a
   screening index without geology or groundwater; people counts are planning estimates; before/after damage needs
   similar view angles and no clouds.

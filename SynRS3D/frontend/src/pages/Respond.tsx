@@ -4,7 +4,7 @@ import { Card, Kpi, Num, Panel, Row, Seg, Slider, Toggle, ha, m2 } from '../comp
 import { RouteCard, FloodSwitch } from '../components/Shared';
 import { TimelineChart } from '../components/Charts';
 import { ARR_KEYS } from '../engine/algos';
-import { FlowCard, ObservedFloodCard, PeopleCard, EmbankmentCard, CutoffCard, PondingCard, FacilitiesCard } from '../components/ToolCards';
+import { FlowCard, ObservedFloodCard, PeopleCard } from '../components/ToolCards';
 import { tools, useTools } from '../engine/useEngine';
 
 function FloodPeople() {   // residents of the flooded buildings (People at risk settings)
@@ -90,13 +90,9 @@ export default function Respond() {
     <Panel page="respond">
       <FloodCard />
       <TimelineCard />
-      <EmbankmentCard />
       <FlowCard />
       <ObservedFloodCard />
-      <CutoffCard />
       <RouteCard />
-      <PondingCard />
-      <FacilitiesCard />
       <PeopleCard />
     </Panel>
   );
