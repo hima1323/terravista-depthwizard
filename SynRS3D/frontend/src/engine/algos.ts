@@ -63,6 +63,8 @@ export const LC_NAMES = ['bare land', 'rangeland', 'developed', 'road', 'trees',
 export const TRAVEL = {
   foot: { lc: [1.2, 1.3, 1.15, 1, 1.3, Infinity, 1.5, 2], slope: 15, maxSlope: 30, speed: 1.2, depth: 0.5 },
   car:  { lc: [3, 4, 2.5, 1, 2.5, Infinity, 6, 6], slope: 8, maxSlope: 15, speed: 5.5, depth: 0.3 },
+  // rescue boat: `depth` is the least water it needs (Engine.travelCost); land cover and slope do not apply
+  boat: { lc: [1, 1, 1, 1, 1, 1, 1, 1], slope: Infinity, maxSlope: Infinity, speed: 2.5, depth: 0.5 },
 };
 export type TravelMode = keyof typeof TRAVEL;
 export const SITE_LC = [true, true, true, true, false, false, true, false];

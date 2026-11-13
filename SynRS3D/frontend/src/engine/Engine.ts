@@ -782,27 +782,32 @@ export class Engine {
   }
   cellArea() { const m = this.data.meta; return (m.width * m.gsd / m.grid_w) * (m.height * m.gsd / m.grid_h); }
   // data.reach[i] = lowest water level at which cell i is under water (bathtub: own ground; connected: priority flood)
-  computeReach() {
-    const d = this.data, W = this.W, H = this.H, N = W * H, g = this.groundGrid(), mode = this.s.fsrc;
-    const reach = d.reach = mode === 'all' ? Float32Array.from(g) : new Float32Array(N).fill(Infinity);
-    if (mode !== 'all') {
-      const heap = new MinHeap(), seed = (i: number) => { if (g[i] < reach[i]) { reach[i] = g[i]; heap.push(g[i], i); } };
-      if (mode === 'edges') {
-        for (let x = 0; x < W; x++) { seed(x); seed((H - 1) * W + x); }
-        for (let y = 0; y < H; y++) { seed(y * W); seed(y * W + W - 1); }
-      } else for (const i of d.sources) seed(i);
-      while (heap.n) {
-        const i = heap.pop(), k = heap.key;
-        if (k > reach[i]) continue;
-        const x = i % W, y = (i - x) / W;
-        for (let dd = 0; dd < 4; dd++) {
-          const nx = x + NX[dd], ny = y + NY[dd];
-          if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
-          const j = ny * W + nx, nk = Math.max(k, g[j]);
-          if (nk < reach[j]) { reach[j] = nk; heap.push(nk, j); }
-        }
+  reachFrom(g: ArrayLike<number>, mode: UI['fsrc'] = this.s.fsrc, sides = 'NESW') {
+    const d = this.data, W = this.W, H = this.H, N = W * H;
+    if (mode === 'all') return Float32Array.from(g);
+    const reach = new Float32Array(N).fill(Infinity);
+    const heap = new MinHeap(), seed = (i: number) => { if (g[i] < reach[i]) { reach[i] = g[i]; heap.push(g[i], i); } };
+    if (mode === 'edges') {
+      for (let x = 0; x < W; x++) { if (sides.includes('N')) seed(x); if (sides.includes('S')) seed((H - 1) * W + x); }
+      for (let y = 0; y < H; y++) { if (sides.includes('W')) seed(y * W); if (sides.includes('E')) seed(y * W + W - 1); }
+    } else for (const i of d.sources) seed(i);
+    while (heap.n) {
+      const i = heap.pop(), k = heap.key;
+      if (k > reach[i]) continue;
+      const x = i % W, y = (i - x) / W;
+      for (let dd = 0; dd < 4; dd++) {
+        const nx = x + NX[dd], ny = y + NY[dd];
+        if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+        const j = ny * W + nx, nk = Math.max(k, g[j]);
+        if (nk < reach[j]) { reach[j] = nk; heap.push(nk, j); }
       }
     }
+    return reach;
+  }
+  computeReach() {
+    const d = this.data, N = this.W * this.H, g = this.groundGrid(), bund = this.tools.bundGround(g), sides = this.tools.seaSides();
+    const reach = d.reach = this.reachFrom(bund || g, this.s.fsrc, sides);
+    d.reachBase = bund ? this.reachFrom(g, this.s.fsrc, sides) : null;   // without the embankment, to show what it protects
     const br = d.blockReach = new Float32Array(d.buildings.length + 1).fill(Infinity);
     for (let i = 0; i < N; i++) { const id = d.bid[i]; if (id > 0 && reach[i] < br[id]) br[id] = reach[i]; }
     d.vol = null;
@@ -876,6 +881,14 @@ export class Engine {
   travelCost(L: number, how: TravelMode = this.s.rmode, limit: number = this.s.rdepth) {
     const d = this.data, N = d.grid.length, tr = TRAVEL[how], maxD = Math.max(0, limit || 0), g = this.groundGrid();
     const f = new Float32Array(N), depth = new Float32Array(N);
+    if (how === 'boat') {   // navigable: flood water at least `limit` deep, or a mapped water body; never through buildings
+      for (let i = 0; i < N; i++) {
+        const dep = d.reach[i] < L ? L - g[i] : 0;
+        depth[i] = dep;
+        f[i] = d.bid[i] > 0 ? Infinity : dep >= maxD || (d.lc && d.lc[i] === 5) ? 1 : Infinity;
+      }
+      return { f, depth };
+    }
     for (let i = 0; i < N; i++) {
       const lc = d.lc ? d.lc[i] : 2;
       if (d.bid[i] > 0 || (lc === 7 && d.grid[i] > 2.5)) { f[i] = Infinity; continue; }
@@ -931,7 +944,7 @@ export class Engine {
     for (let k = 1; k < path.length; k++) {
       const i = path[k - 1], j = path[k], xi = i % W, xj = j % W;
       const seg = Math.hypot((xi - xj) * dx, ((i - xi) / W - (j - xj) / W) * dy), dep = Math.max(depth[i], depth[j]);
-      len += seg; time += seg / tr.speed * (1 + 2 * dep / Math.max(0.05, maxD));
+      len += seg; time += seg / tr.speed * (this.s.rmode === 'boat' ? 1 : 1 + 2 * dep / Math.max(0.05, maxD));
       if (dep > 0) wetLen += seg;
       if (d.lc && d.lc[j] === 3) roadLen += seg;
       maxDepth = Math.max(maxDepth, depth[j]);
@@ -945,7 +958,8 @@ export class Engine {
     R.res = null; R.why = '';
     if (this.s.routeOpen && R.a != null && R.kind === 'ab' && R.b != null) {
       R.res = this.findRoute(R.a, R.b, L);
-      if (!R.res) R.why = L > -Infinity && this.findRoute(R.a, R.b, -Infinity)
+      if (!R.res && this.s.rmode === 'boat') R.why = `No boat route: the water between A and B is shallower than ${this.s.rdepth} m somewhere, or buildings block it. Raise the water level or lower the minimum depth.`;
+      else if (!R.res) R.why = L > -Infinity && this.findRoute(R.a, R.b, -Infinity)
         ? `No route at this water level: water deeper than ${this.s.rdepth} m blocks every way (a dry-weather route exists).`
         : 'No route: buildings, water bodies or steep ground block every way between A and B inside this scene.';
     }
@@ -959,10 +973,11 @@ export class Engine {
     let msg = '';
     if (this.s.pick === 'A') msg = 'Click the map (2D or 3D) to place A, the start.';
     else if (this.s.pick === 'B') msg = 'Click the map to place B, the destination.';
-    else if (R.a == null || !R.kind) msg = 'Set A and B. Routes avoid buildings, water bodies, steep ground and water deeper than the limit, and prefer roads.';
+    else if (R.a == null || !R.kind) msg = this.s.rmode === 'boat' ? 'Set A and B. Boat routes stay on water at least as deep as the minimum and go around buildings.'
+      : 'Set A and B. Routes avoid buildings, water bodies, steep ground and water deeper than the limit, and prefer roads.';
     else if (!res) msg = R.why || 'No route found.';
     this.set({ routeMsg: msg, routeSum: res && !this.s.pick ? {
-      len: res.len, minutes: res.time / 60, how: this.s.rmode === 'car' ? 'by car' : 'on foot', wetLen: this.s.flood ? res.wetLen : null,
+      len: res.len, minutes: res.time / 60, how: this.s.rmode === 'car' ? 'by car' : this.s.rmode === 'boat' ? 'by boat' : 'on foot', wetLen: this.s.flood ? res.wetLen : null,
       maxDepth: res.maxDepth, roadPct: d.lc ? 100 * res.roadLen / Math.max(1, res.len) : null, snapped: res.snapped, deadline: this.ensureDeadline() } : null });
   }
   setRouteOpen(on: boolean) {
@@ -1185,7 +1200,7 @@ export class Engine {
   }
   ensureDeadline() {
     const d = this.data, R = d.route, tl = d.tl;
-    if (!tl || !this.s.routeOpen || R.kind !== 'ab' || R.a == null || R.b == null) return '';
+    if (!tl || !this.s.routeOpen || R.kind !== 'ab' || R.a == null || R.b == null || this.s.rmode === 'boat') return '';
     const key = [R.a, R.b, this.s.rmode, this.s.rdepth].join();
     if (tl.dlKey !== key) { tl.dlKey = key; tl.deadline = this.routeDeadline(); }
     return tl.deadline;
@@ -1324,6 +1339,7 @@ export class Engine {
       L, note: `Open = no building, trees or water in the model's land cover, nothing over 1 m tall, slope ≤ ${this.s.sslope}°`
         + (water ? `, and at least ${this.s.sdry} m above ${water}` : ' (flood is off, so water is not considered)')
         + `. Camp capacity at ${this.s.sper} m² per person (Sphere standard); camp areas count only ground ≥ 3 m from obstacles. Slope comes from the 30 m terrain and heights from the model: inspect a site (and its approach) before using it.` } as any });
+    this.tools.sitesChanged();
     this.drawOverlay(); this.drawMarks3D();
   }
 

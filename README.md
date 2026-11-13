@@ -14,8 +14,9 @@ DepthWizard takes a single optical satellite image and:
    data** (LiDAR, a DSM, surveyed points, ICESat-2).
 
 Everything runs locally in one app. For Disaster Management it adds flood scenarios (level fill and 2D flowing
-water), a rain and river-rise timeline, routing, helipad / relief-camp siting, evacuation plans, people at risk,
-before/after damage, landslide risk and checks against real satellite flood maps. Every tool sits in a toolbar per
+water), a rain and river-rise timeline, routing on foot, by car or by boat, helipad / relief-camp siting, evacuation
+plans, people at risk, before/after damage, landslide risk and runout, and checks against real satellite flood maps,
+plus what-ifs for embankments, earthquake debris, fire and cyclone surge. Every tool sits in a toolbar per
 mode, and **Ctrl K** searches them all (see [docs/USER_GUIDE.md](docs/USER_GUIDE.md#finding-the-tools)).
 
 Code: <https://github.com/hima1323/terravista-depthwizard>
@@ -94,9 +95,13 @@ How to use it: [docs/USER_GUIDE.md](docs/USER_GUIDE.md).
 
 | Page | Tools |
 |---|---|
-| Explore | line of sight · volume · drone flight plan (KML / QGroundControl) · rooftop solar · WMS map overlay (OSM, Bhuvan) · mosaics · GeoJSON / CityJSON LOD1 export |
+| Explore | line of sight · siren / radio mast coverage · volume · drone flight plan and search pattern (KML / QGroundControl) · rooftop solar · WMS map overlay (OSM, Bhuvan) · mosaics · GeoJSON / CityJSON LOD1 export |
 | Validate | building heights from shadows · tall-object fixes (shadows, ICESat-2 canopy) · calibrated error bars (conformal) · your own DEM (CartoDEM, SRTM) · GNSS / GPX import · phone field app |
 | Prepare · Respond · Relief · Assess | landslide risk · people at risk · flowing water (2D shallow water) · observed flood (Sentinel-1) · evacuation plan · before/after damage |
+| Prepare (what-ifs) | landslide runout · earthquake debris and access · fire spread and firebreaks · cyclone surge and wind exposure |
+| Respond | embankment what-if (sandbag count) · cut-off areas · boat routes · ponding and pump sites |
+| Relief | helipad approach directions · camp needs (Sphere) · warning time per building · rooftop refuge |
+| Assess | critical facilities (OpenStreetMap or your own list) · flood loss in ₹ · CAP 1.2 alert file |
 | All | 🔍 tool finder (Ctrl K) · 📄 printable situation report (Assess) |
 
 **A real Indian event:** the Teesta glacial-lake outburst flood, Sikkim, 4 Oct 2023
@@ -214,7 +219,8 @@ compared with the IPH/UFRGS flood extent ([flood_test.md](SynRS3D/demo/benchmark
 - leaf-on tree canopy;
 - interval coverage outside US cities and for buildings over 10 m;
 - floor counts, GCP accuracy and processing times;
-- the disaster tools, apart from the one flood test.
+- the disaster tools, apart from the one flood test. The what-if tools of 10 November (embankment, cut-off areas,
+  runout, earthquake, fire, surge, loss, …) are checked only against synthetic scenes with a known answer.
 
 ## Repository layout
 
@@ -249,6 +255,7 @@ The full licence table is in [docs/CLAIMS.md](docs/CLAIMS.md#licences-of-what-we
   - Copernicus GLO-30 DEM: © DLR / Airbus, provided by ESA;
   - NASA ICESat-2 ATL03 / ATL08 via SlideRule;
   - Open-Meteo forecasts;
+  - OpenStreetMap (ODbL) for the critical-facilities list;
   - demo imagery from Esri World Imagery and Maxar Open Data (CC BY-NC 4.0), for demonstration only.
 - **Evaluation only:** GAMUS (CC BY 4.0), Overhead Geopose (CC BY 4.0), FABDEM (CC BY-NC-SA 4.0, never committed),
   NASA GEDI L2A, OpenStreetMap buildings (ODbL).

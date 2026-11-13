@@ -4,9 +4,10 @@ import { useState, type ReactNode } from 'react';
 import {
   Eye, Package, Navigation2, Sun, Map as MapIcon, LayoutGrid, Sunset, TreePine, Gauge, Mountain, LocateFixed, MountainSnow,
   Droplets, SatelliteDish, Footprints, Construction, Users, FileText, Plus, Eraser, Play, Square, PenLine, Ruler, Download, Smartphone, type LucideIcon,
+  BrickWall, Unlink, ArrowDownToLine, Timer, Building2, PlaneLanding, Activity, Flame, Wind, Hospital, Tent, IndianRupee, Megaphone, RadioTower,
 } from 'lucide-react';
 import { engine, useEngine, useTools, tools } from '../engine/useEngine';
-import { SLIDE_CLS, CAMP_COLORS, VKEYS, fmtN, fmtM3, fmtLen, fmtHa, fmtDur, type ToolId } from '../engine/tools';
+import { SLIDE_CLS, CAMP_COLORS, VKEYS, WARN_KEYS, POI_KINDS, COMPASS, fmtN, fmtM3, fmtLen, fmtHa, fmtDur, fmtRs, type ToolId } from '../engine/tools';
 import { ARR_KEYS, inferno, nice } from '../engine/algos';
 import { Card, Kpi, Num, Row, Seg, Slider, Toggle } from './ui';
 
@@ -45,6 +46,15 @@ export function LineOfSightCard() {
         <div className="rows"><Row k="Farthest visible point (observer 1)" v={fmtLen(L.far)} /></div>
         <p className="fine">Green = visible, dark = hidden by terrain, buildings or trees. Uses the model's heights and the 30 m terrain; earth curvature ignored (under 0.1 m within 1 km).</p>
       </>) : <p className="msg">Click the map (2D or 3D) to place observers.</p>}
+      <h4 className="label"><RadioTower size={12} /> Siren / radio coverage</h4>
+      <div className="fields">
+        <label className="field"><span>Cover</span><Seg full value={s.cvWhat} onChange={v => tools.set({ cvWhat: v })} options={[['buildings', 'Buildings'], ['all', 'Whole scene']]} /></label>
+        <Num label="At most" unit="masts" value={s.cvMax} min={1} max={10} onChange={v => tools.set({ cvMax: v })} />
+        <Num label="Stop at" unit="% covered" value={s.cvGoal} min={10} max={100} step={5} onChange={v => tools.set({ cvGoal: v })} wide />
+      </div>
+      <button className="btn sm primary" disabled={s.cvBusy} onClick={() => tools.suggestMasts()}><RadioTower size={13} />{s.cvBusy ? 'Searching…' : 'Suggest mast positions'}</button>
+      {s.cover && <p className={`msg${s.cover.met ? '' : ' warn'}`}>{s.cover.n} mast{s.cover.n === 1 ? '' : 's'} see <b>{s.cover.pct.toFixed(0)}%</b> of {s.cover.what}{s.cover.met ? '.' : `: short of ${s.cover.goal}%. Raise the mast height, the range or the number of masts.`}</p>}
+      <p className="fine">Tries the highest point of each of 100 blocks of the scene with the height and range above, and keeps adding the spot that sees the most not yet covered. For sirens set the range to how far one is heard.</p>
     </ToolCard>
   );
 }
@@ -84,7 +94,8 @@ export function DroneCard() {
   return (
     <ToolCard id="drone" icon={Navigation2} title="Drone flight plan" blurb="Turn a drawn path or a route into drone waypoints that stay clear of roofs and trees; export for QGroundControl, Google Earth or a spreadsheet.">
       <label className="field"><span>Follow</span>
-        <Seg full value={s.drSrc} onChange={v => tools.setDroneParam({ drSrc: v })} options={[['path', 'My drawn path'], ['route', 'Route A → B']]} /></label>
+        <Seg full value={s.drSrc} onChange={v => tools.setDroneParam({ drSrc: v })} options={[['path', 'My drawn path'], ['route', 'Route A → B'], ['area', 'Search an area']]} /></label>
+      {s.drSrc === 'area' && <Num label="Search lines every" unit="m" value={s.drSwath} min={5} step={5} onChange={v => tools.setDroneParam({ drSwath: v })} title="The width the camera sees on the ground, less an overlap: about the flying height for a 50° camera" />}
       <div className="fields">
         <Num label="Clearance" unit="m" value={s.drClr} min={5} step={5} onChange={v => tools.setDroneParam({ drClr: v })} title="Kept above the tallest roof, tree or ground near the path" />
         <Num label="Look around" unit="m" value={s.drBuf} min={0} step={5} onChange={v => tools.setDroneParam({ drBuf: v })} title="How far to each side obstacles are looked for" />
@@ -93,7 +104,7 @@ export function DroneCard() {
         <Num label="Height limit" unit="m above ground" value={s.drMax} min={10} step={10} onChange={v => tools.setDroneParam({ drMax: v })} wide title="India, Drone Rules 2021: 400 ft (about 120 m) in green zones; check the Digital Sky airspace map" />
       </div>
       <div className="btns">
-        <button className={`btn sm${drawing ? ' on' : ''}`} onClick={() => { if (s.drSrc !== 'path') tools.set({ drSrc: 'path' }); engine.togglePath(); }}><PenLine size={13} />{drawing ? `Done (${pathN})` : 'Draw path'}</button>
+        <button className={`btn sm${drawing ? ' on' : ''}`} onClick={() => { if (s.drSrc === 'route') tools.set({ drSrc: 'path' }); engine.togglePath(); }}><PenLine size={13} />{drawing ? `Done (${pathN})` : s.drSrc === 'area' ? 'Draw the area' : 'Draw path'}</button>
         <button className="btn sm" disabled={!D || !D.geo} onClick={() => tools.exportDrone('plan')}><Download size={13} />QGroundControl</button>
         <button className="btn sm" disabled={!D || !D.geo} onClick={() => tools.exportDrone('kml')}><Download size={13} />KML</button>
         <button className="btn sm" disabled={!D} onClick={() => tools.exportDrone('csv')}><Download size={13} />CSV</button>
@@ -106,12 +117,13 @@ export function DroneCard() {
           <Row k="Highest above ground" v={`${Math.round(D.maxAgl)} m`} />
           <Row k="Highest above take-off" v={`${Math.round(D.maxRel)} m`} />
           {D.abs && <Row k="Take-off ground level" v={`${D.home.toFixed(0)} m a.s.l.`} />}
+          {D.area != null && <Row k="Search area" v={`${fmtHa(D.area)} · ${D.legs} legs`} />}
         </div>
         {D.over ? <p className="msg warn">{D.over} waypoint{D.over > 1 ? 's are' : ' is'} above the {D.lim} m limit (red): lower the clearance or get airspace permission.</p>
           : <p className="msg">All waypoints are within the height limit.</p>}
         {!D.geo && <p className="msg warn">No georeferencing: only the CSV (local metres) can be exported.</p>}
         <p className="fine">Altitude = the tallest roof, tree or ground within {s.drBuf} m, plus {s.drClr} m. Heights come from one satellite image and miss wires, masts and new construction: keep the drone in sight.</p>
-      </>) : <p className="msg">{s.drSrc === 'route' ? 'No route yet: find one in Respond or Relief, or switch to “My drawn path”.' : 'Click Draw path and click points on the map (2D or 3D), then Done.'}</p>}
+      </>) : <p className="msg">{s.drSrc === 'route' ? 'No route yet: find one in Respond or Relief, or switch to “My drawn path”.' : s.drSrc === 'area' ? 'Click Draw the area, click its corners on the map (at least 3), then Done: the drone sweeps it back and forth.' : 'Click Draw path and click points on the map (2D or 3D), then Done.'}</p>}
     </ToolCard>
   );
 }
@@ -495,6 +507,362 @@ export function ReportCard() {
     <Card id="tool-report" icon={FileText} title="Situation report">
       <p className="msg">The map, the 3D view and the results of every tool you used, on one printable page (save it as PDF).</p>
       <button className="btn primary" onClick={() => tools.openReport()}><FileText size={14} />Open the report</button>
+    </Card>
+  );
+}
+
+// ======================================== RESPONSE TOOLS ========================================
+const hrs = (h: number) => h < 48 ? `${h < 10 ? h.toFixed(1) : h.toFixed(0)} h` : `${(h / 24).toFixed(1)} days`;
+const ppl = (p: number) => `≈ ${fmtN(Math.round(p))}`;
+
+export function EmbankmentCard() {
+  const s = useTools(x => x), B = s.bund, pick = useEngine(x => x.pick), flood = useEngine(x => x.flood), fsrc = useEngine(x => x.fsrc);
+  return (
+    <ToolCard id="bund" icon={BrickWall} title="Embankment what-if" blurb="Draw a bund or a sandbag wall and see what it keeps dry at this water level, and how many sandbags it takes.">
+      <Num label="Height above the ground" unit="m" value={s.bundH} min={0.2} max={10} step={0.1} onChange={v => tools.setBundH(v)} />
+      <div className="btns">
+        <button className={`btn sm${pick === 'bund' ? ' on' : ''}`} onClick={() => tools.setPick(pick === 'bund' ? null : 'bund')}><PenLine size={13} />{pick === 'bund' ? `Done (${s.bundN})` : 'Draw the line'}</button>
+        <button className="btn sm" disabled={!s.bundN} onClick={() => tools.clearBund()}><Eraser size={13} />Clear</button>
+      </div>
+      {fsrc === 'all' && <p className="msg warn">“All low ground” ignores barriers: choose Scene edges or Points I click in the flood card.</p>}
+      {B ? (<>
+        {B.nb != null ? (<>
+          <div className="kpis">
+            <Kpi v={B.nb} l="buildings kept dry" tone="good" title={`${ppl(B.ppl)} residents`} />
+            <Kpi v={fmtHa(B.kept)} l="ground kept dry" tone="blue" />
+            <Kpi v={B.still} l="still flooded" tone={B.still ? 'hot' : undefined} />
+          </div>
+          <p className="msg">{B.nb ? <>It protects <b>{ppl(B.ppl)}</b> people at +{B.rise.toFixed(1)} m.</> : 'It protects no building at this water level: the water goes round it, over it, or was not coming this way.'}
+            {B.hold != null && <> The protected ground starts to flood at <b>+{B.hold.toFixed(1)} m</b>{B.hold - B.rise < 0.5 ? ': less than half a metre to spare' : ''}.</>}</p>
+        </>) : <p className="msg">{flood ? 'Draw the line to see what it protects.' : 'Turn the flood scenario on to see what it protects.'}</p>}
+        <div className="rows">
+          <Row k="Length" v={fmtLen(B.len)} />
+          <Row k="Sandbags" v={B.bags == null ? 'too high for sandbags (over 2 m)' : `≈ ${fmtN(B.bags)}`} />
+          <Row k={B.bags == null ? 'Earth for a bund' : 'Or earth for a bund'} v={fmtM3(B.earth)} />
+        </div>
+        <p className="fine">The line is raised {B.h} m above the ground along it; the flood scenario, the timeline and the flowing water all meet it. Sandbag count after the US Army Corps of Engineers
+          pyramid wall; earth for a 1 m crest with 1 : 2 sides. No seepage, no failure, and the 30 m terrain cannot show small gaps: an engineer must check the line.</p>
+      </>) : <p className="msg">Click Draw the line, then click along where the wall would stand (2D or 3D).</p>}
+    </ToolCard>
+  );
+}
+
+export function CutoffCard() {
+  const s = useTools(x => x), C = s.cut;
+  return (
+    <ToolCard id="cut" icon={Unlink} title="Cut-off areas" blurb="Buildings that stay dry but that nobody can leave or reach at this water level: the islands a flood makes.">
+      <label className="field"><span>Reached</span><Seg full value={s.cutMode} onChange={v => tools.setParam('cut', { cutMode: v }, 0)} options={[['foot', 'On foot (≤ 0.5 m water)'], ['car', 'By vehicle (≤ 0.3 m)']]} /></label>
+      {C && C.error ? <p className="msg warn">Turn the flood scenario on first.</p> : C && (<>
+        <div className="kpis">
+          <Kpi v={C.nb} l="dry but cut off" tone="hot" /><Kpi v={ppl(C.ppl)} l="people on islands" /><Kpi v={C.n} l={C.n === 1 ? 'island' : 'islands'} />
+        </div>
+        <div className="rows">
+          {C.isles.map((it: any, k: number) => <Row key={k} sw="#d63384" k={`Island ${k + 1}${it.area ? ` · ${fmtHa(it.area)}` : ' · water at the walls'}`} v={`${ppl(it.ppl)} people · ${it.nb} bldg`} />)}
+          <Row k="Flooded buildings also out of reach" v={`${C.wetB} · ${ppl(C.wetP)} people`} />
+        </div>
+        {C.nb + C.wetB > 0 ? <p className="msg">These need boats or helicopters: use the route finder's Boat mode, and Relief for helipads.</p> : <p className="msg">Every building can still be reached from the edge of the scene.</p>}
+        <p className="fine">A building counts as reachable when ground next to it connects to the edge of the scene without crossing buildings, steep ground or water deeper than the limit.
+          Roads leaving the scene may be cut further on, and bridges are not in the terrain model.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function PondingCard() {
+  const s = useTools(x => x), P = s.pond;
+  return (
+    <ToolCard id="pond" icon={ArrowDownToLine} title="Ponding & pump sites" blurb="The hollows that keep their water after the river drops, how much there is to pump, and the deepest point of each for the pump.">
+      <div className="fields">
+        <Num label="Count water deeper than" unit="m" value={s.pdMin} min={0.05} step={0.05} onChange={v => tools.setParam('pond', { pdMin: v })} />
+        <Num label="Ponds larger than" unit="m²" value={s.pdArea} min={0} step={50} onChange={v => tools.setParam('pond', { pdArea: v })} />
+        <Num label="Pump" unit="L/s" value={s.pdRate} min={1} step={5} onChange={v => tools.setParam('pond', { pdRate: v })} wide title="A 4-inch trailer pump moves about 25 L/s, a 6-inch one about 50–80 L/s" />
+      </div>
+      {P && (<>
+        <div className="kpis"><Kpi v={P.n} l={P.n === 1 ? 'pond' : 'ponds'} tone="blue" /><Kpi v={fmtM3(P.vol)} l="to pump out" /><Kpi v={P.nb} l="buildings in them" tone={P.nb ? 'amber' : undefined} /></div>
+        <div className="rows">{P.list.map((q: any, k: number) =>
+          <Row key={k} sw="#b9a2ff" k={`P${k + 1} · ${fmtHa(q.area)} · ${q.maxd.toFixed(1)} m deep${q.nb ? ` · ${q.nb} bldg` : ''}`} v={`${fmtM3(q.vol)} · ${hrs(q.hours)}`} />)}</div>
+        {!P.n && <p className="msg">No hollow of that size {P.on ? 'holds water at this level' : 'in the terrain'}.</p>}
+        <p className="fine">{P.on ? 'Water the current flood leaves behind' : 'Flood is off: every hollow, filled to its brim (after heavy rain)'}. A hollow is ground that cannot drain to the edge of the scene over the surface;
+          pump time is for one pump with no inflow. Drains, culverts and soakage are not in the 30 m terrain, which also smooths small hollows away.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function WarningCard() {
+  const s = useTools(x => x), W = s.warn;
+  return (
+    <ToolCard id="warn" icon={Timer} title="Warning time" blurb="How long each building has before the water arrives, and who cannot walk to a camp in that time.">
+      <div className="fields">
+        <Num label="Time to get ready" unit="min" value={s.wnDelay} min={0} step={5} onChange={v => tools.setParam('warn', { wnDelay: v })} title="From the warning to leaving the door" />
+        <label className="field"><span>Travel</span><Seg full value={s.evMode === 'boat' ? 'foot' : s.evMode} onChange={v => tools.setParam('warn', { evMode: v, evac: null }, 0)} options={[['foot', 'On foot'], ['car', 'Car']]} /></label>
+      </div>
+      {W && W.error ? <p className="msg warn">Run Flowing water in Respond, or open the Rain & river timeline there, first: they give the arrival times.</p> : W && (<>
+        <div className="rows">{WARN_KEYS.map(([, l, c], k) => <Row key={l} sw={`rgb(${c})`} k={l} v={`${ppl(W.rows[k].p)} people · ${W.rows[k].n} bldg`} />)}</div>
+        {W.camps ? (W.late.n ? <p className="msg warn"><b>{ppl(W.late.p)}</b> people in {W.late.n} building{W.late.n > 1 ? 's' : ''} cannot reach a camp before the water, even leaving {W.delay} min after the warning: move them first or send transport.</p>
+          : <p className="msg">Everyone the water reaches can walk to a camp in time, leaving {W.delay} min after the warning.</p>) : <p className="msg warn">No relief camp found: only the arrival times are shown.</p>}
+        {W.top.length > 0 && <table className="t"><thead><tr><th>Block</th><th>Water in</th><th>To camp</th><th>Spare</th></tr></thead>
+          <tbody>{W.top.map((r: any) => <tr key={r.id}><td>#{r.id}</td><td>{fmtDur(r.arr * 60)}</td><td>{r.travel == null ? '–' : r.travel < Infinity ? `${Math.ceil(r.travel)} min` : 'no route'}</td>
+            <td>{r.lead == null || !(r.lead > -Infinity) ? '–' : r.lead < 0 ? <span className="warn">late</span> : fmtDur(r.lead * 60)}</td></tr>)}</tbody></table>}
+        <button className="btn sm" onClick={() => tools.warnCSV()}><Download size={13} />Priority list (CSV)</button>
+        <p className="fine">Arrival times from {W.src === 'flow' ? 'the last Flowing water run' : 'the Rain & river timeline (whole hours)'}; walking times over dry-weather routes to the nearest camp, ignoring its capacity.
+          Hover a building for its own numbers. A scenario: real floods can arrive faster.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function RoofRefugeCard() {
+  const s = useTools(x => x), R = s.roof;
+  return (
+    <ToolCard id="roof" icon={Building2} title="Rooftop refuge" blurb="Flooded buildings whose roof stays above the water, how many people each can hold, and who has no roof within reach.">
+      <div className="fields">
+        <Num label="Roof above water by" unit="m" value={s.rfFree} min={0} step={0.5} onChange={v => tools.setParam('roof', { rfFree: v })} />
+        <Num label="Space per person" unit="m²" value={s.rfPer} min={0.5} step={0.5} onChange={v => tools.setParam('roof', { rfPer: v })} title="1–2 m² for a few hours' wait" />
+        <Num label="Usable roof" unit="%" value={s.rfUse} min={5} max={100} step={5} onChange={v => tools.setParam('roof', { rfUse: v })} />
+        <Num label="Neighbours within" unit="m" value={s.rfDist} min={0} step={25} onChange={v => tools.setParam('roof', { rfDist: v })} title="How far people can wade or be ferried to another roof" />
+      </div>
+      {R && R.error ? <p className="msg warn">Turn the flood scenario on first.</p> : R && (<>
+        <div className="kpis"><Kpi v={R.roofs} l="refuge roofs" tone="good" /><Kpi v={fmtN(R.cap)} l="people they hold" /><Kpi v={ppl(R.left)} l="with no roof" tone={R.left ? 'hot' : undefined} /></div>
+        <div className="keys"><span><i className="sw" style={{ background: '#4fe08a' }} />roof refuge</span><span><i className="sw" style={{ background: '#f5a524' }} />residents moved to a neighbour's roof</span>
+          <span><i className="sw" style={{ background: '#e5484d' }} />no roof within reach</span></div>
+        <div className="rows">
+          <Row k="People in flooded buildings" v={ppl(R.people)} />
+          <Row k="Safe on their own roof" v={ppl(R.own)} />
+          <Row k="Fit on a neighbour's roof" v={ppl(R.moved)} />
+          {R.top.map((r: any) => <Row key={r.id} k={`Block ${r.id} · ${Math.round(r.area)} m² · ${r.free.toFixed(1)} m above water`} v={`${fmtN(r.cap)} people`} />)}
+        </div>
+        {R.left > 0 && <p className="msg warn">{ppl(R.left)} people in {R.leftB} building{R.leftB > 1 ? 's' : ''} (red) have no roof to wait on: first for boats and helicopters.</p>}
+        <p className="fine">Roof level = ground + the model's building height, which tends to come out too low, so roofs are, if anything, higher than shown. Flat, reachable roofs are assumed: tin and tiled roofs do not hold people.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function PadApproachCard() {
+  const s = useTools(x => x), A = s.pad;
+  return (
+    <ToolCard id="pad" icon={PlaneLanding} title="Helipad approach" blurb="From which directions a helicopter can come in to each landing site without roofs, trees or rising ground in the way.">
+      <div className="fields">
+        <Num label="Approach slope" unit="%" value={s.paSlope} min={3} max={50} step={0.5} onChange={v => tools.setParam('pad', { paSlope: v })} title="12.5% is 1 in 8: nothing may rise above that line from the edge of the landing circle (ICAO heliport approach surface, performance class 2 / 3)" />
+        <Num label="Check out to" unit="m" value={s.paDist} min={50} max={1000} step={50} onChange={v => tools.setParam('pad', { paDist: v })} />
+      </div>
+      {A && A.none ? <p className="msg warn">No landing site found: relax the site rules above.</p> : A && A.pads && (<>
+        {A.pads.map((p: any) => (
+          <div className="site" key={p.label}>
+            <b className="tag" style={{ background: '#ffd400' }}>{p.label}</b>
+            <span>{p.nClear ? <>{p.nClear} of {COMPASS.length} directions clear · best from <b>{p.best}</b></> : <span className="warn">no clear approach</span>}</span><span />
+            <small>{p.through.length ? `straight in and out: ${p.through.join(', ')}` : p.nClear ? 'no straight in-and-out line: the pilot must turn after take-off' : ''}{p.block ? `${p.nClear ? ' · ' : ''}worst: ${p.block}` : ''}</small>
+          </div>))}
+        <p className="fine">On the map: thick green = the best way in, thin green = clear, red = something over 1 m rises above the {A.slope}% line from the edge of the circle within {A.far} m (a 14° wide sector each).
+          North is taken as up in the image. Wires, masts and poles are not in the height model, and tall objects come out too low: a pilot or ground party must confirm.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function CampNeedsCard() {
+  const s = useTools(x => x);
+  useEngine(x => x.sites);
+  const N = tools.campNeeds();
+  return (
+    <Card id="tool-needs" icon={Tent} title="Camp needs">
+      <div className="fields">
+        <Num label="For" unit="days" value={s.ndDays} min={1} max={90} onChange={v => tools.set({ ndDays: v })} />
+        <Num label="Water" unit="L / person / day" value={s.ndWater} min={5} onChange={v => tools.set({ ndWater: v })} title="Sphere: at least 15 L for drinking, cooking and washing" />
+        <Num label="People per toilet" value={s.ndToilet} min={5} step={5} onChange={v => tools.set({ ndToilet: v })} title="Sphere: 1 per 20 people (1 per 50 in the first days)" />
+        <Num label="People per tent" value={s.ndTent} min={1} onChange={v => tools.set({ ndTent: v })} title="A 16 m² family tent: 3.5 m² covered space per person" />
+      </div>
+      {N ? (<>
+        <table className="t"><thead><tr><th>Camp</th><th>People</th><th>Water / day</th><th>Toilets</th><th>Tents</th><th>Food / day</th></tr></thead>
+          <tbody>{N.rows.map((r: any) => <tr key={r.label}><td>{r.label}</td><td>{fmtN(Math.round(r.p))}</td><td>{fmtN(r.water / 1000, 1)} kL</td><td>{r.toilets}</td><td>{r.tents}</td><td>{fmtN(Math.round(r.food))} kg</td></tr>)}</tbody></table>
+        <div className="rows">
+          <Row k={`Water for ${N.days} days`} v={`${fmtN(N.water * N.days / 1000, 1)} kL · ${fmtN(Math.ceil(N.water * N.days / 10000))} tanker loads`} />
+          <Row k={`Food for ${N.days} days`} v={`${fmtN(N.food * N.days / 1000, 1)} t`} />
+          <Row k="Toilets · tents" v={`${fmtN(N.toilets)} · ${fmtN(N.tents)}`} />
+        </div>
+        <button className="btn sm" onClick={() => tools.needsCSV()}><Download size={13} />CSV per camp</button>
+        <p className="fine">{N.planned ? 'People from the evacuation plan above.' : 'No evacuation plan yet: every camp is counted full.'} Sphere minimum standards; food as a 2 100 kcal dry ration (0.56 kg per person a day); tankers of 10 000 L.</p>
+      </>) : <p className="msg">No relief camp found yet: the camp finder above lists them.</p>}
+    </Card>
+  );
+}
+
+export function RunoutCard() {
+  const s = useTools(x => x), R = s.runout;
+  return (
+    <ToolCard id="runout" icon={Activity} title="Landslide runout" blurb="Where a slide from the high-risk slopes would travel, and the buildings, roads and river below it.">
+      <label className="field"><span>Slides start on</span><Seg full value={s.roSrc} onChange={v => tools.setParam('runout', { roSrc: v }, 0)} options={[['vh', 'Very high risk'], ['h', 'High and very high']]} /></label>
+      <Num label="Reach angle" unit="°" value={s.roAng} min={5} max={45} onChange={v => tools.setParam('runout', { roAng: v })} title="The slide stops where the line from its source down to it is flatter than this. Dry rock and debris: about 30°; wet debris flows: 10–20°" />
+      {R && R.none ? <p className="msg warn">Needs terrain: a GeoTIFF scene.</p> : R && (<>
+        <div className="kpis"><Kpi v={fmtHa(R.m2)} l="in a runout path" tone="amber" /><Kpi v={R.nb} l="buildings below" tone={R.nb ? 'hot' : undefined} title={`${ppl(R.ppl)} residents`} /><Kpi v={fmtLen(R.maxRun)} l="longest run" /></div>
+        <div className="rows">
+          <Row sw="#ffd60a" k="Source slopes" v={fmtHa(R.srcM2)} />
+          <Row sw="#c85014" k="People in the paths" v={ppl(R.ppl)} />
+          <Row k="Road buried" v={`${fmtN(Math.round(R.roadM2))} m²`} />
+          <Row k="Reaches a river or lake" v={R.dam ? 'yes' : 'no'} />
+        </div>
+        {R.dam && <p className="msg warn">A slide into the river can dam it; the lake behind it and its sudden release threaten the valley downstream.</p>}
+        {!R.nSrc && <p className="msg">No slope in that risk class at this rainfall: raise the rain in Landslide risk, or include “high”.</p>}
+        <p className="fine">Energy-line model (Heim's reach angle): from each source cell the mass follows the steeper ways down and stops where a line dropping at the reach angle meets the ground.
+          It shows where material could go, not how much or how fast; sources come from the Landslide risk screening above (same rain). Check with GSI / NDMA maps.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function QuakeCard() {
+  const s = useTools(x => x), Q = s.quake;
+  useTools(x => x.dmg);
+  const hasDmg = !!tools.T.dmg;
+  return (
+    <ToolCard id="quake" icon={Construction} title="Earthquake: debris & access" blurb="A what-if: buildings collapse, their rubble spreads over the streets, and some neighbourhoods can no longer be reached.">
+      <label className="field"><span>Which buildings collapse</span>
+        <Seg full value={s.qkSrc} onChange={v => tools.setParam('quake', { qkSrc: v }, 0)} options={[['floors', 'A share of the tall ones'], ['dmg', 'From Damage: before / after']]} /></label>
+      {s.qkSrc === 'dmg' && !hasDmg && <p className="msg warn">Run Damage: before / after in Assess first (this scene as the after image).</p>}
+      <div className="fields">
+        {s.qkSrc === 'floors' && <Num label="Floors at least" value={s.qkFloors} min={1} onChange={v => tools.setParam('quake', { qkFloors: v })} />}
+        {s.qkSrc === 'floors' && <Num label="Share that collapses" unit="%" value={s.qkShare} min={0} max={100} step={5} onChange={v => tools.setParam('quake', { qkShare: v })} />}
+        <Num label="Rubble reaches" unit="% of height" value={s.qkReach} min={0} max={200} step={10} onChange={v => tools.setParam('quake', { qkReach: v })} title="Rubble commonly spreads a third to two thirds of a building's height from its walls" />
+        <label className="field"><span>Access</span><Seg full value={s.qkMode === 'boat' ? 'car' : s.qkMode} onChange={v => tools.setParam('quake', { qkMode: v }, 0)} options={[['car', 'Vehicles'], ['foot', 'On foot']]} /></label>
+      </div>
+      {Q && (<>
+        <div className="kpis"><Kpi v={Q.nCol} l="collapsed" tone="hot" title={`${ppl(Q.pCol)} residents`} /><Kpi v={Q.cutB} l="cut off by debris" tone="amber" title={`${ppl(Q.cutP)} residents`} /><Kpi v={fmtHa(Q.debrisM2)} l="under debris" /></div>
+        <div className="keys"><span><i className="sw" style={{ background: '#e5484d' }} />collapsed</span><span><i className="sw" style={{ background: '#965a28' }} />debris</span><span><i className="sw" style={{ background: '#d63384' }} />cut off</span></div>
+        <div className="rows">
+          <Row k="People in collapsed buildings" v={ppl(Q.pCol)} />
+          <Row k="People cut off" v={ppl(Q.cutP)} />
+          <Row k="Road under debris" v={`${fmtN(Math.round(Q.roadM2))} m²`} />
+          <Row k="Debris to clear" v={`${fmtM3(Q.debris)} · ${fmtN(Math.ceil(Q.debris / 10))} trucks`} />
+        </div>
+        <p className="fine">{Q.src === 'dmg' ? 'The buildings the before / after comparison found collapsed.' : `Of ${Q.cand} blocks with ${s.qkFloors}+ floors, a fixed ${s.qkShare}% picked by block number: a scenario, not a prediction (the image says nothing about how a building is built).`} Rubble
+          spreads {s.qkReach}% of each building's height and stops at standing buildings; a building is cut off when it could be reached from the edge of the scene before and cannot now. Debris volume uses the debris share set in Damage.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function FireCard() {
+  const s = useTools(x => x), F = s.fire, pick = useEngine(x => x.pick);
+  return (
+    <ToolCard id="fire" icon={Flame} title="Fire spread" blurb="How a forest or settlement fire spreads with fuel, slope and wind, and whether a firebreak holds it.">
+      <div className="fields">
+        <Num label="Wind" unit="km/h" value={s.fiWind} min={0} max={100} step={5} onChange={v => tools.setParam('fire', { fiWind: v })} />
+        <label className="field"><span>Wind from</span><select value={s.fiDir} onChange={e => tools.setParam('fire', { fiDir: +e.target.value }, 0)}>
+          {COMPASS.filter((_, k) => k % 2 === 0).map((n, k) => <option key={n} value={k * 45}>{n}</option>)}</select></label>
+        <Num label="Simulate" unit="hours" value={s.fiHours} min={0.5} max={48} step={0.5} onChange={v => tools.setParam('fire', { fiHours: v, fiT: v })} wide />
+      </div>
+      <div className="btns">
+        <button className={`btn sm${pick === 'fire' ? ' on' : ''}`} onClick={() => tools.setPick(pick === 'fire' ? null : 'fire')}>{pick === 'fire' ? 'Done' : <><Flame size={13} />Start points ({s.fiIgn})</>}</button>
+        <button className={`btn sm${pick === 'firebreak' ? ' on' : ''}`} onClick={() => tools.setPick(pick === 'firebreak' ? null : 'firebreak')}><PenLine size={13} />{pick === 'firebreak' ? 'Done' : `Draw a firebreak (${s.fiBrk})`}</button>
+        <button className="btn sm" onClick={() => tools.clearFire()}><Eraser size={13} />Clear</button>
+      </div>
+      {F && F.none ? <p className="msg warn">Needs the land-cover map of a processed scene.</p> : F && F.m2 != null ? (<>
+        <Slider label="After" value={s.fiT} min={0} max={s.fiHours} step={0.25} onChange={v => tools.setFireTime(v)} display={fmtDur(s.fiT * 3600)} />
+        <div className="kpis"><Kpi v={fmtHa(F.m2)} l="burnt" tone="hot" /><Kpi v={F.nb} l="buildings reached" tone="amber" title={`${ppl(F.ppl)} residents`} />
+          <Kpi v={F.first < Infinity ? fmtDur(F.first * 60) : '–'} l="to the first building" /></div>
+        {F.base && <p className={`msg${F.base.m2 > F.m2 ? '' : ' warn'}`}>{F.base.m2 > F.m2 ? <>The firebreak saves <b>{fmtHa(F.base.m2 - F.m2)}</b> and {F.base.nb - F.nb} building{F.base.nb - F.nb === 1 ? '' : 's'} by then.</>
+          : 'The firebreak makes no difference by then: the fire is not there yet, or goes round it.'}</p>}
+        <p className="fine">Bright = burnt first. Spread on flat ground without wind: scrub and grass 6, fields 4, trees 3, built-up 0.6, buildings 0.4 m/min; bare ground, roads and water do not burn.
+          It doubles for every 10° uphill and runs faster downwind, slower against it. No spotting embers, fuel moisture or fire-fighting: a screening scenario, not a fire-behaviour forecast.</p>
+      </>) : <p className="msg">Click Start points, then click where the fire begins (2D or 3D).</p>}
+    </ToolCard>
+  );
+}
+
+export function SurgeCard() {
+  const s = useTools(x => x), X = s.surge, f = useEngine(x => x.floodSum);
+  useTools(x => x.people);
+  const fp = tools.floodPeople();
+  return (
+    <ToolCard id="surge" icon={Wind} title="Cyclone: surge & wind" blurb="Sea water pushed in from the coast side of the scene by a storm surge, and the buildings with nothing to shelter them from the wind.">
+      <div className="fields">
+        <label className="field"><span>The sea is to the</span><Seg full value={s.sgSide} onChange={v => tools.setSurge({ sgSide: v })} options={[['N', 'N'], ['E', 'E'], ['S', 'S'], ['W', 'W']]} /></label>
+        <Num label="Surge + tide" unit="m" value={s.sgH} min={0} max={15} step={0.5} onChange={v => tools.setSurge({ sgH: v })} title="Above the sea level in the terrain model. IMD bulletins give the expected surge; add the tide" />
+        <label className="field wide"><span>Wind from</span><select value={s.sgDir} onChange={e => tools.setSurge({ sgDir: +e.target.value })}>
+          {COMPASS.filter((_, k) => k % 2 === 0).map((n, k) => <option key={n} value={k * 45}>{n}</option>)}</select></label>
+      </div>
+      {X && X.none ? <p className="msg warn">Needs terrain: a GeoTIFF scene.</p> : X && (<>
+        <div className="kpis">
+          <Kpi v={f ? `${f.wetPct.toFixed(0)}%` : '–'} l="ground under the surge" tone="blue" />
+          <Kpi v={f ? f.sub + f.part : '–'} l="buildings flooded" tone="hot" title={fp ? `${ppl(fp.wet)} residents` : undefined} />
+          <Kpi v={X.exposed} l="exposed to the wind" tone="amber" title={`${ppl(X.ppl)} residents`} />
+        </div>
+        <div className="rows">
+          <Row k="Sea level with the surge" v={`${X.level.toFixed(1)} m a.s.l. (sea at ${X.sea.toFixed(1)} m)`} />
+          {fp && <Row k="People in flooded buildings" v={ppl(fp.wet)} />}
+          <Row sw="#ff8c00" k="People in wind-exposed buildings" v={ppl(X.ppl)} />
+          {X.top.map((b: any) => <Row key={b.id} k={`Block ${b.id}: tallest exposed`} v={`${b.h.toFixed(0)} m`} />)}
+        </div>
+        <p className="fine">This sets the flood scenario: water enters only from that side, up to the lowest ground on it plus the surge, and reaches only ground it can flow to (see Respond for routes, cut-off areas and roofs).
+          No waves, no rain and no weakening inland. Wind-exposed = nothing taller within ten times its height upwind; north is taken as up in the image.</p>
+      </>)}
+    </ToolCard>
+  );
+}
+
+export function FacilitiesCard() {
+  const s = useTools(x => x), P = s.poi, geo = useEngine(x => x.hasTerrain), [file, setFile] = useState<File | null>(null);
+  return (
+    <Card id="tool-poi" icon={Hospital} title="Critical facilities" right={P && <input type="checkbox" className="switch" aria-label="Show facilities on the map" checked={s.poiOn} onChange={e => tools.setPoiOn(e.target.checked)} />}>
+      {P ? (<>
+        <div className="kpis two"><Kpi v={`${P.hit} / ${P.n}`} l="affected by the hazards shown" tone={P.hit ? 'hot' : 'good'} /><Kpi v={P.n - P.hit} l="not affected" /></div>
+        <div className="rows">{P.rows.slice(0, 10).map((r: any, k: number) =>
+          <Row key={k} sw={r.st.length ? '#e5484d' : '#cfcfd4'} k={<><b>{(POI_KINDS[r.kind] || POI_KINDS.other)[0]}</b> {r.name}</>} v={r.st.length ? <span className="warn">{r.st.join(' · ')}</span> : 'ok'} />)}</div>
+        {P.n > 10 && <p className="fine">{P.n - 10} more in the CSV.</p>}
+      </>) : <p className="msg">Hospitals, schools, fire and police stations, substations, water works and bridges, checked against every hazard you switch on.</p>}
+      <div className="btns">
+        <button className="btn sm primary" disabled={!geo || s.poiBusy} onClick={() => tools.loadPoi()}><Hospital size={13} />{s.poiBusy ? 'Loading…' : P ? 'Refresh from OpenStreetMap' : 'Load from OpenStreetMap'}</button>
+        <button className="btn sm" disabled={!P} onClick={() => tools.poiCSV()}><Download size={13} />CSV</button>
+      </div>
+      <label className="field"><span>Or your own list: CSV with name, type, lat, lon</span>
+        <div className="btns" style={{ flexWrap: 'nowrap' }}><input type="file" accept=".csv,.txt" onChange={e => setFile(e.target.files?.[0] ?? null)} />
+          <button className="btn sm" disabled={!geo || !file} onClick={() => file && tools.loadPoi(false, file)}>Use</button></div></label>
+      {!geo ? <p className="msg warn">Needs a georeferenced (GeoTIFF) scene.</p> : <Msg m={s.poiMsg} />}
+      <p className="fine">Squares on the map; red = a hazard reaches it. Types: {Object.values(POI_KINDS).slice(0, 8).map(([c, l]) => `${c} ${l.toLowerCase()}`).join(', ')}.
+        OpenStreetMap is incomplete in many districts: add the district's own list. Bridges only show the water under them, as their deck height is unknown.</p>
+    </Card>
+  );
+}
+
+export function LossCard() {
+  const s = useTools(x => x), L = s.loss;
+  return (
+    <Card id="tool-loss" icon={IndianRupee} title="Flood loss estimate">
+      <Num label="Rebuild cost" unit="₹ per m² of floor" value={s.lsCost} min={0} step={1000} onChange={v => tools.setLossCost(v)} title="Ordinary RCC construction in India: roughly ₹16 000–27 000 per m² (₹1 500–2 500 per sq ft)" />
+      {L ? (<>
+        <div className="big num">{fmtRs(L.total)}<small>structural loss in {L.n} building block{L.n === 1 ? '' : 's'} · {Math.round(100 * L.total / Math.max(1, L.value))}% of their value</small></div>
+        <div className="kpis"><Kpi v={L.bands[0]} l="light (< 20%)" tone="good" /><Kpi v={L.bands[1]} l="moderate" tone="amber" /><Kpi v={L.bands[2]} l="heavy (≥ 50%)" tone="hot" /></div>
+        <div className="rows">{L.top.map((r: any) => <Row key={r.id} k={`Block ${r.id} · ${r.dep.toFixed(1)} m of water · ${Math.round(r.area)} m² × ${r.floors}`} v={fmtRs(r.loss)} />)}</div>
+        <button className="btn sm" onClick={() => tools.lossCSV()}><Download size={13} />CSV per block</button>
+        <p className="fine">For each storey: footprint × cost × the damage share for the water depth above its floor (JRC global depth-damage curve for residential buildings in Asia, Huizinga et al. 2017: 0.5 m 33%, 1 m 49%, 2 m 72%, 3 m 87%).
+          Structure only: no contents, vehicles, crops or lost business. Depths come from the 30 m terrain and one image: an order of magnitude for relief budgeting, not an assessment.</p>
+      </>) : <p className="msg">Set a flood scenario (Respond) to estimate what it costs.</p>}
+    </Card>
+  );
+}
+
+export function AlertCard() {
+  const s = useTools(x => x), [msg, setMsg] = useState('');
+  useEngine(x => x.floodSum); useTools(x => x.people);
+  const C = tools.capSummary();
+  return (
+    <Card id="tool-cap" icon={Megaphone} title="Alert file (CAP)">
+      {!C.hz.length ? <p className="msg">Run a flood, flowing-water, landslide-runout or fire scenario, or load an observed flood: its outline becomes the alert area.</p> : (<>
+        <div className="fields">
+          <label className="field"><span>Hazard</span><select value={C.key} onChange={e => tools.set({ capHaz: e.target.value })}>{C.hz.map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></label>
+          <label className="field"><span>Status</span><Seg full value={s.capStatus} onChange={v => tools.set({ capStatus: v })} options={[['Exercise', 'Exercise'], ['Actual', 'Actual']]} /></label>
+          <label className="field"><span>Severity</span><select value={s.capSev} onChange={e => tools.set({ capSev: e.target.value })}>{['Extreme', 'Severe', 'Moderate', 'Minor'].map(v => <option key={v}>{v}</option>)}</select></label>
+          <label className="field"><span>Urgency</span><select value={s.capUrg} onChange={e => tools.set({ capUrg: e.target.value })}>{['Immediate', 'Expected', 'Future'].map(v => <option key={v}>{v}</option>)}</select></label>
+          <label className="field wide"><span>Sender</span><input type="text" value={s.capSender} onChange={e => tools.set({ capSender: e.target.value })} /></label>
+          <label className="field wide"><span>Instruction to the public</span><input type="text" value={s.capText} onChange={e => tools.set({ capText: e.target.value })} /></label>
+        </div>
+        <button className="btn sm primary" disabled={!C.geo} onClick={() => setMsg(tools.exportCap() ? '' : 'Nothing to outline: the hazard reaches no ground in this scene.')}><Download size={13} />Download CAP 1.2 file</button>
+        {!C.geo && <p className="msg warn">Needs a georeferenced (GeoTIFF) scene.</p>}
+        {msg && <p className="msg warn">{msg}</p>}
+        <p className="fine">Common Alerting Protocol 1.2 (the format of NDMA's Sachet and most warning systems). The area is the convex outline of the hazard, so it is a little generous; the text counts the people and buildings inside the hazard itself.
+          “Exercise” is the default because these are scenarios: only the authority that owns the alerting channel should issue an “Actual” alert.</p>
+      </>)}
     </Card>
   );
 }

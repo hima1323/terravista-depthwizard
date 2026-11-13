@@ -3,7 +3,7 @@ import { Tent, Navigation } from 'lucide-react';
 import { engine, useEngine } from '../engine/useEngine';
 import { Card, Num, Panel, Toggle } from '../components/ui';
 import { RouteCard } from '../components/Shared';
-import { EvacuationCard } from '../components/ToolCards';
+import { EvacuationCard, CampNeedsCard, WarningCard, RoofRefugeCard, PadApproachCard } from '../components/ToolCards';
 
 export default function Relief() {
   const s = useEngine(x => x), S = s.sites, f = s.floodSum;
@@ -34,7 +34,11 @@ export default function Relief() {
         <Card title={<><i className="sw" style={{ background: '#4fe08a' }} />Relief camp sites</>}>{list(S.camps, '#4fe08a', 'No open area that large here.')}</Card>
         <p className="fine">{S.note}</p>
       </>)}
+      <PadApproachCard />
       <EvacuationCard />
+      <CampNeedsCard />
+      <WarningCard />
+      <RoofRefugeCard />
       <RouteCard />
     </Panel>
   );

@@ -2,11 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { Mountain, Waves, ArrowRight } from 'lucide-react';
 import { engine, useEngine } from '../engine/useEngine';
 import { Card, Panel, Ring, Seg, Stat } from '../components/ui';
-import { LandslideCard, PeopleCard } from '../components/ToolCards';
+import { LandslideCard, PeopleCard, RunoutCard, QuakeCard, FireCard, SurgeCard, FacilitiesCard } from '../components/ToolCards';
 
 const RANGES = ['≤ 15°', '16–25°', '26–35°', '36–45°', '> 45°'];   // SLOPE_CLASSES in algos.ts
 
-// Before an event: where the ground is steep enough to slide, and what each water rise would reach.
+// Before an event: where the ground is steep enough to slide, what each water rise would reach, and the other hazards as what-ifs.
 export default function Prepare() {
   const share = useEngine(s => s.slopeShare), exposure = useEngine(s => s.exposure), fsrc = useEngine(s => s.fsrc), hasTerrain = useEngine(s => s.hasTerrain), current = useEngine(s => s.current);
   const nav = useNavigate();
@@ -54,6 +54,11 @@ export default function Prepare() {
         <button className="btn" onClick={() => nav('/respond')}>Run a scenario in Respond <ArrowRight size={14} /></button>
       </Card>
       <LandslideCard />
+      <RunoutCard />
+      <QuakeCard />
+      <FireCard />
+      <SurgeCard />
+      <FacilitiesCard />
       <PeopleCard />
     </Panel>
   );

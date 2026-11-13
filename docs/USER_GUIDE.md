@@ -40,18 +40,19 @@ Other scenes stay usable while you wait.
 
   | Page | Tools |
   |---|---|
-  | Explore | Line of sight · Volume & area · Drone flight plan · Rooftop solar · Map overlay · Mosaic · Downloads |
+  | Explore | Line of sight (+ siren / radio coverage) · Volume & area · Drone flight plan (+ search pattern) · Rooftop solar · Map overlay · Mosaic · Downloads |
   | Validate | Compare with reference · Control points · GNSS & field points · Heights from shadows · Fix tall objects · Calibrated error bars · Terrain source |
-  | Prepare | Landslide-prone slopes · Flood exposure · Landslide risk · People at risk |
-  | Respond | Flood scenario · Timeline · Flowing water · Observed flood · Route finder · People at risk |
-  | Relief | Site rules, helipads and camps · Evacuation plan · Route finder |
-  | Assess | Scenario impact · Damage: before / after · People at risk · Situation report · Downloads |
+  | Prepare | Landslide-prone slopes · Flood exposure · Landslide risk · Landslide runout · Earthquake: debris & access · Fire spread · Cyclone: surge & wind · Critical facilities · People at risk |
+  | Respond | Flood scenario · Timeline · Embankment what-if · Flowing water · Observed flood · Cut-off areas · Route finder (foot, car, boat) · Ponding & pump sites · Critical facilities · People at risk |
+  | Relief | Site rules, helipads and camps · Helipad approach · Evacuation plan · Camp needs · Warning time · Rooftop refuge · Route finder |
+  | Assess | Scenario impact · Flood loss estimate · Damage: before / after · Critical facilities · People at risk · Alert file (CAP) · Situation report · Downloads |
 
 - **🔍 Find a tool** (top bar, or **Ctrl K**, or **/**) searches every tool on every page, opens that page and
   switches the tool on. Example: type `drone` and press Enter.
 - **Situation report** (Assess) puts the map, the 3D view and every tool result on one printable page (save it as
   PDF from the print dialog).
-- The classic viewer at `http://127.0.0.1:8000/classic` has the same tools in a toolbar per mode.
+- The classic viewer at `http://127.0.0.1:8000/classic` has the tools up to 4 November in a toolbar per mode; the
+  response tools of section 5c are in the main interface only.
 
 ## 3. Explore mode: the heights and the 3D flythrough
 
@@ -216,6 +217,62 @@ the ground.
 - **Terrain error:** in our Indian laser tests (2 scenes per landscape) it was about 2 m on sparse and urban land,
   about 8 m in hills, and about 20 m under dense forest.
 - **Building and tree heights:** they carry the model error. Tall buildings and trees come out too low.
+
+## 5c. Response tools (added 10 November)
+
+All of these work on what the app already has: the terrain, the building blocks with their heights, the land cover,
+the flood scenario and the route finder. They are **what-ifs and planning estimates**, checked against synthetic
+scenes with a known answer, not against real events.
+
+**Respond**
+
+| Tool | What it does |
+|---|---|
+| **Embankment what-if** | Draw a line (2D or 3D) and give it a height: the flood, the timeline and the flowing water all meet it. Shows the buildings and ground it keeps dry at this water level, the level at which the protected ground starts to flood, and the sandbags (up to 2 m) or earth it takes. Needs *Scene edges* or *Points I click* as the water source: "All low ground" ignores barriers. |
+| **Cut-off areas** | Buildings that stay dry but that nobody can leave or reach, on foot (≤ 0.5 m of water) or by vehicle (≤ 0.3 m): the islands, with the people on each. Also counts flooded buildings that are out of reach. |
+| **Route finder → Boat** | A route that stays on water at least as deep as the boat needs (0.5 m by default) and goes round buildings. |
+| **Ponding & pump sites** | The hollows that keep their water once the flood drains: area, volume, depth, the buildings standing in them, and the deepest point of each (P1–P5) for the pump, with the hours one pump needs. With the flood off it shows every hollow filled to its brim. |
+
+**Relief**
+
+| Tool | What it does |
+|---|---|
+| **Helipad approach** | For each landing circle, the 16 compass directions a helicopter can come in from without anything rising above the approach slope (12.5 % by default), the best one, and whether there is a straight line in and out. |
+| **Camp needs** | Per camp and per day: water, toilets, family tents and food, from the evacuation plan (or full camps if there is no plan yet). Sphere minimum standards; CSV per camp. |
+| **Warning time** | When the water reaches each building (from the last Flowing water run, or the timeline) against the walk to the nearest camp. Lists who cannot get out in time; CSV priority list. |
+| **Rooftop refuge** | Flooded buildings whose roof stays above the water by a margin, how many people each roof holds, who fits on a neighbour's roof, and who has no roof within reach (first for boats and helicopters). |
+
+**Prepare (what-ifs)**
+
+| Tool | What it does |
+|---|---|
+| **Landslide runout** | Where a slide from the high-risk slopes of *Landslide risk* would travel (energy-line model with a reach angle you set), and the buildings, road and river below. Flags a slide that can dam the river. |
+| **Earthquake: debris & access** | A share of the taller buildings collapses (or the ones *Damage: before / after* found); their rubble spreads over the streets; shows the buildings that vehicles can no longer reach and the debris to clear. |
+| **Fire spread** | Click where the fire starts; it spreads by land cover, faster uphill and downwind. Draw a firebreak to see what it saves. Time slider. |
+| **Cyclone: surge & wind** | Say which side the sea is on and how high the surge is: it sets the flood scenario from that side, and marks the buildings with nothing upwind to shelter them. |
+
+**Assess (and on Prepare / Respond)**
+
+| Tool | What it does |
+|---|---|
+| **Critical facilities** | Hospitals, schools, fire and police stations, substations, water works, fuel and bridges from OpenStreetMap (needs internet once; saved with the scene), or your own CSV (`name, type, lat, lon`). Each one is checked against every hazard that is switched on; red squares on the map. |
+| **Flood loss estimate** | Rough structural loss in ₹ per block: each storey's floor area × rebuild cost × the damage share for the water depth above its floor. CSV per block. |
+| **Alert file (CAP)** | A Common Alerting Protocol 1.2 file whose area is the outline of the flood, flowing water, observed flood, landslide runout or fire, with the people and buildings affected in its text. Marked *Exercise* unless you change it. |
+
+**Explore**
+
+- **Line of sight → Siren / radio coverage:** suggests the fewest mast positions that see the buildings (or the whole
+  scene) with the mast height and range you set.
+- **Drone flight plan → Search an area:** draw an outline and get back-and-forth search lines over it, with the same
+  clearance rules and exports.
+
+Limits to keep in mind:
+- **Embankment, cut-off, ponding:** the 30 m terrain cannot show kerbs, walls, culverts or drains.
+- **Earthquake:** which buildings collapse is a fixed share you choose, not a prediction.
+- **Fire:** no spotting embers, fuel moisture or fire-fighting.
+- **Surge:** no waves and no weakening inland.
+- **Loss:** structure only, an order of magnitude.
+- **Facilities:** OpenStreetMap is incomplete in many districts; bridge deck heights are unknown.
 
 ## 5b. A real event: the Teesta flood, Sikkim, October 2023
 

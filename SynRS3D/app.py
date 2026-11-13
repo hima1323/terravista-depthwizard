@@ -494,7 +494,8 @@ class Handler(BaseHTTPRequestHandler):
                 /api/wms?name=                         {"url", "layers", "styles"}
                 /api/dem?name=&datum=&file=            a DEM GeoTIFF (body) to use as this scene's terrain | ?clear=1
                 /api/field?name=                       {"points": [{lat, lon, alt, acc, note, t}]} from the field page
-                /api/gnss?name=&datum=[&source=field]  GNSS points (CSV / GPX body, or the field page's) -> u, v, z"""
+                /api/gnss?name=&datum=[&source=field]  GNSS points (CSV / GPX body, or the field page's) -> u, v, z
+                /api/poi?name=[&file=]                  critical facilities from OpenStreetMap, or from a CSV (body) -> u, v, kind, name"""
         size = int(self.headers.get('Content-Length', 0))
         if size > MAX_UPLOAD:
             return self.send(400, {'error': 'file over 50 MB'})
@@ -522,6 +523,8 @@ class Handler(BaseHTTPRequestHandler):
                 meta['canopy'] = res
                 json.dump(meta, open(meta_f, 'w'))
                 return self.send(200, res)
+            if route == '/api/poi':   # critical facilities: OpenStreetMap, or a CSV list in the body
+                return self.send(200, tools.facilities(name, path, body.decode('utf-8-sig') if body else None, fname))
             if route == '/api/change':
                 before = q.get('before', '')
                 if before == name or status.get(before, {}).get('state') != 'done':

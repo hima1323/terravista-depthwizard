@@ -4,7 +4,7 @@ import { FileDown, Building2, Activity } from 'lucide-react';
 import { engine, useEngine } from '../engine/useEngine';
 import { Card, Kpi, Panel, Row, Stat, dist, m2 } from '../components/ui';
 import { Downloads } from '../components/Shared';
-import { DamageCard, PeopleCard, ReportCard } from '../components/ToolCards';
+import { DamageCard, PeopleCard, ReportCard, LossCard, FacilitiesCard, AlertCard } from '../components/ToolCards';
 
 export default function Assess() {
   const s = useEngine(x => x), f = s.floodSum;
@@ -51,8 +51,11 @@ export default function Assess() {
           </Card>
         )}
       </>)}
+      <LossCard />
       <DamageCard />
+      <FacilitiesCard />
       <PeopleCard />
+      <AlertCard />
       <ReportCard />
       <Downloads />
     </Panel>

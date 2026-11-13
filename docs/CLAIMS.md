@@ -29,6 +29,7 @@ Short names: `v2/` = `SynRS3D/demo/benchmark/v2/`, `bench/` = `SynRS3D/demo/benc
 | M8 | Validation in the app against a raster, points or ICESat-2, with a held-out-pass table for ICESat-2 | – | – | – | – | `SynRS3D/validate.py`, `web/index.html` | built |
 | M9 | Ground-control-point calibration (level / scale / tilt, leave-one-out error) | – | – | – | – | `SynRS3D/validate.py` (`#valtest`) | built, accuracy not benchmarked |
 | M10 | Disaster tools: bathtub / connected flood, rain and river timeline, A* routing, helipad / camp finder | – | – | – | – | `web/index.html` (`#toolstest`) | built; scenario tools, not forecasts |
+| M11 | Response tools (10 Nov): embankment what-if, cut-off areas, boat routes, ponding, warning time, rooftop refuge, helipad approach, camp needs, landslide runout, earthquake debris, fire spread, storm surge, critical facilities, flood loss, CAP alert, mast coverage, drone search pattern | synthetic scenes with known truth | 2 scenes | pass / fail | 33 checks pass (71 with the earlier tools) | `SynRS3D/demo/glass_tools_test.js` | built; what-ifs, not validated on real events |
 | P1 | DINOv3-SAT + DPT "challenger" with CHMv2 initialisation, "GAMUS-tuned" | – | – | – | – | – | planned, not built |
 | P2 | Distilled small model on ONNX Runtime (CPU) | – | – | – | – | – | planned, not built |
 | P3 | Tauri desktop app | – | – | – | – | – | planned, not built (the app is `.bat` launchers + browser window) |
@@ -161,7 +162,8 @@ current app would not level it. F1 was not re-run after the guard.
 - **Coverage per landscape in India.** There are only 2 scenes per landscape. Most laser passes are years away from
   the image date.
 - **Floor counts** (3 m per floor), **GCP calibration accuracy**, CPU and GPU **processing times**, and the
-  **disaster tools** apart from the one flood scenario test.
+  **disaster tools** apart from the one flood scenario test. The response tools (M11) are tested only on synthetic
+  scenes.
 - **Interval coverage outside US cities**, and for buildings taller than 10 m (U5, U6).
 - **The flood test with the current single-pass guard** (F1 caveat).
 
@@ -179,6 +181,7 @@ current app would not level it. F1 was not re-run after the guard.
 | FABDEM V1-2 | CC BY-NC-SA 4.0, non-commercial | evaluation only, optional terrain; never committed |
 | NASA ICESat-2 (ATL03 / ATL08) and GEDI L2A | NASA open data, no restrictions; cite the products | levelling, validation |
 | OpenStreetMap buildings | ODbL | roof masks for validation |
+| OpenStreetMap amenities, power, water works, bridges (Overpass API) | ODbL | critical-facilities list at runtime, on request |
 | Esri World Imagery (Vantor / Maxar basemap) | Esri terms of use; demonstration only, no redistribution | demo scenes, India evaluation |
 | Maxar Open Data (Porto Alegre) | CC BY-NC 4.0, non-commercial | flood scenario test |
 | Open-Meteo | CC BY 4.0 (non-commercial API) | rain forecast in the timeline |
