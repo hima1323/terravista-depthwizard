@@ -1,0 +1,13 @@
+# Render (free web service): render.com > New > Blueprint > pick this repository.
+# Free services sleep after 15 min idle; the app pings its own public URL every 5 minutes to stay awake.
+services:
+  - type: web
+    name: terravista-depthwizard
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements-demo.txt
+    startCommand: KEEPALIVE_URL=$RENDER_EXTERNAL_URL bash replit_start.sh
+    healthCheckPath: /healthz
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
