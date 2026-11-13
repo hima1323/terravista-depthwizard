@@ -18,7 +18,7 @@ water), a rain and river-rise timeline, routing, helipad / relief-camp siting, e
 before/after damage, landslide risk and checks against real satellite flood maps. Every tool sits in a toolbar per
 mode, and **Ctrl K** searches them all (see [docs/USER_GUIDE.md](docs/USER_GUIDE.md#finding-the-tools)).
 
-Code: <https://github.com/hima1323/terravista-depthwizard>
+Live demo: **<https://terravista-depthwizard.onrender.com>** · Code: <https://github.com/hima1323/terravista-depthwizard>
 
 ## Video walkthrough
 
@@ -39,7 +39,12 @@ The steps it shows:
 8. **Validate:** check heights against reference data and see each building's error range.
 9. **Assess:** the impact summary, and downloads (GeoTIFF, 3D model) for QGIS or Bhuvan.
 
-## Run the demo online (Replit)
+## Run the demo online
+
+The demo runs at **<https://terravista-depthwizard.onrender.com>**. On the free plan the site sleeps when idle, so the
+first visit after a pause can take about a minute to wake up; the 5-minute ping below keeps it awake.
+
+### Host your own copy (Replit or Render)
 
 The hosted demo serves scenes that are already processed (the demo image is
 `SynRS3D/demo/samples/teesta_lachen_2022.tif`, with its results in `SynRS3D/demo/results/`). It needs no GPU,
@@ -54,8 +59,9 @@ the full install below.
 
 **Keeping it awake (ping every 5 minutes).** Free hosts put idle apps to sleep. Either or both:
 
-- **GitHub Actions:** `.github/workflows/keepalive.yml` calls `<your demo URL>/healthz` every 5 minutes. Add the
-  address once under **Settings → Secrets and variables → Actions → Variables** as `DEMO_URL` (no trailing slash).
+- **GitHub Actions:** `.github/workflows/keepalive.yml` calls `https://terravista-depthwizard.onrender.com/healthz` every
+  5 minutes. To ping a different address, set it under **Settings → Secrets and variables → Actions → Variables** as
+  `DEMO_URL` (no trailing slash).
   GitHub runs scheduled workflows only from the default branch, and may delay them when busy.
 - **Built into the app:** in Replit, add a secret `KEEPALIVE_URL` set to the app's public URL. The app then pings
   its own `/healthz` every 5 minutes.

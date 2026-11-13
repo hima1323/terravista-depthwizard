@@ -1,6 +1,6 @@
 # Pings the hosted demo every 5 minutes so it does not go to sleep.
 # Set the address once: Settings > Secrets and variables > Actions > Variables > New variable,
-# name DEMO_URL, value e.g. https://depthwizard.<your-name>.repl.co (no trailing slash).
+# name DEMO_URL, to ping a different address (no trailing slash). Default: the live demo on Render.
 # GitHub runs scheduled workflows only from the default branch, and may delay them when busy.
 name: Keep demo awake
 
@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Ping the demo
         env:
-          DEMO_URL: ${{ vars.DEMO_URL }}
+          DEMO_URL: ${{ vars.DEMO_URL || 'https://terravista-depthwizard.onrender.com' }}
         run: |
           if [ -z "$DEMO_URL" ]; then
             echo "DEMO_URL is not set; add it under Settings > Secrets and variables > Actions > Variables."
